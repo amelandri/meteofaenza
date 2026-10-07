@@ -280,6 +280,12 @@ button { font: inherit; color: inherit; }
 }
 .day:first-child { border-top: 0; padding-top: 15px; }
 .day:last-child { padding-bottom: 4px; }
+/* Card di un giorno: il titolo è il nome del giorno; dentro la card la riga non ha
+   spaziature né bordi di separazione (la separazione è tra le card) */
+.day-card .day { padding: 0; border-top: 0; }
+.day-date { margin-left: 6px; font-size: .82rem; font-weight: 500; color: var(--muted); white-space: nowrap; }
+/* Schermi molto stretti: la legenda delle fonti scende sotto il titolo invece di spezzare la data */
+.day-card .card-head { flex-wrap: wrap; row-gap: 4px; }
 .day-name { grid-area: name; display: flex; flex-direction: column; justify-content: center; }
 .day-models { grid-area: models; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 /* Alba e tramonto impilati, probabilità di pioggia sotto */

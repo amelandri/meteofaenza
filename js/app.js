@@ -4,7 +4,7 @@ import * as store from './storage.js';
 import { renderChart, tipValue } from './chart.js';
 import {
   icon, describe, fmt, fmtSigned, windDir, windArrow, hourLabel, dayShort, dayRelative,
-  localNowIso, localDateTime, fmtAgo, esc, sunEventIcon,
+  localNowIso, localDateTime, fmtAgo, esc, sunEventIcon, dayTitle,
 } from './weather.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -664,6 +664,9 @@ function renderBike(commute, day, hourIdx, today, nowMin) {
   </div>`;
 }
 
+// Legenda delle fonti (pallino colorato + nome), ordine = colonne dei box.
+const SOURCES_LEGEND = `<div class="sources">${MODELS.map((m) => `<span><i class="dot-${m.key}"></i>${m.name}</span>`).join('')}</div>`;
+
 function renderDaily() {
   const { daily, hourly, utcOffset } = state.data;
   const nowIso = localNowIso(utcOffset);
@@ -672,6 +675,7 @@ function renderDaily() {
   const hourIdx = new Map(hourly.time.map((t, i) => [t, i]));
   const nowMin = toMinutes(localDateTime(Date.now(), state.data.timezone, utcOffset).time);
 
+  let firstCard = true;
   const rows = daily.time
     .map((day, d) => ({ day, d }))
     .filter(({ day }) => day >= today)
@@ -723,12 +727,23 @@ function renderDaily() {
       const reason = `${ag.reason}\n${diff} (2I − EU)`;
       delta = `<div class="dd"><button type="button" class="agree ${ag.cls}" title="${esc(reason)}" data-reason="${esc(reason)}" aria-label="${esc(reason)}">${ag.label}<span class="agree-i" aria-hidden="true">i</span></button></div>`;
     }
-    return `<div class="day">
-      <div class="day-name"><b>${dayRelative(day, today)}</b>${sunTimes(daily, d)}</div>
-      <div class="day-models">${cells}</div>
-      ${delta}
-      ${bikeArea(BIKE_COMMUTES.map((c) => renderBike(c, day, hourIdx, today, nowMin)).join(''))}
-    </div>`;
+    // Ogni giorno è una card con il titolo "Oggi" / "Domani" / "Dopodomani" e la data;
+    // la legenda delle fonti compare solo nella prima card.
+    const t = dayTitle(day, today);
+    const legend = firstCard ? SOURCES_LEGEND : '';
+    firstCard = false;
+    return `<section class="card day-card">
+      <div class="card-head">
+        <h2>${t.title} <span class="day-date">${t.date}</span></h2>
+        ${legend}
+      </div>
+      <div class="day">
+        <div class="day-name">${sunTimes(daily, d)}</div>
+        <div class="day-models">${cells}</div>
+        ${delta}
+        ${bikeArea(BIKE_COMMUTES.map((c) => renderBike(c, day, hourIdx, today, nowMin)).join(''))}
+      </div>
+    </section>`;
   }).join('');
 
   // Le fasce sono indicate dentro ogni box dalle ore di confine 6/12/18 (slotTicks).

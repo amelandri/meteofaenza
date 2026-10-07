@@ -141,6 +141,17 @@ export const hourLabel = (iso) => iso.slice(11, 16);
 export const dayShort = (iso) => { const p = parts(iso); return `${WEEKDAYS[p.wd]} ${p.day}`; };
 export const dayLong = (iso) => { const p = parts(iso); return `${WEEKDAYS_LONG[p.wd]} ${p.day} ${MONTHS[p.m - 1]}`; };
 
+const MONTHS_LONG = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+
+// Titolo di una giornata: "Oggi" / "Domani" / "Dopodomani" (altrimenti il giorno della
+// settimana) e la data per esteso, es. { title: 'Domani', date: 'giovedì 8 ottobre' }.
+export function dayTitle(iso, todayIso) {
+  const p = parts(iso);
+  const diff = Math.round((Date.UTC(p.y, p.m - 1, p.day) - Date.parse(`${todayIso}T00:00:00Z`)) / 86400000);
+  const title = ['Oggi', 'Domani', 'Dopodomani'][diff] ?? WEEKDAYS_LONG[p.wd];
+  return { title, date: `${WEEKDAYS_LONG[p.wd].toLowerCase()} ${p.day} ${MONTHS_LONG[p.m - 1]}` };
+}
+
 export function dayRelative(iso, todayIso) {
   const d = iso.slice(0, 10);
   if (d === todayIso) return 'Oggi';

@@ -11,7 +11,7 @@ Web app (PWA) che mette a confronto le previsioni di due modelli meteorologici p
 ## Cosa mostra
 
 - **Adesso**: l'ultima misura della centralina (temperatura con minima e massima del giorno, umidità, vento, pioggia di oggi, raffica massima). Viene aggiornata ai minuti :00, :10, :20, :30, :40, :50.
-- **Prossimi giorni** (oggi, domani, dopodomani), con i due modelli affiancati:
+- **Oggi, Domani, Dopodomani**: una scheda per giorno, con i due modelli a confronto:
   - riepilogo del giorno e suddivisione in quattro fasce (notte, mattina, pomeriggio, sera);
   - alba, tramonto e probabilità di pioggia;
   - un giudizio sulla **concordanza dei modelli** (concordi / lievi differenze / discordi), con il motivo;
