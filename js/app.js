@@ -414,8 +414,13 @@ function renderSlots(m, slots, pastUntil) {
       <b>${fmt(sl.temp)}°</b>
       <span class="${sl.prec >= 0.1 ? 'wet' : 'dry'}">${sl.prec >= 0.1 ? fmt(sl.prec, 1) : '\u00a0'}</span>
     </div>`;
-  }).join('')}</div>`;
+  }).join('')}${slotTicks()}</div>`;
 }
+
+// Ore di confine tra le fasce (6, 12, 18) sopra i separatori: visibili solo su mobile,
+// dove sostituiscono la riga di intestazione delle fasce.
+const slotTicks = () => SLOTS.slice(1).map((s, k) =>
+  `<span class="slot-tick" style="left:${((k + 1) * 100) / SLOTS.length}%" aria-hidden="true">${s.from}</span>`).join('');
 
 // Orari di alba e tramonto (già nell'ora locale della località) e durata del giorno.
 function sunTimes(daily, d) {

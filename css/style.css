@@ -329,6 +329,22 @@ button { font: inherit; color: inherit; }
   margin-top: 8px;
   padding-top: 6px;
   border-top: 1px dashed var(--border);
+  position: relative;
+}
+/* Ore di confine 6/12/18 sulla linea tratteggiata, sopra i separatori (solo mobile) */
+.slot-tick {
+  display: none;
+  position: absolute;
+  top: 0;
+  transform: translate(-50%, -50%);
+  padding: 0 3px;
+  background: var(--surface-2);
+  font-size: .62rem;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: .02em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 .dm .partial + .slots { grid-area: auto; grid-column: 1 / -1; }
 .slot {
@@ -637,7 +653,11 @@ body.loading #forecast { opacity: .5; }
   .slot .wi { width: 20px; height: 20px; }
   .slot .wet, .slot .dry { font-size: .66rem; }
   .sl-name { display: none; }
-  .slots-legend { font-size: .66rem; }
+  /* Su mobile niente riga di intestazione delle fasce: le ore stanno dentro i box */
+  .slots-legend { display: none; }
+  .slots-model { padding-bottom: 0; }
+  .slot-tick { display: block; }
+  .slots { margin-top: 10px; padding-top: 8px; }
 
   .card { padding: 14px 12px; }
   .table-wrap, .tabs { margin: 0 -12px; padding: 0 12px; }
