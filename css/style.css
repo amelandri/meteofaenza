@@ -29,12 +29,12 @@
   --dusk-a: #ffdcc9; --dusk-b: #e7dcff; --dusk-text: #6a2f6e;
   --cloud: #c9d1dc;
   --cloud-dark: #8592a5;
-  --moon: #9aa8bd;
+  --moon: #ecbf2f; /* luna gialla, più chiara e meno arancio del sole */
   /* Icone sui box a sfondo grigio (schede dei modelli): più contrastate */
   --cloud-box: #b2bdcc;
   --cloud-box-line: #75849b;
   --cloud-box-dark: #7a879c;
-  --moon-box: #7f8fa8;
+  --moon-box: #e8b923;
 
   --radius: 14px;
   --page-w: 1180px; /* larghezza massima di barra superiore, contenuto e piè di pagina */
@@ -71,11 +71,11 @@
     --dusk-a: #42200f; --dusk-b: #2e2346; --dusk-text: #ffb59a;
     --cloud: #7c899d;
     --cloud-dark: #56627a;
-    --moon: #c8d2e3;
+    --moon: #ffd75e;
     --cloud-box: #8e9bb0;
     --cloud-box-line: #c3ccd9;
     --cloud-box-dark: #66738a;
-    --moon-box: #d3dbe8;
+    --moon-box: #ffd75e;
 
     --shadow: none;
     color-scheme: dark;
