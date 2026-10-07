@@ -385,17 +385,35 @@ const SLOT_HOURS = 6;
 const DAILY_DAYS = 3;
 const slotRange = (s) => `${s.from}–${s.from + SLOT_HOURS}`;
 
+// Codice WMO che rappresenta una fascia:
+// - precipitazioni e temporali (codici ≥ 51): basta un'ora, vince il più severo;
+// - altrimenti il tempo prevalente (più ore) tra i gruppi sereno (0–1), nuvoloso (2–3)
+//   e nebbia (45–48); a parità prevale il gruppo peggiore, e nel gruppo il codice più
+//   frequente (a parità il più alto). Così 2 ore di nebbia non coprono 4 ore di sole.
+const SLOT_WET_CODE = 51;
+const codeGroup = (c) => (c <= 1 ? 0 : c <= 3 ? 1 : 2);
+
+function slotCode(codes) {
+  const wet = codes.filter((c) => c >= SLOT_WET_CODE);
+  if (wet.length) return Math.max(...wet);
+  const count = (list, key) => list.reduce((m, c) => m.set(key(c), (m.get(key(c)) || 0) + 1), new Map());
+  const pickMax = (m) => [...m].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0][0];
+  const group = pickMax(count(codes, codeGroup));
+  return pickMax(count(codes.filter((c) => codeGroup(c) === group), (c) => c));
+}
+
 // Riassume una fascia di 6 ore dai dati orari di un modello. Restituisce null se
 // il modello copre meno di metà della fascia (es. oltre il suo orizzonte).
-function slotSummary(h, indices) {
+// `nowIso`: per la fascia in corso l'icona considera solo le ore non ancora trascorse.
+function slotSummary(h, indices, nowIso = null) {
   const idx = indices.filter((i) => i != null && h.temperature_2m[i] != null);
   if (idx.length < SLOT_HOURS / 2) return null;
   const temps = idx.map((i) => h.temperature_2m[i]);
-  const mid = idx[Math.floor(idx.length / 2)];
+  const ahead = nowIso ? idx.filter((i) => state.data.hourly.time[i] >= nowIso) : [];
+  const codeIdx = ahead.length ? ahead : idx;
   return {
-    // Come i dati giornalieri di Open-Meteo: il codice WMO più severo della fascia.
-    code: Math.max(...idx.map((i) => h.weather_code[i] ?? 0)),
-    isDay: h.is_day[mid],
+    code: slotCode(codeIdx.map((i) => h.weather_code[i] ?? 0)),
+    isDay: h.is_day[codeIdx[Math.floor(codeIdx.length / 2)]],
     temp: temps.reduce((a, b) => a + b, 0) / temps.length,
     tmin: Math.min(...temps),
     tmax: Math.max(...temps),
@@ -633,7 +651,8 @@ function renderDaily() {
     const vals = Object.fromEntries(MODELS.map((m) => {
       const x = daily.models[m.key];
       const slots = SLOTS.map((s) => slotSummary(hourly.models[m.key],
-        Array.from({ length: SLOT_HOURS }, (_, k) => hourIdx.get(`${day}T${String(s.from + k).padStart(2, '0')}:00`))));
+        Array.from({ length: SLOT_HOURS }, (_, k) => hourIdx.get(`${day}T${String(s.from + k).padStart(2, '0')}:00`)),
+        day === today ? nowIso : null));
       return [m.key, {
         code: x.weather_code[d], tmax: x.temperature_2m_max[d], tmin: x.temperature_2m_min[d],
         prec: x.precipitation_sum[d], gust: x.wind_gusts_10m_max[d], slots,
@@ -800,13 +819,6 @@ function renderHourlyTable() {
   const limit = state.settings.showAllHours ? hourly.time.length : Math.min(hourly.time.length, start + 48);
   const H = (k) => hourly.models[k];
 
-  // Alba e tramonto indicizzati per ora piena: la riga dell'evento segue quella dell'ora.
-  const { daily } = state.data;
-  const sunEvents = new Map();
-  for (const [kind, list] of [['rise', daily.sunrise], ['set', daily.sunset]]) {
-    for (const t of list || []) if (t) sunEvents.set(`${t.slice(0, 13)}:00`, { kind, t });
-  }
-
   let body = '';
   let prevDay = '';
   for (let i = start; i < limit; i++) {
@@ -829,12 +841,6 @@ function renderHourlyTable() {
       ${popCell(hourly.precipitation_probability?.[i])}
       ${pair((h) => `<span class="wind">${windArrow(h.wind_direction_10m[i], 12)}${fmt(h.wind_speed_10m[i])}</span>`, 'num')}
     </tr>`;
-    const ev = sunEvents.get(t);
-    if (ev) {
-      body += `<tr class="sun-row ${ev.kind}">
-        <th scope="row" colspan="10"><span class="sun-line"><span class="sun-time">${hourLabel(ev.t)}</span><span class="sun-event">${sunEventIcon(ev.kind, 20)}${ev.kind === 'rise' ? 'Alba' : 'Tramonto'}</span></span></th>
-      </tr>`;
-    }
   }
 
   $('#hourly-table').innerHTML = `

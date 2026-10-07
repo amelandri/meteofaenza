@@ -559,17 +559,7 @@ button { font: inherit; color: inherit; }
   letter-spacing: 0;
   border-bottom: 1px solid var(--border);
 }
-.hourly tr.sun-row th { color: var(--row-text); font-weight: 700; }
-/* Riga alba/tramonto in un'unica cella: l'orario esatto non allarga la colonna "Ora". */
-.sun-line { display: flex; align-items: center; gap: 18px; height: 20px; }
-.sun-time { font-variant-numeric: tabular-nums; }
 .hourly thead .sm { display: none; }
-.hourly tr.sun-row.rise { --row-text: var(--dawn-text); background: linear-gradient(90deg, var(--dawn-a), var(--dawn-b) 45%, transparent); }
-.hourly tr.sun-row.set { --row-text: var(--dusk-text); background: linear-gradient(90deg, var(--dusk-a), var(--dusk-b) 45%, transparent); }
-.hourly tr.sun-row > * { padding-top: 4px; padding-bottom: 4px; vertical-align: middle; line-height: 20px; }
-.hourly tr.sun-row > :first-child { border-radius: 8px 0 0 8px; }
-.sun-event { display: flex; align-items: center; gap: 6px; height: 20px; font-weight: 650; font-size: .85rem; line-height: 1; color: var(--row-text); }
-.sun-event .sun-ev { display: block; }
 .hourly td.pop-cell { color: var(--text); font-size: .85em; }
 .hourly td.pop-cell small { color: var(--muted); margin-left: 1px; }
 .hourly .wind { display: inline-flex; align-items: center; gap: 3px; }
@@ -713,7 +703,6 @@ body.loading #forecast { opacity: .5; }
   .hourly tbody .mm, .hourly td.pop-cell small { display: none; }
   .hourly thead .lg { display: none; }
   .hourly thead .sm { display: inline; }
-  .sun-line { gap: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

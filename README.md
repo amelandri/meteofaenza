@@ -17,7 +17,7 @@ Web app (PWA) che mette a confronto le previsioni di due modelli meteorologici p
   - un giudizio sulla **concordanza dei modelli** (concordi / lievi differenze / discordi), con il motivo;
   - **Bike to work** e **Bike to school**: per ogni tragitto in bici, se pioverà (Asciutto, Rischio, Incerto, Pioggia) e con quale probabilità.
 - **Andamento orario**: grafico che sovrappone i due modelli per temperatura, precipitazioni, vento, nuvolosità, umidità e pressione.
-- **Dettaglio orario** (chiuso di default): tabella ora per ora con entrambi i modelli, la probabilità di pioggia e le righe di alba e tramonto.
+- **Dettaglio orario** (chiuso di default): tabella ora per ora con entrambi i modelli e la probabilità di pioggia.
 
 Tutti gli orari sono nell'ora locale di Faenza.
 
