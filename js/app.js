@@ -712,32 +712,30 @@ function renderDaily() {
 const bikeArea = (html) => (html.trim() ? `<div class="bike-area"><div class="bikes">${html}</div></div>` : '');
 
 // Tutti i blocchi dei tragitti (work, school, tutti i giorni) hanno la stessa larghezza:
-// quella del blocco più largo. Accanto all'etichetta si mettono quante più colonne di
-// blocchi ci stanno (al massimo il numero di finestre), allineate tra le righe; se non
-// ne sta nemmeno una, l'etichetta va sopra i blocchi. Va rieseguita dopo ogni render di
-// "Prossimi giorni" e al ridimensionamento della finestra.
-const BIKE_GAP = 6; // spazio tra i blocchi (px), uguale a .bike-chips { gap }
+// quella del blocco più largo (--bike-chip-w). La disposizione è nel CSS: su desktop i
+// tragitti sulla stessa riga, su mobile uno per riga a colonne uguali (--bike-max).
+// Va rieseguita dopo ogni render di "Prossimi giorni" e al ridimensionamento.
 
 function fitBikes() {
   const daily = $('#daily');
-  daily.classList.remove('bikes-sized', 'bikes-stacked');
+  daily.classList.remove('bikes-sized');
   const chips = [...daily.querySelectorAll('.bike-chip')];
   const width = Math.ceil(Math.max(0, ...chips.map((c) => c.getBoundingClientRect().width)));
-  const area = daily.querySelector('.bikes')?.clientWidth || 0;
-  const beside = daily.querySelector('.bike-chips')?.clientWidth || 0; // spazio accanto all'etichetta
-  if (!width || !area) return; // sezione non visibile: niente da misurare
-  const maxCols = Math.max(...BIKE_COMMUTES.map((c) => c.windows.length));
-  const fit = (space) => Math.min(maxCols, Math.floor((space + BIKE_GAP) / (width + BIKE_GAP)));
-
-  let cols = fit(beside);
-  if (cols < 1) {
-    daily.classList.add('bikes-stacked');
-    cols = Math.max(1, fit(area));
-  }
+  if (!width) return; // sezione non visibile: niente da misurare
   daily.style.setProperty('--bike-chip-w', `${width}px`);
-  daily.style.setProperty('--bike-cols', String(cols));
-  daily.style.setProperty('--bike-max', String(maxCols)); // usato dal layout mobile
+  daily.style.setProperty('--bike-max', String(Math.max(...BIKE_COMMUTES.map((c) => c.windows.length)))); // layout mobile
   daily.classList.add('bikes-sized');
+
+  // Desktop: i tragitti stanno nelle colonne dei modelli solo se ci entrano; altrimenti
+  // (o con il giorno su una colonna, ≤720 px) uno dopo l'altro. Su mobile decide il CSS.
+  daily.classList.remove('bikes-flow');
+  if (matchMedia('(max-width: 560px)').matches) return;
+  const col = daily.querySelector('.day:not(.slots-head) .dm')?.getBoundingClientRect().width || 0;
+  const gap = 6;
+  const chipsWidth = (c) => c.windows.length * width + (c.windows.length - 1) * gap;
+  const labelOf = (i) => daily.querySelectorAll('.bikes')[0]?.children[i]?.querySelector('.bike-label')?.getBoundingClientRect().width || 0;
+  const fits = BIKE_COMMUTES.every((c, i) => (i === 0 ? chipsWidth(c) : labelOf(i) + 12 + chipsWidth(c)) <= col);
+  if (matchMedia('(max-width: 720px)').matches || !fits) daily.classList.add('bikes-flow');
 }
 
 function buildVarTabs() {

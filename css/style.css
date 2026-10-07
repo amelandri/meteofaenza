@@ -395,22 +395,24 @@ button { font: inherit; color: inherit; }
 /* --- Bike to work ---------------------------------------------------------------- */
 
 .bike-area { grid-area: bike; min-width: 0; margin-top: 10px; }
-/* Righe dei tragitti: etichetta + blocchi. Tutte le righe condividono la stessa colonna
-   dei blocchi, quindi work e school restano allineati. */
-/* Su desktop le etichette stanno nella colonna dei nomi dei giorni e i blocchi partono
-   dove iniziano i box dei modelli (stessa larghezza di colonna e stesso spazio di .day). */
-.bikes { display: grid; grid-template-columns: var(--label-w) 1fr; gap: 6px 16px; align-items: start; }
-.bike { display: contents; }
-.bike-label { grid-column: 1; display: inline-flex; align-items: center; gap: 6px; height: 28px; font-size: .78rem; font-weight: 650; color: var(--muted); white-space: nowrap; }
+/* Desktop: griglia allineata alla riga del giorno → [etichetta][colonna ICON-2I][colonna ICON-EU].
+   La prima colonna è --label-w + 8 px e lo spazio tra colonne 8 px, così le colonne 2 e 3
+   coincidono con i box dei modelli (.day: colonna --label-w + 16 px; .day-models: gap 8 px).
+   Bike to work: etichetta a sinistra, blocchi sotto ICON-2I. Bike to school: sotto ICON-EU. */
+.bikes { display: grid; grid-template-columns: calc(var(--label-w) + 8px) minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: center; }
+.bike:first-child { display: contents; }
+.bike:first-child .bike-label { grid-column: 1; }
+.bike:first-child .bike-chips { grid-column: 2; }
+.bike:nth-child(n + 2) { grid-column: 3; display: flex; align-items: center; gap: 12px; min-width: 0; }
+.bike-label { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; font-weight: 650; color: var(--muted); white-space: nowrap; }
+/* Colonne troppo strette (fitBikes → .bikes-flow): tragitti uno dopo l'altro, a capo se serve */
+#daily.bikes-flow .bikes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 32px; }
+#daily.bikes-flow .bike { display: flex; align-items: center; gap: 16px; }
+#daily.bikes-flow .bike:first-child .bike-label { width: var(--label-w); }
 .bike-ico { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-/* Prima della misura (fitBikes) i blocchi hanno la larghezza naturale */
-.bike-chips { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
-/* Dopo la misura: colonne tutte larghe quanto il blocco più largo */
-#daily.bikes-sized .bike-chips { display: grid; grid-template-columns: repeat(var(--bike-cols, 3), var(--bike-chip-w)); }
-/* Nessuna colonna accanto all'etichetta: etichetta sopra i blocchi */
-#daily.bikes-stacked .bikes { grid-template-columns: 1fr; row-gap: 4px; }
-#daily.bikes-stacked .bike-label, #daily.bikes-stacked .bike-chips { grid-column: 1; }
-#daily.bikes-stacked .bike-chips { margin-bottom: 4px; }
+.bike-chips { display: flex; gap: 6px; min-width: 0; }
+/* Dopo la misura (fitBikes): tutti i blocchi larghi quanto il più largo */
+#daily.bikes-sized .bike-chip { width: var(--bike-chip-w); }
 .bike-chip {
   --st: var(--muted);
   display: inline-flex;
@@ -429,7 +431,12 @@ button { font: inherit; color: inherit; }
   cursor: pointer; /* al tocco mostra il dettaglio */
 }
 .bike-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.bike-info { display: contents; } /* su desktop i dati stanno in riga con l'orario */
+/* Blocco compatto (desktop e mobile): orario sopra, icona dello stato + probabilità sotto.
+   Testo dello stato, mm e "solo EU" sono nel dettaglio (tooltip / avviso al tocco). */
+.bike-chip { flex-direction: column; justify-content: center; gap: 2px; height: auto; min-width: 0; padding: 5px 12px; }
+.bike-info { display: inline-flex; align-items: center; gap: 6px; }
+.bike-st-label, .bike-mm, .bike-only, .bike-pop .drop { display: none; }
+.bike-pop { font-size: .76rem; font-weight: 650; }
 .bike-chip.st-dry { --st: var(--good); }
 .bike-chip.st-wet { --st: var(--rain); }
 .bike-chip.st-mixed, .bike-chip.st-risk { --st: var(--mid); }
@@ -627,7 +634,7 @@ body.loading #forecast { opacity: .5; }
 
 @media (max-width: 720px) {
   .day { grid-template-columns: 1fr; grid-template-areas: "name" "models" "delta" "bike"; gap: 8px; }
-  .bikes { grid-template-columns: auto 1fr; column-gap: 10px; }
+  #daily.bikes-flow .bike:first-child .bike-label { width: auto; } /* giorno su una colonna: niente colonna dei nomi */
   .day-name { flex-direction: row; justify-content: flex-start; align-items: baseline; gap: 8px; }
   .slots-head .day-name { display: none; }
 }
@@ -676,15 +683,15 @@ body.loading #forecast { opacity: .5; }
   .obs-row { grid-template-areas: "name" "models"; }
   /* Tragitti: per ogni tragitto una sola riga di blocchi a colonne uguali; nel blocco
      l'orario sopra e icona di stato + probabilità sotto. mm e "solo EU" nell'avviso. */
-  #daily .bikes { grid-template-columns: minmax(0, 1fr); row-gap: 6px; }
+  /* Mobile: un tragitto per riga (etichetta sopra, blocchi a colonne uguali) */
+  #daily .bikes { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: 6px; }
+  #daily .bike { display: contents; }
   #daily .bike-label, #daily .bike-chips { grid-column: 1; }
+  #daily.bikes-sized .bike-chip { width: auto; }
   #daily .bike-chips, #daily.bikes-sized .bike-chips { display: grid; grid-template-columns: repeat(var(--bike-max, 3), minmax(0, 1fr)); gap: 6px; margin-bottom: 4px; }
   .bike-label { height: auto; margin-top: 4px; }
-  .bike-chip { flex-direction: column; justify-content: center; gap: 2px; height: auto; min-width: 0; padding: 5px 4px; }
+  .bike-chip { padding: 5px 4px; }
   .bike-time { font-size: .72rem; }
-  .bike-info { display: inline-flex; align-items: center; gap: 6px; }
-  .bike-st-label, .bike-mm, .bike-only, .bike-pop .drop { display: none; }
-  .bike-pop { font-size: .74rem; font-weight: 650; }
   .slots-head { display: none; }
   .sources { display: inline-flex; }
   /* Pallino del modello in alto a destra in ogni box (stesso colore della legenda) */
