@@ -1,5 +1,7 @@
 // Grafico SVG minimale (linee e barre raggruppate) senza dipendenze esterne,
 // con fasce giornaliere, linea "adesso" e tooltip al passaggio del puntatore/dito.
+// Opzionale una seconda scala a destra (`y2`, es. probabilità 0–100%): le serie con
+// `axis: 'y2'` sono disegnate come area + linea dietro le altre.
 
 import { parts, dayShort, fmt } from './weather.js';
 
@@ -16,7 +18,7 @@ function niceStep(range, targetTicks) {
 export function renderChart(el, opts) {
   const {
     times, series, unit = '', nowIso = null,
-    yFloor = null, yCeil = null, minSpan = 4, tooltip,
+    yFloor = null, yCeil = null, minSpan = 4, tooltip, y2: right = null,
   } = opts;
 
   el.innerHTML = '';
@@ -25,15 +27,17 @@ export function renderChart(el, opts) {
 
   const W = Math.max(280, el.clientWidth);
   const H = W < 520 ? 220 : 270;
-  const pad = { l: 40, r: 10, t: 24, b: 26 };
+  const pad = { l: 40, r: right ? 36 : 10, t: 24, b: 26 };
   const plotW = W - pad.l - pad.r;
   const plotH = H - pad.t - pad.b;
   const step = plotW / n;
   const x = (i) => pad.l + step * (i + 0.5);
 
   // --- Scala Y -----------------------------------------------------------------
+  const main = series.filter((s) => s.axis !== 'y2');
+  const second = series.filter((s) => s.axis === 'y2');
   let lo = Infinity, hi = -Infinity;
-  for (const s of series) for (const v of s.values) if (v != null) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  for (const s of main) for (const v of s.values) if (v != null) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
   if (lo === Infinity) { lo = 0; hi = 1; }
   if (yFloor != null) lo = Math.min(lo, yFloor);
   if (yCeil != null) hi = Math.max(hi, yCeil);
@@ -47,6 +51,9 @@ export function renderChart(el, opts) {
   if (yFloor != null) y0 = Math.max(y0, yFloor);
   const y1 = Math.ceil(hi / tickStep) * tickStep;
   const y = (v) => pad.t + plotH * (1 - (v - y0) / (y1 - y0 || 1));
+  // Scala destra: da 0 a right.max (es. 100%)
+  const yR = (v) => pad.t + plotH * (1 - v / (right?.max || 100));
+  const yOf = (s) => (s.axis === 'y2' ? yR : y);
 
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
@@ -77,6 +84,33 @@ export function renderChart(el, opts) {
     html += `<text class="tick" x="${pad.l - 6}" y="${yy}" dy="0.32em" text-anchor="end">${fmt(v, tickStep < 1 ? 1 : 0)}</text>`;
   }
   html += `<text class="tick unit" x="${pad.l - 6}" y="${pad.t - 9}" text-anchor="end">${unit}</text>`;
+  if (right) {
+    // Asse destro proprio (colore della serie): linea verticale, tacche ed etichette, così
+    // la scala della probabilità si distingue da quella dei mm (la griglia è dei mm).
+    const ax = W - pad.r;
+    html += `<line class="axis y2" x1="${ax}" x2="${ax}" y1="${pad.t}" y2="${pad.t + plotH}"/>`;
+    for (const v of right.ticks || [0, 25, 50, 75, 100]) {
+      const yy = yR(v).toFixed(1);
+      html += `<line class="axis y2" x1="${ax}" x2="${ax + 4}" y1="${yy}" y2="${yy}"/>`;
+      html += `<text class="tick y2" x="${ax + 7}" y="${yy}" dy="0.32em" text-anchor="start">${v}</text>`;
+    }
+    html += `<text class="tick unit y2" x="${ax + 7}" y="${pad.t - 9}" text-anchor="start">${right.unit || ''}</text>`;
+  }
+
+  // --- Aree della scala destra (dietro barre e linee) ----------------------------
+  for (const s of second) {
+    let seg = [];
+    const flush = () => {
+      if (seg.length) {
+        const top = seg.map(([i, v]) => `${x(i).toFixed(1)} ${yR(v).toFixed(1)}`).join(' L');
+        const base = yR(0).toFixed(1);
+        html += `<path class="area ${s.cls}" d="M${x(seg[0][0]).toFixed(1)} ${base} L${top} L${x(seg[seg.length - 1][0]).toFixed(1)} ${base} Z"/>`;
+      }
+      seg = [];
+    };
+    s.values.forEach((v, i) => (v == null ? flush() : seg.push([i, v])));
+    flush();
+  }
 
   // --- Etichette orarie ----------------------------------------------------------
   const every = [1, 2, 3, 6, 12, 24].find((k) => step * k >= 34) || 24;
@@ -88,7 +122,7 @@ export function renderChart(el, opts) {
   }
 
   // --- Barre ---------------------------------------------------------------------
-  const bars = series.filter((s) => s.type === 'bar');
+  const bars = main.filter((s) => s.type === 'bar');
   if (bars.length) {
     const bw = Math.max(1.5, Math.min(9, (step * 0.84) / bars.length));
     const base = y(Math.max(y0, 0));
@@ -107,7 +141,7 @@ export function renderChart(el, opts) {
     let d = '', pen = false;
     s.values.forEach((v, i) => {
       if (v == null) { pen = false; return; }
-      d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`;
+      d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)} ${yOf(s)(v).toFixed(1)}`;
       pen = true;
     });
     if (d) html += `<path class="line ${s.cls}${s.dash ? ' dash' : ''}" d="${d}"/>`;
@@ -157,7 +191,7 @@ export function renderChart(el, opts) {
     lineSeries.forEach((s, k) => {
       const v = s.values[i];
       dots[k].setAttribute('visibility', v == null ? 'hidden' : 'visible');
-      if (v != null) { dots[k].setAttribute('cx', cx); dots[k].setAttribute('cy', y(v)); }
+      if (v != null) { dots[k].setAttribute('cx', cx); dots[k].setAttribute('cy', yOf(s)(v)); }
     });
     tip.innerHTML = tooltip ? tooltip(i) : `${times[i]}`;
     tip.hidden = false;

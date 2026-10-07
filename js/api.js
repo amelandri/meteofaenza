@@ -90,7 +90,7 @@ async function fetchEnsemble(loc) {
       longitude: loc.lon.toFixed(4),
       hourly: 'precipitation',
       models: ENSEMBLE_MODEL.id,
-      forecast_days: '3',
+      forecast_days: '6', // come le previsioni: tragitti e dettaglio orario (ICON-EU-EPS arriva a ~5 giorni)
       timezone: 'auto',
     });
     const data = await getJSON(`${ENSEMBLE_URL}?${params}`);

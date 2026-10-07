@@ -17,6 +17,7 @@ const VARIABLES = {
   rain: {
     label: 'Precipitazioni', unit: 'mm', decimals: 1, yFloor: 0, minSpan: 2, type: 'bar',
     series: [{ v: 'precipitation' }],
+    pop: true, // anche la probabilità di pioggia (scala a destra)
   },
   wind: {
     label: 'Vento', unit: 'km/h', decimals: 0, yFloor: 0, minSpan: 10,
@@ -551,7 +552,27 @@ function windowHours(day, w) {
 // (ore parziali pesate come per i mm). La massima delle probabilità orarie invece
 // sottostima: scenari diversi possono vedere pioggia in ore diverse dello stesso tragitto.
 // Se l'ensemble non copre il tragitto si ripiega sulla massima oraria (popExact = false).
-const ENSEMBLE_WET_MM = 0.1; // stessa soglia della precipitation_probability di Open-Meteo
+// Stessa soglia con cui un modello "vede pioggia" (BIKE_WET_MM): modelli e probabilità
+// parlano della stessa pioggia. (Con 0,1 mm contavano anche poche gocce.)
+const ENSEMBLE_WET_MM = BIKE_WET_MM;
+
+// Descrizione a parole dei mm nel tragitto (valore tipico degli scenari con pioggia).
+function rainWords(mm) {
+  if (mm < 0.5) return 'qualche goccia';
+  if (mm < 2) return 'pioggia debole';
+  if (mm < 5) return 'pioggia moderata';
+  return 'pioggia forte';
+}
+
+// Vero se nelle ore del tragitto l'ensemble ha dati ogni 3 ore (oltre ~2 giorni): i valori
+// orari sono allora uguali a gruppi di tre e il momento esatto della pioggia non è noto.
+function ensembleCoarse(ens, idx) {
+  return idx.some((i) => {
+    const rainy = ens.members.filter((s) => (s[i] ?? 0) > 0);
+    if (rainy.length < 3) return false; // senza pioggia non si può dire (e non serve)
+    return rainy.every((s) => s[i] === s[i - 1] || s[i] === s[i + 1]);
+  });
+}
 
 function windowRainChance(hrs) {
   const ens = state.data.ensemble;
@@ -562,13 +583,34 @@ function windowRainChance(hrs) {
         .map((serie) => (idx.some((i) => serie[i] == null) ? null : idx.reduce((sum, i, k) => sum + serie[i] * hrs[k].weight, 0)))
         .filter((v) => v != null);
       if (sums.length >= ens.members.length / 2) {
-        const wet = sums.filter((v) => v >= ENSEMBLE_WET_MM - 1e-9).length;
-        return { pop: Math.round((100 * wet) / sums.length), popExact: true, popMembers: wet, popTotal: sums.length };
+        const wetSums = sums.filter((v) => v >= ENSEMBLE_WET_MM - 1e-9).sort((a, b) => a - b);
+        const wet = wetSums.length;
+        return {
+          pop: Math.round((100 * wet) / sums.length), popExact: true, popMembers: wet, popTotal: sums.length,
+          // quanta pioggia negli scenari bagnati: valore tipico (mediana) e massimo
+          wetTypical: wet ? wetSums[Math.floor((wet - 1) / 2)] : null,
+          wetMax: wet ? wetSums[wet - 1] : null,
+          coarse: ensembleCoarse(ens, idx),
+        };
       }
     }
   }
   const pops = hrs.map((x) => (x.i == null ? null : state.data.hourly.precipitation_probability?.[x.i])).filter((v) => v != null);
   return { pop: pops.length ? Math.max(...pops) : null, popExact: false };
+}
+
+// Testo del dettaglio della probabilità (tragitti e dettaglio orario): scenari, quantità
+// di pioggia negli scenari bagnati e nota sull'orario approssimato.
+function chanceText(x, where) {
+  if (x.pop == null) return 'Probabilità n.d.';
+  if (!x.popExact) return `Probabilità ~${x.pop}% (stima Open-Meteo: ensemble non disponibile)`;
+  let txt = `Probabilità di pioggia ${where} ${x.pop}% (${x.popMembers} ${x.popMembers === 1 ? 'scenario' : 'scenari'} su ${x.popTotal} di ${state.data.ensemble.model} con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm)`;
+  if (x.popMembers) {
+    const amount = x.popMembers === 1 ? `${fmt(x.wetMax, 1)} mm` : `tipicamente ${fmt(x.wetTypical, 1)} mm, al massimo ${fmt(x.wetMax, 1)} mm`;
+    txt += `\n${x.popMembers === 1 ? "Nell'unico scenario" : 'Negli scenari'} con pioggia: ${amount} (${rainWords(x.wetTypical)})`;
+  }
+  if (x.coarse) txt += "\nOrario approssimato: a questa distanza l'ensemble ha dati ogni 3 ore";
+  return txt;
 }
 
 // Verdetto per una finestra: combina quanti modelli "vedono pioggia" (≥ BIKE_WET_MM) con
@@ -606,13 +648,14 @@ function bikeWindow(day, w, hourIdx) {
     return { m, mm: hrs.reduce((sum, x) => sum + p[x.i] * x.weight, 0) };
   });
   const avail = models.filter((x) => x.mm != null);
-  const { pop, popExact, popMembers, popTotal } = windowRainChance(hrs);
-  if (!avail.length) return { w, status: 'na', models, avail, pop, popExact, popMembers, popTotal };
+  const chance = windowRainChance(hrs);
+  const { pop } = chance;
+  if (!avail.length) return { w, status: 'na', models, avail, ...chance };
 
   const wet = avail.filter((x) => x.mm >= BIKE_WET_MM).length;
   const { status, why } = bikeVerdict(wet, avail.length, pop);
   const mms = avail.map((x) => x.mm);
-  return { w, status, why, wet, models, avail, pop, popExact, popMembers, popTotal, mean: mms.reduce((a, b) => a + b, 0) / mms.length, min: Math.min(...mms), max: Math.max(...mms) };
+  return { w, status, why, wet, models, avail, ...chance, mean: mms.reduce((a, b) => a + b, 0) / mms.length, min: Math.min(...mms), max: Math.max(...mms) };
 }
 
 // Icone dello stato (16×16, tratto): sole = asciutto, nuvola = rischio,
@@ -641,12 +684,7 @@ function renderBike(commute, day, hourIdx, today, nowMin) {
     else if (x.status === 'mixed') mm = mmRange;
     const only = x.avail.length === 1 ? `<span class="bike-only">solo ${x.avail[0].m.short}</span>` : '';
     const detail = x.models.map((y) => `${y.m.name}: ${y.mm == null ? 'n.d.' : `${fmt(y.mm, 1)} mm`}`).join(' · ');
-    let popTxt = 'probabilità n.d.';
-    if (x.pop != null) {
-      popTxt = x.popExact
-        ? `Probabilità di pioggia nel tragitto ${x.pop}% (${x.popMembers} ${x.popMembers === 1 ? 'scenario' : 'scenari'} su ${x.popTotal} di ${state.data.ensemble.model})`
-        : `Probabilità ~${x.pop}% (stima: massima oraria, ensemble non disponibile)`;
-    }
+    const popTxt = chanceText(x, 'nel tragitto');
     // Dettaglio: tooltip su desktop, avviso al tocco su mobile (dove mm e "solo EU" sono nascosti).
     const tip = `Tragitto ${x.w.from}–${x.w.to}: ${st.label}${mm ? ` (${mm})` : ''}${x.why ? `\nPerché: ${x.why}` : ''}\n${detail}${x.avail.length === 1 ? ` (solo ${x.avail[0].m.name})` : ''}\n${popTxt}`;
     return `<button type="button" class="bike-chip st-${x.status}${past}" title="${esc(tip)}" data-tip="${esc(tip)}">
@@ -812,12 +850,23 @@ function renderChartSection() {
     }
   }
 
+  // Probabilità di pioggia ora per ora (stesso calcolo della tabella oraria), scala a destra.
+  if (cfg.pop) {
+    series.push({
+      cls: 's-pop', axis: 'y2', label: 'Probabilità', unitLabel: '%',
+      values: times.map((t, k) => windowRainChance([{ stamp: t, weight: 1, i: start + k }]).pop),
+    });
+  }
+
   renderChart($('#chart'), {
     times, series, unit: cfg.unit, decimals: cfg.decimals, yFloor: cfg.yFloor, yCeil: cfg.yCeil,
+    y2: cfg.pop ? { max: 100, ticks: [0, 25, 50, 75, 100], unit: '%' } : null,
     minSpan: cfg.minSpan, nowIso: localNowIso(state.data.utcOffset),
     ariaLabel: `${cfg.label}: confronto ICON-2I e ICON-EU`,
     tooltip: (i) => {
-      const rows = series.map((s) => `<div class="tip-row"><i class="sw ${s.cls}${s.dash ? ' dash' : ''}"></i>${s.model.name}${s.varLabel ? ` <span class="muted">${s.varLabel}</span>` : ''}<b>${tipValue(s.values[i], cfg.decimals, cfg.unit)}</b></div>`).join('');
+      const rows = series.map((s) => (s.axis === 'y2'
+        ? `<div class="tip-row"><i class="sw ${s.cls}"></i>${s.label}<b>${tipValue(s.values[i], 0, s.unitLabel)}</b></div>`
+        : `<div class="tip-row"><i class="sw ${s.cls}${s.dash ? ' dash' : ''}"></i>${s.model.name}${s.varLabel ? ` <span class="muted">${s.varLabel}</span>` : ''}<b>${tipValue(s.values[i], cfg.decimals, cfg.unit)}</b></div>`)).join('');
       const a = series[0].values[i], b = series[1].values[i];
       const diff = a != null && b != null ? `<div class="tip-diff muted">Δ 2I − EU: ${fmtSigned(a - b, cfg.decimals)} ${cfg.unit}</div>` : '';
       return `<div class="tip-head">${dayShort(times[i])} · ${hourLabel(times[i])}</div>${rows}${diff}`;
@@ -825,7 +874,8 @@ function renderChartSection() {
   });
 
   const note = [];
-  const legend = cfg.series.some((s) => s.dash) ? 'Linea continua: velocità media · tratteggio: raffiche. ' : '';
+  let legend = cfg.series.some((s) => s.dash) ? 'Linea continua: velocità media · tratteggio: raffiche. ' : '';
+  if (cfg.pop) legend = `Barre: pioggia in mm (ICON-2I, ICON-EU) · area azzurra: probabilità di pioggia (scenari ${state.data.ensemble?.model || 'ensemble'} con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm, scala a destra). `;
   for (const m of MODELS) {
     if (!inModelDomain(m, state.loc.lat, state.loc.lon)) note.push(`${m.name} non copre questa località.`);
     else {
@@ -836,11 +886,17 @@ function renderChartSection() {
   $('#chart-note').textContent = legend + note.join(' ');
 }
 
-// Cella della probabilità oraria: sfondo azzurro più intenso al crescere della probabilità.
-function popCell(p) {
-  if (p == null) return '<td class="first num pop-cell na">—</td>';
-  const tint = `background: color-mix(in srgb, var(--rain) ${Math.round(p * 0.3)}%, transparent)`;
-  return `<td class="first num pop-cell" style="${tint}">${p > 0 ? `${fmt(p)}<small>%</small>` : '<span class="muted">0</span>'}</td>`;
+// Cella della probabilità oraria: stesso calcolo dei tragitti (scenari dell'ensemble con
+// almeno 0,2 mm nell'ora), dettaglio in tooltip/avviso al tocco; "~" = stima Open-Meteo
+// (oltre l'orizzonte dell'ensemble). Sfondo azzurro più intenso al crescere della probabilità.
+function popCell(i) {
+  const t = state.data.hourly.time[i];
+  const x = windowRainChance([{ stamp: t, weight: 1, i }]);
+  if (x.pop == null) return '<td class="first num pop-cell na">—</td>';
+  const tip = `${dayShort(t)} ore ${String(Number(t.slice(11, 13)) - 1).padStart(2, '0')}–${t.slice(11, 13)}\n${chanceText(x, "nell'ora")}`;
+  const tint = `background: color-mix(in srgb, var(--rain) ${Math.round(x.pop * 0.3)}%, transparent)`;
+  const val = x.pop > 0 ? `${x.popExact ? '' : '~'}${fmt(x.pop)}<small>%</small>` : '<span class="muted">0</span>';
+  return `<td class="first num pop-cell" style="${tint}" title="${esc(tip)}" data-tip="${esc(tip)}">${val}</td>`;
 }
 
 // Sezione "Dettaglio orario" collassabile (chiusa di default, stato ricordato).
@@ -879,14 +935,14 @@ function renderHourlyTable() {
       ${pair((h) => icon(h.weather_code[i], h.is_day[i], 26))}
       ${pair((h) => `${fmt(h.temperature_2m[i])}°`, 'num')}
       ${pair((h) => (h.precipitation[i] > 0 ? `<span class="wet">${fmt(h.precipitation[i], 1)}</span>` : '<span class="muted">0</span>'), 'num')}
-      ${popCell(hourly.precipitation_probability?.[i])}
+      ${popCell(i)}
       ${pair((h) => `<span class="wind">${windArrow(h.wind_direction_10m[i], 12)}${fmt(h.wind_speed_10m[i])}</span>`, 'num')}
     </tr>`;
   }
 
   $('#hourly-table').innerHTML = `
     <thead>
-      <tr class="group"><th rowspan="2" scope="col">Ora</th><th colspan="2" scope="colgroup">Cielo</th><th colspan="2" scope="colgroup">Temp. °C</th><th colspan="2" scope="colgroup">Pioggia mm</th><th rowspan="2" scope="col" class="first" title="Probabilità di precipitazioni (dato comune, non di un singolo modello)"><span class="lg">Prob.</span><span class="sm" aria-label="Probabilità">%</span></th><th colspan="2" scope="colgroup">Vento km/h</th></tr>
+      <tr class="group"><th rowspan="2" scope="col">Ora</th><th colspan="2" scope="colgroup">Cielo</th><th colspan="2" scope="colgroup">Temp. °C</th><th colspan="2" scope="colgroup">Pioggia mm</th><th rowspan="2" scope="col" class="first" title="Probabilità di pioggia nell'ora: scenari ICON-EU-EPS con almeno 0,2 mm (dato comune, non di un singolo modello). Tocca una cella per il dettaglio."><span class="lg">Prob.</span><span class="sm" aria-label="Probabilità">%</span></th><th colspan="2" scope="colgroup">Vento km/h</th></tr>
       <tr class="models">${'<th class="first c-i2i">2I</th><th class="c-eu">EU</th>'.repeat(4)}</tr>
     </thead>
     <tbody>${body}</tbody>`;
@@ -902,20 +958,22 @@ function bindControls() {
   $('#refresh-btn').addEventListener('click', () => { load({ force: true }); loadStation(); });
   $('#retry-btn').addEventListener('click', () => load({ force: true }));
 
-  $('#daily').addEventListener('click', (e) => {
-    // Etichetta di concordanza e blocchi dei tragitti: dettaglio in un avviso.
-    const el = e.target.closest('.agree[data-reason], .bike-chip[data-tip]');
+  const showTip = (e) => {
+    // Etichetta di concordanza, blocchi dei tragitti e celle "Prob.": dettaglio in un avviso.
+    const el = e.target.closest('.agree[data-reason], [data-tip]');
     if (!el) return;
     const text = el.dataset.reason || el.dataset.tip;
     // Secondo tap sullo stesso elemento: chiude l'avviso.
     if (!$('#toast').hidden && $('#toast').dataset.source === text) hideToast();
     else toast(text, 9000, text);
-  });
+  };
+  $('#daily').addEventListener('click', showTip);
+  $('#hourly-body').addEventListener('click', showTip);
 
   // L'avviso si chiude toccandolo o toccando un qualsiasi altro punto della pagina.
   $('#toast').addEventListener('click', hideToast);
   document.addEventListener('click', (e) => {
-    if ($('#toast').hidden || e.target.closest('#toast, .agree[data-reason], .bike-chip[data-tip]')) return;
+    if ($('#toast').hidden || e.target.closest('#toast, .agree[data-reason], [data-tip]')) return;
     hideToast();
   });
 
