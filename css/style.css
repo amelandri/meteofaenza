@@ -270,7 +270,9 @@ button { font: inherit; color: inherit; }
 .day {
   display: grid;
   grid-template-columns: var(--label-w) 1fr;
-  grid-template-areas: "name models" ". delta" "bike bike";
+  /* La concordanza (delta) sta nella colonna dei nomi, sotto le info del giorno; i box dei
+     modelli occupano entrambe le righe */
+  grid-template-areas: "name models" "delta models" "bike bike";
   gap: 6px 16px;
   padding: 30px 0;
   border-top: 1px solid var(--border);
@@ -278,7 +280,20 @@ button { font: inherit; color: inherit; }
 .day:first-child { border-top: 0; padding-top: 0; }
 .day-name { grid-area: name; display: flex; flex-direction: column; justify-content: center; }
 .day-models { grid-area: models; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.sun { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; font-variant-numeric: tabular-nums; }
+/* Alba e tramonto impilati, probabilità di pioggia sotto */
+.sun {
+  display: grid;
+  grid-template-columns: auto;
+  grid-template-areas: "rise" "set" "pop";
+  justify-content: start;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.sun-pill.rise { grid-area: rise; }
+.sun-pill.set { grid-area: set; }
+.sun .sun-pill { justify-self: start; } /* larghezza naturale, non quella della colonna */
 .sun-pill {
   display: inline-flex;
   align-items: center;
@@ -291,9 +306,7 @@ button { font: inherit; color: inherit; }
 }
 .sun-pill.rise { background: linear-gradient(120deg, var(--dawn-a), var(--dawn-b)); color: var(--dawn-text); }
 .sun-pill.set { background: linear-gradient(120deg, var(--dusk-a), var(--dusk-b)); color: var(--dusk-text); }
-.daylight { flex-basis: 100%; font-size: .74rem; }
-.daylight .short { display: none; }
-.pop { flex-basis: 100%; display: flex; align-items: center; gap: 4px; font-size: .78rem; margin-top: 2px; white-space: nowrap; }
+.pop { grid-area: pop; display: flex; align-items: center; gap: 4px; font-size: .78rem; margin-top: 2px; white-space: nowrap; }
 .pop b { color: var(--rain); font-weight: 700; }
 .pop .drop { fill: var(--rain); flex: none; }
 
@@ -306,7 +319,7 @@ button { font: inherit; color: inherit; }
 .sun-ev .hz { stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; opacity: .55; }
 .sun-ev .arr { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
-.dd { grid-area: delta; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.dd { grid-area: delta; align-self: start; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .dm {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -336,9 +349,10 @@ button { font: inherit; color: inherit; }
   border-top: 1px dashed var(--border);
   position: relative;
 }
-/* Ore di confine 6/12/18 sulla linea tratteggiata, sopra i separatori (solo mobile) */
+.dm .slots { margin-top: 10px; padding-top: 8px; }
+/* Ore di confine 6/12/18 sulla linea tratteggiata, sopra i separatori */
 .slot-tick {
-  display: none;
+  display: block;
   position: absolute;
   top: 0;
   transform: translate(-50%, -50%);
@@ -368,24 +382,10 @@ button { font: inherit; color: inherit; }
 .slot.past { opacity: .45; }
 /* Separatore verticale tra le fasce */
 .slot + .slot { border-left: 1px solid var(--slot-sep); }
-.slots-head { padding: 0 0 4px; border-top: 0; }
-.slots-head + .day { border-top: 0; padding-top: 4px; }
-.slots-head .day-models > div { min-width: 0; }
-/* Nome del modello sopra ogni colonna: unico riferimento, i box non hanno bordi colorati */
 /* Fonte della previsione: legenda nel titolo della card (.sources) e pallino del colore
    del modello in alto a destra di ogni box (desktop e mobile) */
 .dm { position: relative; }
 .dm::after { content: ""; position: absolute; top: 7px; right: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--mc); }
-.slots-legend {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  padding: 0 20px 0 10px; /* come .dm */
-  font-size: .72rem;
-  color: var(--muted);
-  text-align: center;
-}
-.slots-legend > span { display: flex; flex-direction: column; line-height: 1.25; }
-.sl-name { font-weight: 650; color: var(--text); }
 .wet { color: var(--rain); }
 .agree { display: inline-flex; align-items: center; gap: 5px; font: inherit; font-size: .74rem; font-weight: 650; padding: 2px 4px 2px 8px; border: 0; border-radius: 6px; white-space: nowrap; cursor: help; }
 .agree-i { display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; font-size: .62rem; font-weight: 700; font-style: italic; font-family: Georgia, serif; background: color-mix(in srgb, currentColor 18%, transparent); }
@@ -416,6 +416,7 @@ button { font: inherit; color: inherit; }
 .bike-chips { display: flex; gap: 6px; min-width: 0; }
 /* Dopo la misura (fitBikes): tutti i blocchi larghi quanto il più largo */
 #daily.bikes-sized .bike-chip { width: var(--bike-chip-w); }
+#daily.bikes-measure .bike-chip { width: max-content !important; flex: none; } /* solo durante la misura */
 .bike-chip {
   --st: var(--muted);
   display: inline-flex;
@@ -640,7 +641,6 @@ body.loading #forecast { opacity: .5; }
   .day.obs-row { grid-template-areas: "name" "models"; }
   #daily.bikes-flow .bike:first-child .bike-label { width: auto; } /* giorno su una colonna: niente colonna dei nomi */
   .day-name { flex-direction: row; justify-content: flex-start; align-items: baseline; gap: 8px; }
-  .slots-head .day-name { display: none; }
 }
 
 @media (max-width: 560px) {
@@ -666,19 +666,15 @@ body.loading #forecast { opacity: .5; }
   .slot { font-size: .74rem; }
   .slot .wi { width: 20px; height: 20px; }
   .slot .wet, .slot .dry { font-size: .66rem; }
-  .sl-name { display: none; }
-  /* Su mobile niente riga di intestazione delle fasce: le ore stanno dentro i box */
-  .slots-legend { display: none; }
   /* Alba, tramonto, durata della luce e probabilità di pioggia su una sola riga (forme brevi).
      Se accanto al nome del giorno non c'è spazio, la riga va a capo tutta insieme. */
   .day-name { flex-wrap: wrap; align-items: center; row-gap: 6px; }
   /* La riga occupa tutto lo spazio disponibile (anche quando va a capo) e la probabilità
      di pioggia è spinta sul bordo destro */
-  .sun { flex: 1 0 auto; flex-wrap: nowrap; gap: 6px; margin-top: 0; }
+  .sun { display: flex; flex: 1 0 auto; flex-wrap: nowrap; align-items: center; gap: 6px; margin-top: 0; }
   .sun .pop { margin-left: auto; }
-  .daylight, .pop { flex-basis: auto; margin-top: 0; }
-  .daylight .long, .pop-word { display: none; }
-  .daylight .short { display: inline; white-space: nowrap; }
+  .pop { flex-basis: auto; margin-top: 0; }
+  .pop-word { display: none; }
   .sun-pill { gap: 3px; padding: 1px 7px 1px 4px; font-size: .74rem; }
   .sun-pill .sun-ev { width: 15px; height: 15px; }
   /* Tragitti: per ogni tragitto una sola riga di blocchi a colonne uguali; nel blocco
@@ -692,10 +688,6 @@ body.loading #forecast { opacity: .5; }
   .bike-label { height: auto; margin-top: 4px; }
   .bike-chip { padding: 5px 4px; }
   .bike-time { font-size: .72rem; }
-  .slots-head { display: none; }
-  /* Pallino del modello in alto a destra in ogni box (stesso colore della legenda) */
-  .slot-tick { display: block; }
-  .slots { margin-top: 10px; padding-top: 8px; }
 
   .card { padding: 14px 12px; }
   .table-wrap, .tabs { margin: 0 -12px; padding: 0 12px; }

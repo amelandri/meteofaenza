@@ -13,7 +13,7 @@ Web app (PWA) che mette a confronto le previsioni di due modelli meteorologici p
 - **Adesso**: l'ultima misura della centralina (temperatura con minima e massima del giorno, umidità, vento, pioggia di oggi, raffica massima). Viene aggiornata ai minuti :00, :10, :20, :30, :40, :50.
 - **Prossimi giorni** (oggi, domani, dopodomani), con i due modelli affiancati:
   - riepilogo del giorno e suddivisione in quattro fasce (notte, mattina, pomeriggio, sera);
-  - alba, tramonto, ore di luce e probabilità di pioggia;
+  - alba, tramonto e probabilità di pioggia;
   - un giudizio sulla **concordanza dei modelli** (concordi / lievi differenze / discordi), con il motivo;
   - **Bike to work** e **Bike to school**: per ogni tragitto in bici, se pioverà (Asciutto, Rischio, Incerto, Pioggia) e con quale probabilità.
 - **Andamento orario**: grafico che sovrappone i due modelli per temperatura, precipitazioni, vento, nuvolosità, umidità e pressione.

@@ -4,7 +4,7 @@ import * as store from './storage.js';
 import { renderChart, tipValue } from './chart.js';
 import {
   icon, describe, fmt, fmtSigned, windDir, windArrow, hourLabel, dayShort, dayRelative,
-  localNowIso, localDateTime, fmtAgo, esc, sunEventIcon, duration,
+  localNowIso, localDateTime, fmtAgo, esc, sunEventIcon,
 } from './weather.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -435,20 +435,17 @@ function renderSlots(m, slots, pastUntil) {
   }).join('')}${slotTicks()}</div>`;
 }
 
-// Ore di confine tra le fasce (6, 12, 18) sopra i separatori: visibili solo su mobile,
-// dove sostituiscono la riga di intestazione delle fasce.
+// Ore di confine tra le fasce (6, 12, 18) sulla linea tratteggiata, sopra i separatori.
 const slotTicks = () => SLOTS.slice(1).map((s, k) =>
   `<span class="slot-tick" style="left:${((k + 1) * 100) / SLOTS.length}%" aria-hidden="true">${s.from}</span>`).join('');
 
-// Orari di alba e tramonto (già nell'ora locale della località) e durata del giorno.
+// Orari di alba e tramonto (già nell'ora locale della località) e probabilità di pioggia.
 function sunTimes(daily, d) {
   const rise = daily.sunrise?.[d], set = daily.sunset?.[d];
   if (!rise || !set) return '';
-  const light = duration(rise, set);
   return `<div class="sun">
     <span class="sun-pill rise" title="Alba">${sunEventIcon('rise', 18)}${hourLabel(rise)}</span>
     <span class="sun-pill set" title="Tramonto">${sunEventIcon('set', 18)}${hourLabel(set)}</span>
-    ${light ? `<span class="daylight muted" title="Durata del giorno (dall'alba al tramonto)"><span class="long">${light} di luce</span><span class="short">${light.replace(' h ', 'h ').replace(' min', 'm')}</span></span>` : ''}
     ${rainChance(daily.precipitation_probability_max?.[d])}
   </div>`;
 }
@@ -664,7 +661,7 @@ function renderDaily() {
     const ag = agreement(vals.i2i, vals.eu);
     const cells = MODELS.map((m) => {
       const v = vals[m.key];
-      // Il modello è indicato dal nome in cima alla colonna (riga .slots-head).
+      // Il modello è indicato dal pallino colorato nel box e dalla legenda nel titolo.
       if (v.tmax == null && !hasSlots(v)) return `<div class="dm dm-empty m-${m.key}"><span class="muted small">${m.name} oltre l’orizzonte</span></div>`;
       // Giornata coperta solo in parte (fine dell'orizzonte del modello): solo le fasce.
       if (v.tmax == null) {
@@ -699,12 +696,8 @@ function renderDaily() {
     </div>`;
   }).join('');
 
-  // Intestazione delle fasce, una sola volta in cima, allineata alle colonne dei modelli.
-  const head = SLOTS.map((s) => `<span><span class="sl-name">${s.name}</span><span class="sl-hours">${slotRange(s)}</span></span>`).join('');
-  $('#daily').innerHTML = rows && `<div class="day slots-head" aria-hidden="true">
-      <div class="day-name"></div>
-      <div class="day-models">${MODELS.map((m) => `<div class="m-${m.key}"><div class="slots-legend">${head}</div></div>`).join('')}</div>
-    </div>${rows}`;
+  // Le fasce sono indicate dentro ogni box dalle ore di confine 6/12/18 (slotTicks).
+  $('#daily').innerHTML = rows;
   fitBikes();
 }
 
@@ -718,8 +711,12 @@ const bikeArea = (html) => (html.trim() ? `<div class="bike-area"><div class="bi
 function fitBikes() {
   const daily = $('#daily');
   daily.classList.remove('bikes-sized');
+  // Misura alla larghezza naturale (.bikes-measure): con la griglia stretta i blocchi
+  // verrebbero compressi e la misura risulterebbe troppo piccola.
+  daily.classList.add('bikes-measure');
   const chips = [...daily.querySelectorAll('.bike-chip')];
   const width = Math.ceil(Math.max(0, ...chips.map((c) => c.getBoundingClientRect().width)));
+  daily.classList.remove('bikes-measure');
   if (!width) return; // sezione non visibile: niente da misurare
   daily.style.setProperty('--bike-chip-w', `${width}px`);
   daily.style.setProperty('--bike-max', String(Math.max(...BIKE_COMMUTES.map((c) => c.windows.length)))); // layout mobile
@@ -729,7 +726,7 @@ function fitBikes() {
   // (o con il giorno su una colonna, ≤720 px) uno dopo l'altro. Su mobile decide il CSS.
   daily.classList.remove('bikes-flow');
   if (matchMedia('(max-width: 560px)').matches) return;
-  const col = daily.querySelector('.day:not(.slots-head) .dm')?.getBoundingClientRect().width || 0;
+  const col = daily.querySelector('.dm')?.getBoundingClientRect().width || 0;
   const gap = 6;
   const chipsWidth = (c) => c.windows.length * width + (c.windows.length - 1) * gap;
   const labelOf = (i) => daily.querySelectorAll('.bikes')[0]?.children[i]?.querySelector('.bike-label')?.getBoundingClientRect().width || 0;

@@ -97,14 +97,6 @@ export function sunEventIcon(kind, size = 18) {
   </svg>`;
 }
 
-// Durata tra due orari "YYYY-MM-DDTHH:MM" dello stesso giorno, es. "11 h 28 min".
-export function duration(fromIso, toIso) {
-  const mins = (t) => Number(t.slice(11, 13)) * 60 + Number(t.slice(14, 16));
-  const d = mins(toIso) - mins(fromIso);
-  if (!(d > 0)) return '';
-  return `${Math.floor(d / 60)} h ${String(d % 60).padStart(2, '0')} min`;
-}
-
 // --- Formattazione -------------------------------------------------------------
 
 const nf = (d) => new Intl.NumberFormat('it-IT', { minimumFractionDigits: d, maximumFractionDigits: d });
