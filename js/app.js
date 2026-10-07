@@ -55,8 +55,10 @@ const state = {
   stationLoading: false,
 };
 
-// Ogni quanto riscaricare la misura della centralina (aggiornata circa ogni minuto).
-const STATION_REFRESH_MS = 5 * 60 * 1000;
+// La misura della centralina si aggiorna solo ai minuti 0, 10, 20, 30, 40, 50 (più un
+// piccolo ritardo: il file viene pubblicato qualche secondo dopo lo scoccare del minuto).
+const STATION_SLOT_MS = 10 * 60 * 1000;
+const STATION_SLOT_DELAY_MS = 15 * 1000;
 
 // --- Avvio -----------------------------------------------------------------------
 
@@ -66,7 +68,7 @@ function init() {
   registerServiceWorker();
   store.removeLegacyKeys(LOCATION);
 
-  window.addEventListener('online', () => { setBanner(null); if (!store.isFresh(state.data)) load(); loadStation(); });
+  window.addEventListener('online', () => { setBanner(null); if (!store.isFresh(state.data)) load(); if (stationMissedSlot()) loadStation(); });
   window.addEventListener('offline', () => setBanner('Sei offline: vengono mostrate le ultime previsioni salvate.'));
   if (!navigator.onLine) setBanner('Sei offline: vengono mostrate le ultime previsioni salvate.');
 
@@ -80,12 +82,13 @@ function init() {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && navigator.onLine) {
       if (!store.isFresh(state.data)) load();
-      loadStation();
+      if (stationMissedSlot()) loadStation();
     }
   });
 
   load();
-  loadStation();
+  if (stationMissedSlot()) loadStation();
+  scheduleStation();
 }
 
 // --- Caricamento dati ------------------------------------------------------------
@@ -219,6 +222,26 @@ function stationIsFresh() {
   return !!state.station && Date.now() - state.station.time < STATION_STALE_MS;
 }
 
+// Ultimo istante di lettura programmata (:00, :10, … + ritardo) e il successivo.
+function lastStationSlot(now = Date.now()) {
+  return Math.floor((now - STATION_SLOT_DELAY_MS) / STATION_SLOT_MS) * STATION_SLOT_MS + STATION_SLOT_DELAY_MS;
+}
+const nextStationSlot = () => lastStationSlot() + STATION_SLOT_MS;
+
+// Vero se l'ultima lettura è precedente all'ultimo orario programmato: succede all'avvio o
+// quando l'app era in background al momento della lettura (si recupera subito).
+const stationMissedSlot = () => !state.station || state.station.fetchedAt < lastStationSlot();
+
+// Programma la prossima lettura all'orario esatto. Con l'app in background la lettura
+// viene saltata e recuperata al ritorno in primo piano (stationMissedSlot).
+function scheduleStation() {
+  clearTimeout(state.stationTimer);
+  state.stationTimer = setTimeout(() => {
+    if (document.visibilityState === 'visible') loadStation();
+    scheduleStation();
+  }, Math.max(1000, nextStationSlot() - Date.now()));
+}
+
 // Riga "Misurato" del box Adesso: dati reali della centralina.
 function renderObservation() {
   const st = state.station;
@@ -234,7 +257,7 @@ function renderObservation() {
     : '';
   const stat = (label, value) => (value ? `<div><dt>${label}</dt><dd>${value}</dd></div>` : '');
   return `<div class="day obs-row">
-    <div class="day-name"><b class="now-hour">${when}</b><span class="muted small">Misurato${stale ? ' · <span class="obs-stale">non aggiornato</span>' : ''}</span></div>
+    <div class="day-name"><b class="now-hour">${when}</b><span class="muted small">Misurato${stale ? ' · <span class="obs-stale">non aggiornato</span>' : ''}</span><span class="muted small">prossima lettura ${localDateTime(nextStationSlot() - STATION_SLOT_DELAY_MS, timezone, utcOffset).time}</span></div>
     <article class="obs-card">
       <header><span class="obs-tag">Centralina</span><a class="muted small" href="${STATION.site}" target="_blank" rel="noopener" title="${esc(STATION.fullName)}">${esc(STATION.name)}</a></header>
       <div class="obs-body">
@@ -865,7 +888,6 @@ function registerServiceWorker() {
 // aperta, riscarica le previsioni quando la cache scade (l'orario indicato come "prossimo").
 setInterval(() => {
   if (!state.data || document.visibilityState !== 'visible') return;
-  if (navigator.onLine && (!state.station || Date.now() - state.station.fetchedAt > STATION_REFRESH_MS)) loadStation();
   if (!state.loading && navigator.onLine && !store.isFresh(state.data)) {
     load();
     return;

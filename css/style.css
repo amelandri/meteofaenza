@@ -190,7 +190,9 @@ button { font: inherit; color: inherit; }
 .status-art { margin-bottom: 16px; }
 .status p { color: var(--muted); margin: 0 0 18px; text-wrap: pretty; }
 
-.meta-line { font-size: .8rem; margin: 0 0 16px; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+/* Informazioni di aggiornamento (download, orari locali, run dei modelli): nel piè di pagina */
+.meta-line { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; margin: 0 0 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.meta-line:empty { display: none; }
 .run { display: inline-flex; align-items: center; gap: 5px; }
 .dot-i2i, .dot-eu { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .dot-i2i { background: var(--i2i); }
