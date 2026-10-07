@@ -430,7 +430,7 @@ function sunTimes(daily, d) {
   return `<div class="sun">
     <span class="sun-pill rise" title="Alba">${sunEventIcon('rise', 18)}${hourLabel(rise)}</span>
     <span class="sun-pill set" title="Tramonto">${sunEventIcon('set', 18)}${hourLabel(set)}</span>
-    ${light ? `<span class="daylight muted">${light} di luce</span>` : ''}
+    ${light ? `<span class="daylight muted" title="Durata del giorno (dall'alba al tramonto)"><span class="long">${light} di luce</span><span class="short">${light.replace(' h ', 'h ').replace(' min', 'm')}</span></span>` : ''}
     ${rainChance(daily.precipitation_probability_max?.[d])}
   </div>`;
 }
@@ -441,7 +441,7 @@ const DROP = '<svg class="drop" viewBox="0 0 16 16" width="13" height="13" aria-
 function rainChance(p) {
   if (p == null) return '';
   return `<span class="pop" title="Probabilità di precipitazioni (massima del giorno). Stima generale da modelli ensemble, non specifica di ICON-2I o ICON-EU.">
-    ${DROP}<b>${fmt(p)}%</b><span class="muted">pioggia</span>
+    ${DROP}<b>${fmt(p)}%</b><span class="muted pop-word">pioggia</span>
   </span>`;
 }
 
@@ -541,11 +541,14 @@ function bikeWindow(day, w, hourIdx) {
   return { w, status, models, avail, pop, popExact, popMembers, popTotal, mean: mms.reduce((a, b) => a + b, 0) / mms.length, min: Math.min(...mms), max: Math.max(...mms) };
 }
 
+// Icone dello stato (16×16, tratto): sole = asciutto, nuvola = rischio,
+// nuvola con goccia = incerto, ombrello = pioggia.
+const BIKE_CLOUD = '<path d="M4.6 11.2h6.9a2.6 2.6 0 0 0 .2-5.2 3.6 3.6 0 0 0-6.9 1A2.1 2.1 0 0 0 4.6 11.2z"/>';
 const BIKE_STATUS = {
-  dry: { label: 'Asciutto', icon: '<path d="m3.5 8.5 3 3 6-6.5"/>' },
-  risk: { label: 'Rischio', icon: '<path d="M8 3.5v5.5"/><path d="M8 12.2v.3"/>' },
-  mixed: { label: 'Incerto', icon: '<path d="M6 6a2 2 0 1 1 2.8 1.8c-.5.3-.8.7-.8 1.3v.6"/><path d="M8 12.2v.3"/>' },
-  wet: { label: 'Pioggia', icon: '<path d="M2.5 8a5.5 5.5 0 0 1 11 0z"/><path d="M8 8v4.5a1.3 1.3 0 0 1-2.6 0"/>' },
+  dry: { label: 'Asciutto', icon: '<circle cx="8" cy="8" r="2.9"/><path d="M8 1.6v1.5M8 12.9v1.5M1.6 8h1.5M12.9 8h1.5M3.5 3.5l1 1M11.5 11.5l1 1M3.5 12.5l1-1M11.5 4.5l1-1"/>' },
+  risk: { label: 'Rischio', icon: `<g transform="translate(0 .6)">${BIKE_CLOUD}</g>` },
+  mixed: { label: 'Incerto', icon: `<g transform="translate(0 -1.6)">${BIKE_CLOUD}</g><path d="M8 11.8l-.9 2.4"/>` },
+  wet: { label: 'Pioggia', icon: '<path d="M2.2 8.3a5.8 5.8 0 0 1 11.6 0z"/><path d="M8 8.3v4.6a1.4 1.4 0 0 1-2.8 0"/><path d="M8 2.5v-.9"/>' },
   na: { label: 'n.d.', icon: '' },
 };
 const BIKE_ICON = '<svg class="bike-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="5.5" cy="16.5" r="3.5"/><circle cx="18.5" cy="16.5" r="3.5"/><path d="M5.5 16.5 9 9h6l3.5 7.5M9 9l3.5 7.5L15 9M8 6.5h3M15 9l-1-2.5h2.5"/></svg>';
@@ -568,13 +571,16 @@ function renderBike(commute, day, hourIdx, today, nowMin) {
         ? `Probabilità di pioggia nel tragitto ${x.pop}% (${x.popMembers} scenari su ${x.popTotal} di ${state.data.ensemble.model})`
         : `Probabilità ~${x.pop}% (stima: massima oraria, ensemble non disponibile)`;
     }
-    const tip = `Tragitto ${x.w.from}–${x.w.to}: ${st.label}. ${detail}. ${popTxt}`;
-    return `<span class="bike-chip st-${x.status}${past}" title="${tip}">
+    // Dettaglio: tooltip su desktop, avviso al tocco su mobile (dove mm e "solo EU" sono nascosti).
+    const tip = `Tragitto ${x.w.from}–${x.w.to}: ${st.label}${mm ? ` (${mm})` : ''}\n${detail}${x.avail.length === 1 ? ` (solo ${x.avail[0].m.name})` : ''}\n${popTxt}`;
+    return `<button type="button" class="bike-chip st-${x.status}${past}" title="${esc(tip)}" data-tip="${esc(tip)}">
       <span class="bike-time">${range}</span>
-      <span class="bike-st">${st.icon ? `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">${st.icon}</svg>` : ''}${st.label}</span>
-      ${mm ? `<span class="bike-mm">${mm}</span>` : ''}${only}
-      ${x.pop != null ? `<span class="bike-pop">${DROP}${x.popExact ? '' : '~'}${fmt(x.pop)}%</span>` : ''}
-    </span>`;
+      <span class="bike-info">
+        <span class="bike-st" aria-label="${st.label}">${st.icon ? `<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">${st.icon}</svg>` : ''}<span class="bike-st-label">${st.label}</span></span>
+        ${mm ? `<span class="bike-mm">${mm}</span>` : ''}${only}
+        ${x.pop != null ? `<span class="bike-pop">${DROP}${x.popExact ? '' : '~'}${fmt(x.pop)}%</span>` : ''}
+      </span>
+    </button>`;
   }).join('');
   return `<div class="bike">
     <span class="bike-label">${BIKE_ICON}<span>${commute.label}</span></span>
@@ -635,8 +641,11 @@ function renderDaily() {
     if (ag) {
       const dmax = vals.i2i.tmax - vals.eu.tmax;
       const dp = (vals.i2i.prec ?? 0) - (vals.eu.prec ?? 0);
-      delta = `<div class="dd"><button type="button" class="agree ${ag.cls}" title="${esc(ag.reason)}" data-reason="${esc(ag.reason)}">${ag.label}<span class="agree-i" aria-hidden="true">i</span></button>
-        <span class="muted small">Δ max ${fmtSigned(dmax)}° · Δ pioggia ${fmtSigned(dp)} mm <span class="hint">(2I − EU)</span></span></div>`;
+      const diff = `Δ max ${fmtSigned(dmax)}° · Δ pioggia ${fmtSigned(dp)} mm`;
+      // Le differenze sono anche nel tooltip/avviso: su mobile la riga .dd-diff è nascosta.
+      const reason = `${ag.reason}\n${diff} (2I − EU)`;
+      delta = `<div class="dd"><button type="button" class="agree ${ag.cls}" title="${esc(reason)}" data-reason="${esc(reason)}" aria-label="${esc(reason)}">${ag.label}<span class="agree-i" aria-hidden="true">i</span></button>
+        <span class="muted small dd-diff">${diff} <span class="hint">(2I − EU)</span></span></div>`;
     }
     return `<div class="day">
       <div class="day-name"><b>${dayRelative(day, today)}</b>${sunTimes(daily, d)}</div>
@@ -682,6 +691,7 @@ function fitBikes() {
   }
   daily.style.setProperty('--bike-chip-w', `${width}px`);
   daily.style.setProperty('--bike-cols', String(cols));
+  daily.style.setProperty('--bike-max', String(maxCols)); // usato dal layout mobile
   daily.classList.add('bikes-sized');
 }
 
@@ -820,8 +830,20 @@ function bindControls() {
   $('#retry-btn').addEventListener('click', () => load({ force: true }));
 
   $('#daily').addEventListener('click', (e) => {
-    const badge = e.target.closest('.agree[data-reason]');
-    if (badge) toast(badge.dataset.reason, 9000);
+    // Etichetta di concordanza e blocchi dei tragitti: dettaglio in un avviso.
+    const el = e.target.closest('.agree[data-reason], .bike-chip[data-tip]');
+    if (!el) return;
+    const text = el.dataset.reason || el.dataset.tip;
+    // Secondo tap sullo stesso elemento: chiude l'avviso.
+    if (!$('#toast').hidden && $('#toast').dataset.source === text) hideToast();
+    else toast(text, 9000, text);
+  });
+
+  // L'avviso si chiude toccandolo o toccando un qualsiasi altro punto della pagina.
+  $('#toast').addEventListener('click', hideToast);
+  document.addEventListener('click', (e) => {
+    if ($('#toast').hidden || e.target.closest('#toast, .agree[data-reason], .bike-chip[data-tip]')) return;
+    hideToast();
   });
 
   $('#var-tabs').addEventListener('click', (e) => {
@@ -857,12 +879,22 @@ function bindControls() {
 // --- Notifiche --------------------------------------------------------------------------
 
 let toastTimer;
-function toast(msg, ms = 4000) {
+// `source` identifica chi ha aperto l'avviso (es. il motivo della concordanza), per poterlo
+// richiudere con un secondo tap sullo stesso elemento.
+function toast(msg, ms = 4000, source = '') {
   const el = $('#toast');
   el.textContent = msg;
+  el.dataset.source = source;
   el.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.hidden = true; }, ms);
+  toastTimer = setTimeout(hideToast, ms);
+}
+
+function hideToast() {
+  clearTimeout(toastTimer);
+  const el = $('#toast');
+  el.hidden = true;
+  el.dataset.source = '';
 }
 
 function setBanner(msg) {

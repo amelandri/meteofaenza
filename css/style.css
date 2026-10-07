@@ -217,7 +217,9 @@ button { font: inherit; color: inherit; }
 .now-stats dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
 .now-stats small { color: var(--muted); font-weight: 500; }
 /* Riga "Misurato" (centralina) sopra i box dei modelli: occupa entrambe le colonne. */
-.obs-row { padding: 0 0 12px 0 !important; }
+.obs-row { padding: 0 !important; }
+/* Solo etichetta e box: niente righe vuote per concordanza e tragitti */
+.obs-row { grid-template-areas: "name models"; }
 .obs-card {
   grid-area: models;
   min-width: 0;
@@ -253,6 +255,8 @@ button { font: inherit; color: inherit; }
   margin-bottom: 16px;
 }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.sources { display: none; align-items: center; gap: 12px; font-size: .76rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.sources span { display: inline-flex; align-items: center; gap: 5px; }
 .card-head.wrap { flex-wrap: wrap; }
 .legend { display: flex; gap: 12px; font-size: .8rem; font-weight: 600; }
 .key { display: inline-flex; align-items: center; gap: 6px; }
@@ -288,6 +292,7 @@ button { font: inherit; color: inherit; }
 .sun-pill.rise { background: linear-gradient(120deg, var(--dawn-a), var(--dawn-b)); color: var(--dawn-text); }
 .sun-pill.set { background: linear-gradient(120deg, var(--dusk-a), var(--dusk-b)); color: var(--dusk-text); }
 .daylight { flex-basis: 100%; font-size: .74rem; }
+.daylight .short { display: none; }
 .pop { flex-basis: 100%; display: flex; align-items: center; gap: 4px; font-size: .78rem; margin-top: 2px; white-space: nowrap; }
 .pop b { color: var(--rain); font-weight: 700; }
 .pop .drop { fill: var(--rain); flex: none; }
@@ -419,7 +424,12 @@ button { font: inherit; color: inherit; }
   font-variant-numeric: tabular-nums;
   background: color-mix(in srgb, var(--st) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--st) 28%, transparent);
+  font-family: inherit;
+  color: var(--text);
+  cursor: pointer; /* al tocco mostra il dettaglio */
 }
+.bike-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bike-info { display: contents; } /* su desktop i dati stanno in riga con l'orario */
 .bike-chip.st-dry { --st: var(--good); }
 .bike-chip.st-wet { --st: var(--rain); }
 .bike-chip.st-mixed, .bike-chip.st-risk { --st: var(--mid); }
@@ -603,11 +613,14 @@ button { font: inherit; color: inherit; }
 .footer a { color: inherit; }
 
 .toast {
+  cursor: pointer; /* un tap lo chiude */
   white-space: pre-line;
   position: fixed;
   left: 50%;
   bottom: calc(20px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
+  /* left: 50% ridurrebbe la larghezza disponibile a metà schermo: larghezza esplicita */
+  width: max-content;
   max-width: min(92vw, 480px);
   background: var(--text);
   color: var(--bg);
@@ -655,7 +668,38 @@ body.loading #forecast { opacity: .5; }
   .sl-name { display: none; }
   /* Su mobile niente riga di intestazione delle fasce: le ore stanno dentro i box */
   .slots-legend { display: none; }
-  .slots-model { padding-bottom: 0; }
+  /* Fonte dei dati nel titolo della card al posto dei nomi sopra le colonne */
+  /* Alba, tramonto, durata della luce e probabilità di pioggia su una sola riga (forme brevi).
+     Se accanto al nome del giorno non c'è spazio, la riga va a capo tutta insieme. */
+  .day-name { flex-wrap: wrap; align-items: center; row-gap: 6px; }
+  /* La riga occupa tutto lo spazio disponibile (anche quando va a capo) e la probabilità
+     di pioggia è spinta sul bordo destro */
+  .sun { flex: 1 0 auto; flex-wrap: nowrap; gap: 6px; margin-top: 0; }
+  .sun .pop { margin-left: auto; }
+  .daylight, .pop { flex-basis: auto; margin-top: 0; }
+  .daylight .long, .pop-word { display: none; }
+  .daylight .short { display: inline; white-space: nowrap; }
+  .sun-pill { gap: 3px; padding: 1px 7px 1px 4px; font-size: .74rem; }
+  .sun-pill .sun-ev { width: 15px; height: 15px; }
+  /* Differenze Δ solo nel tooltip/avviso dell'etichetta di concordanza */
+  .dd-diff { display: none; }
+  .obs-row { grid-template-areas: "name" "models"; }
+  /* Tragitti: per ogni tragitto una sola riga di blocchi a colonne uguali; nel blocco
+     l'orario sopra e icona di stato + probabilità sotto. mm e "solo EU" nell'avviso. */
+  #daily .bikes { grid-template-columns: minmax(0, 1fr); row-gap: 6px; }
+  #daily .bike-label, #daily .bike-chips { grid-column: 1; }
+  #daily .bike-chips, #daily.bikes-sized .bike-chips { display: grid; grid-template-columns: repeat(var(--bike-max, 3), minmax(0, 1fr)); gap: 6px; margin-bottom: 4px; }
+  .bike-label { height: auto; margin-top: 4px; }
+  .bike-chip { flex-direction: column; justify-content: center; gap: 2px; height: auto; min-width: 0; padding: 5px 4px; }
+  .bike-time { font-size: .72rem; }
+  .bike-info { display: inline-flex; align-items: center; gap: 6px; }
+  .bike-st-label, .bike-mm, .bike-only, .bike-pop .drop { display: none; }
+  .bike-pop { font-size: .74rem; font-weight: 650; }
+  .slots-head { display: none; }
+  .sources { display: inline-flex; }
+  /* Pallino del modello in alto a destra in ogni box (stesso colore della legenda) */
+  .dm { position: relative; }
+  .dm::after { content: ""; position: absolute; top: 7px; right: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--mc); }
   .slot-tick { display: block; }
   .slots { margin-top: 10px; padding-top: 8px; }
 
