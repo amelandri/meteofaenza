@@ -1,0 +1,721 @@
+/* ---------------------------------------------------------------------------
+   Meteo a confronto — stile
+   Colori dei modelli: ICON-2I = verde acqua, ICON-EU = arancio.
+--------------------------------------------------------------------------- */
+
+:root {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --border: #e3e6eb;
+  --text: #121826;
+  --muted: #5d6676;
+  --accent: #1f4fd1;
+
+  --i2i: #0f8a7e;
+  --i2i-soft: #e1f3f0;
+  --eu: #d9620f;
+  --eu-soft: #fcebdc;
+
+  --good: #1d8a4c;
+  --mid: #b07a05;
+  --bad: #c2362f;
+  --rain: #2563eb;
+  --obs: #6b46d6; /* centralina meteo (dato misurato) */
+
+  --sun: #f2a516;
+  --sunset: #ec6a2c;
+  --dawn-a: #fff3cf; --dawn-b: #ffe1c4; --dawn-text: #8a4a00;
+  --dusk-a: #ffdcc9; --dusk-b: #e7dcff; --dusk-text: #6a2f6e;
+  --cloud: #c9d1dc;
+  --cloud-dark: #8592a5;
+  --moon: #9aa8bd;
+  /* Icone sui box a sfondo grigio (schede dei modelli): più contrastate */
+  --cloud-box: #b2bdcc;
+  --cloud-box-line: #75849b;
+  --cloud-box-dark: #7a879c;
+  --moon-box: #7f8fa8;
+
+  --radius: 14px;
+  --page-w: 1180px; /* larghezza massima di barra superiore, contenuto e piè di pagina */
+  --label-w: 150px; /* colonna etichetta delle righe "Adesso" e "Prossimi giorni" */
+  --slot-sep: color-mix(in srgb, var(--text) 11%, transparent); /* separatore tra le fasce orarie */
+  --shadow: 0 1px 2px rgb(16 24 40 / .04), 0 2px 8px rgb(16 24 40 / .05);
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0c111b;
+    --surface: #141b28;
+    --surface-2: #1b2433;
+    --border: #263042;
+    --text: #e8ecf3;
+    --muted: #94a0b4;
+    --accent: #7ea2ff;
+
+    --i2i: #34c7b5;
+    --i2i-soft: #11312f;
+    --eu: #ff9346;
+    --eu-soft: #3a2414;
+
+    --good: #4ccf83;
+    --mid: #e7b43a;
+    --bad: #ff7369;
+    --rain: #6aa1ff;
+    --obs: #a98bff;
+
+    --sunset: #ff8a50;
+    --dawn-a: #3d2d10; --dawn-b: #40250f; --dawn-text: #ffd27a;
+    --dusk-a: #42200f; --dusk-b: #2e2346; --dusk-text: #ffb59a;
+    --cloud: #7c899d;
+    --cloud-dark: #56627a;
+    --moon: #c8d2e3;
+    --cloud-box: #8e9bb0;
+    --cloud-box-line: #c3ccd9;
+    --cloud-box-dark: #66738a;
+    --moon-box: #d3dbe8;
+
+    --shadow: none;
+    color-scheme: dark;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.45;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1, h2 { margin: 0; line-height: 1.2; }
+h1 { font-size: 1.6rem; letter-spacing: -.02em; }
+h2 { font-size: 1.02rem; letter-spacing: -.005em; }
+a { color: var(--accent); }
+button { font: inherit; color: inherit; }
+.muted { color: var(--muted); }
+.small { font-size: .82rem; }
+.c-i2i { color: var(--i2i); }
+.c-eu { color: var(--eu); }
+[hidden] { display: none !important; }
+
+/* --- Barra superiore -------------------------------------------------------- */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px);
+  -webkit-backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid var(--border);
+  padding-top: env(safe-area-inset-top);
+}
+.topbar-inner {
+  max-width: var(--page-w);
+  margin: 0 auto;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--text); }
+.brand img { flex: none; }
+.brand-text { min-width: 0; }
+.brand-name { margin: 0; font-size: 1.15rem; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; white-space: nowrap; }
+.brand-sub { margin: 1px 0 0; font-size: .76rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+
+
+.icon-btn {
+  width: 36px; height: 36px;
+  display: inline-grid; place-items: center;
+  border: 0; border-radius: 9px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted);
+  flex: none;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--text); }
+.icon-btn:disabled { cursor: default; }
+.icon-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.icon-btn.spinning svg { animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 40px; padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-ghost { background: transparent; color: var(--text); border-color: var(--border); }
+.btn-ghost:hover { background: var(--surface-2); }
+.btn-block { width: 100%; margin-top: 12px; }
+
+.banner {
+  background: var(--mid);
+  color: #1b1300;
+  text-align: center;
+  font-size: .88rem;
+  font-weight: 600;
+  padding: 6px 16px;
+}
+
+/* --- Contenuto ---------------------------------------------------------------- */
+
+.container {
+  width: 100%;
+  max-width: var(--page-w);
+  margin: 0 auto;
+  padding: 16px 16px 24px;
+  flex: 1;
+}
+
+.status { text-align: center; max-width: 520px; margin: 10vh auto 0; }
+.status-art { margin-bottom: 16px; }
+.status p { color: var(--muted); margin: 0 0 18px; text-wrap: pretty; }
+
+.meta-line { font-size: .8rem; margin: 0 0 16px; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+.run { display: inline-flex; align-items: center; gap: 5px; }
+.dot-i2i, .dot-eu { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot-i2i { background: var(--i2i); }
+.dot-eu { background: var(--eu); }
+
+/* --- Adesso --------------------------------------------------------------------
+   Usa la stessa griglia di .day (colonna etichetta + due colonne modello),
+   così le schede sono allineate con quelle di "Prossimi giorni". */
+
+.m-i2i { --mc: var(--i2i); --mc-soft: var(--i2i-soft); }
+.m-eu { --mc: var(--eu); --mc-soft: var(--eu-soft); }
+.model-tag { font-weight: 700; color: var(--mc); letter-spacing: .01em; }
+
+.now-row { padding: 0; }
+.now-hour { font-size: 1.6rem; font-weight: 650; letter-spacing: -.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.now-card {
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border-left: 3px solid var(--mc);
+}
+.now-card header { display: flex; align-items: baseline; justify-content: space-between; gap: 2px 8px; flex-wrap: wrap; }
+.now-main { display: flex; align-items: center; gap: 12px; margin: 6px 0 8px; }
+.now-temp { font-size: 2.2rem; font-weight: 650; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.now-temp span { font-size: 1rem; font-weight: 500; color: var(--muted); margin-left: 2px; }
+.now-desc { color: var(--muted); font-size: .9rem; margin-top: 4px; }
+/* Etichetta e valore sulla stessa riga */
+.now-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin: 0; }
+.now-stats div { min-width: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.now-stats dt { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); white-space: nowrap; }
+.now-stats dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.now-stats small { color: var(--muted); font-weight: 500; }
+/* Riga "Misurato" (centralina) sopra i box dei modelli: occupa entrambe le colonne. */
+.obs-row { padding: 0 0 12px 0 !important; }
+.obs-row + .now-row { padding : 12px 0 0 0 !important; }
+.obs-card {
+  grid-area: models;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border-left: 3px solid var(--obs);
+  container-type: inline-size;
+}
+.obs-card header { display: flex; align-items: baseline; justify-content: space-between; gap: 2px 8px; flex-wrap: wrap; }
+.obs-card header a { color: var(--muted); }
+.obs-tag { font-weight: 700; color: var(--obs); letter-spacing: .01em; }
+.obs-body { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.obs-main { display: flex; align-items: baseline; gap: 4px 14px; flex-wrap: wrap; }
+.obs-stats { grid-template-columns: 1fr 1fr; }
+.obs-stale { color: var(--mid); font-weight: 650; }
+.now-vs { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+.now-vs b { white-space: nowrap; }
+.now-vs b { color: var(--obs); font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Box della centralina: dati a destra della temperatura su 2 colonne, 3 se c'è spazio */
+@container (min-width: 560px) {
+  .obs-body { flex-direction: row; align-items: center; gap: 24px; }
+  .obs-main { flex-direction: column; align-items: flex-start; flex: none; }
+  .obs-stats { flex: 1; grid-template-columns: repeat(2, 1fr); column-gap: 20px; padding-left: 20px; border-left: 1px solid var(--slot-sep); }
+}
+@container (min-width: 820px) {
+  .obs-stats { grid-template-columns: repeat(3, 1fr); }
+}
+.stale { margin: 0; color: var(--mid); font-weight: 600; }
+.na { color: var(--muted); }
+
+/* --- Card ---------------------------------------------------------------------- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.card-head.wrap { flex-wrap: wrap; }
+.legend { display: flex; gap: 12px; font-size: .8rem; font-weight: 600; }
+.key { display: inline-flex; align-items: center; gap: 6px; }
+.key::before { content: ""; width: 14px; height: 3px; border-radius: 2px; background: currentColor; }
+.key-i2i { color: var(--i2i); }
+.key-eu { color: var(--eu); }
+
+/* --- Giorni -------------------------------------------------------------------- */
+
+.daily { display: flex; flex-direction: column; }
+.day {
+  display: grid;
+  grid-template-columns: var(--label-w) 1fr;
+  grid-template-areas: "name models" ". delta" "bike bike";
+  gap: 6px 16px;
+  padding: 30px 0;
+  border-top: 1px solid var(--border);
+}
+.day:first-child { border-top: 0; padding-top: 0; }
+.day-name { grid-area: name; display: flex; flex-direction: column; justify-content: center; }
+.day-models { grid-area: models; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.sun { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.sun-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px 2px 5px;
+  border-radius: 6px;
+  font-size: .8rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.sun-pill.rise { background: linear-gradient(120deg, var(--dawn-a), var(--dawn-b)); color: var(--dawn-text); }
+.sun-pill.set { background: linear-gradient(120deg, var(--dusk-a), var(--dusk-b)); color: var(--dusk-text); }
+.daylight { flex-basis: 100%; font-size: .74rem; }
+.pop { flex-basis: 100%; display: flex; align-items: center; gap: 4px; font-size: .78rem; margin-top: 2px; white-space: nowrap; }
+.pop b { color: var(--rain); font-weight: 700; }
+.pop .drop { fill: var(--rain); flex: none; }
+
+/* Icona alba/tramonto */
+.sun-ev { flex: none; overflow: visible; }
+.sun-ev .disc { fill: var(--sun); }
+.sun-ev.set .disc { fill: var(--sunset); }
+.sun-ev .rays { stroke: var(--sun); stroke-width: 1.6; stroke-linecap: round; }
+.sun-ev.set .rays { stroke: var(--sunset); }
+.sun-ev .hz { stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; opacity: .55; }
+.sun-ev .arr { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.dd { grid-area: delta; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.dm {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas: "ico temps prec" "ico temps gust" "slots slots slots";
+  align-items: center;
+  gap: 0 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border-left: 3px solid var(--mc);
+  font-variant-numeric: tabular-nums;
+}
+.dm .wi { grid-area: ico; }
+.dm .temps { grid-area: temps; display: flex; gap: 8px; align-items: baseline; font-size: 1.05rem; }
+.dm .prec { grid-area: prec; text-align: right; font-weight: 600; font-size: .9rem; }
+.dm .gust { grid-area: gust; text-align: right; font-size: .78rem; }
+.dm small { font-weight: 500; color: var(--muted); }
+.dm.dm-empty { display: flex; align-items: center; gap: 8px; }
+.dm .partial { grid-column: 1 / -1; }
+
+/* Fasce di 6 ore (notte, mattina, pomeriggio, sera) dentro ogni scheda giornaliera. */
+.slots {
+  grid-area: slots;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+}
+.dm .partial + .slots { grid-area: auto; grid-column: 1 / -1; }
+.slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
+  font-size: .82rem;
+  line-height: 1.2;
+}
+.slot b { font-weight: 650; }
+.slot .wet { font-size: .74rem; font-weight: 600; }
+.slot .dry { font-size: .74rem; }
+.slot.na { justify-content: center; color: var(--muted); }
+.slot.past { opacity: .45; }
+/* Separatore verticale tra le fasce */
+.slot + .slot { border-left: 1px solid var(--slot-sep); }
+.slots-head { padding: 0 0 4px; border-top: 0; }
+.slots-head + .day { border-top: 0; padding-top: 4px; }
+.slots-legend {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 0 10px 0 13px; /* come .dm: padding + bordo sinistro */
+  font-size: .72rem;
+  color: var(--muted);
+  text-align: center;
+}
+.slots-legend > span { display: flex; flex-direction: column; line-height: 1.25; }
+.sl-name { font-weight: 650; color: var(--text); }
+.wet { color: var(--rain); }
+.agree { display: inline-flex; align-items: center; gap: 5px; font: inherit; font-size: .74rem; font-weight: 650; padding: 2px 4px 2px 8px; border: 0; border-radius: 6px; white-space: nowrap; cursor: help; }
+.agree-i { display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; font-size: .62rem; font-weight: 700; font-style: italic; font-family: Georgia, serif; background: color-mix(in srgb, currentColor 18%, transparent); }
+.agree:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.agree.good { color: var(--good); background: color-mix(in srgb, var(--good) 13%, transparent); }
+.agree.mid { color: var(--mid); background: color-mix(in srgb, var(--mid) 15%, transparent); }
+.agree.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 13%, transparent); }
+.hint { opacity: .75; }
+
+/* --- Bike to work ---------------------------------------------------------------- */
+
+.bike-area { grid-area: bike; min-width: 0; margin-top: 10px; }
+/* Righe dei tragitti: etichetta + blocchi. Tutte le righe condividono la stessa colonna
+   dei blocchi, quindi work e school restano allineati. */
+/* Su desktop le etichette stanno nella colonna dei nomi dei giorni e i blocchi partono
+   dove iniziano i box dei modelli (stessa larghezza di colonna e stesso spazio di .day). */
+.bikes { display: grid; grid-template-columns: var(--label-w) 1fr; gap: 6px 16px; align-items: start; }
+.bike { display: contents; }
+.bike-label { grid-column: 1; display: inline-flex; align-items: center; gap: 6px; height: 28px; font-size: .78rem; font-weight: 650; color: var(--muted); white-space: nowrap; }
+.bike-ico { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+/* Prima della misura (fitBikes) i blocchi hanno la larghezza naturale */
+.bike-chips { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+/* Dopo la misura: colonne tutte larghe quanto il blocco più largo */
+#daily.bikes-sized .bike-chips { display: grid; grid-template-columns: repeat(var(--bike-cols, 3), var(--bike-chip-w)); }
+/* Nessuna colonna accanto all'etichetta: etichetta sopra i blocchi */
+#daily.bikes-stacked .bikes { grid-template-columns: 1fr; row-gap: 4px; }
+#daily.bikes-stacked .bike-label, #daily.bikes-stacked .bike-chips { grid-column: 1; }
+#daily.bikes-stacked .bike-chips { margin-bottom: 4px; }
+.bike-chip {
+  --st: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px 0 8px;
+  border-radius: 6px;
+  font-size: .78rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--st) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--st) 28%, transparent);
+}
+.bike-chip.st-dry { --st: var(--good); }
+.bike-chip.st-wet { --st: var(--rain); }
+.bike-chip.st-mixed, .bike-chip.st-risk { --st: var(--mid); }
+.bike-chip.past { opacity: .45; }
+.bike-time { font-weight: 700; color: var(--text); }
+.bike-st { display: inline-flex; align-items: center; gap: 3px; font-weight: 650; color: var(--st); }
+.bike-st svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.bike-mm { color: var(--text); }
+.bike-only { color: var(--muted); font-size: .72rem; }
+.bike-pop { display: inline-flex; align-items: center; gap: 2px; color: var(--muted); }
+.bike-pop .drop { fill: var(--rain); width: 11px; height: 11px; }
+
+/* --- Grafico ------------------------------------------------------------------- */
+
+.seg { display: inline-flex; background: var(--surface-2); border-radius: 9px; padding: 3px; }
+.seg button { border: 0; background: none; padding: 4px 10px; border-radius: 7px; font-size: .82rem; font-weight: 600; color: var(--muted); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
+
+.tabs { display: flex; gap: 6px; overflow-x: auto; margin: 0 -16px 10px; padding: 0 16px 2px; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs button {
+  flex: none;
+  border: 1px solid var(--border);
+  background: none;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: .85rem;
+  font-weight: 550;
+  color: var(--muted);
+  cursor: pointer;
+}
+.tabs button[aria-selected="true"] { background: var(--text); border-color: var(--text); color: var(--bg); }
+
+.chart { position: relative; width: 100%; min-height: 220px; }
+.chart-svg { display: block; width: 100%; height: auto; font-family: var(--font); touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.chart-svg .band { fill: var(--surface-2); }
+.chart-svg .grid { stroke: var(--border); stroke-width: 1; }
+.chart-svg .xtick { stroke: var(--border); }
+.chart-svg .tick { fill: var(--muted); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.chart-svg .unit { font-weight: 600; }
+.chart-svg .day-label { fill: var(--text); font-size: 11px; font-weight: 600; }
+.chart-svg .line { fill: none; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+.chart-svg .line.dash { stroke-dasharray: 4 3; stroke-width: 1.5; opacity: .85; }
+.chart-svg .s-i2i { stroke: var(--i2i); }
+.chart-svg .s-eu { stroke: var(--eu); }
+.chart-svg .bar.s-i2i { fill: var(--i2i); stroke: none; }
+.chart-svg .bar.s-eu { fill: var(--eu); stroke: none; }
+.chart-svg .now { stroke: var(--text); stroke-width: 1; stroke-dasharray: 2 3; opacity: .55; }
+.chart-svg .cursor-line { stroke: var(--muted); stroke-width: 1; }
+.chart-svg .dot { stroke: var(--surface); stroke-width: 2; }
+.chart-svg .dot.s-i2i { fill: var(--i2i); }
+.chart-svg .dot.s-eu { fill: var(--eu); }
+.chart-svg .hit { fill: transparent; cursor: crosshair; }
+
+.chart-tip {
+  position: absolute;
+  pointer-events: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / .16);
+  padding: 8px 10px;
+  font-size: .8rem;
+  min-width: 170px;
+  z-index: 2;
+}
+.tip-head { font-weight: 700; margin-bottom: 4px; }
+.tip-row { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.tip-row b { margin-left: auto; padding-left: 12px; font-variant-numeric: tabular-nums; }
+.tip-diff { border-top: 1px solid var(--border); margin-top: 5px; padding-top: 4px; font-variant-numeric: tabular-nums; }
+.sw { width: 12px; height: 3px; border-radius: 2px; display: inline-block; flex: none; }
+.sw.s-i2i { background: var(--i2i); }
+.sw.s-eu { background: var(--eu); }
+.sw.dash { background: repeating-linear-gradient(90deg, currentColor 0 3px, transparent 3px 5px); }
+.sw.dash.s-i2i { color: var(--i2i); }
+.sw.dash.s-eu { color: var(--eu); }
+.chart-note { font-size: .8rem; margin: 8px 0 0; min-height: 1em; }
+
+/* --- Sezione collassabile ------------------------------------------------------ */
+
+.collapse-head { margin: 0; font-size: 1.02rem; }
+.collapsible.open .collapse-head { margin-bottom: 12px; }
+.collapse-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.collapse-btn > span:first-child { flex: 1; }
+.collapse-hint { font-size: .8rem; font-weight: 600; }
+.collapse-btn .chev {
+  width: 20px; height: 20px; flex: none;
+  fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  transition: transform .2s ease;
+}
+.collapsible.open .chev { transform: rotate(180deg); }
+.collapse-btn:hover .chev, .collapse-btn:hover .collapse-hint { stroke: var(--text); color: var(--text); }
+.collapse-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 6px; }
+
+/* --- Tabella oraria ------------------------------------------------------------- */
+
+.table-wrap { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
+.hourly { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: .9rem; }
+.hourly th, .hourly td { padding: 4px 6px; text-align: center; white-space: nowrap; }
+.hourly thead th { font-size: .74rem; font-weight: 650; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.hourly thead .models th { padding-top: 0; font-size: .7rem; }
+.hourly thead .models .c-i2i { color: var(--i2i); }
+.hourly thead .models .c-eu { color: var(--eu); }
+.hourly tbody th { font-weight: 600; text-align: left; color: var(--muted); }
+.hourly .first { border-left: 1px solid var(--border); }
+.hourly td.m-i2i { background: color-mix(in srgb, var(--i2i-soft) 55%, transparent); }
+.hourly td.na { color: var(--muted); background: none; }
+.hourly td .wi { vertical-align: middle; }
+.hourly tr.day-sep th {
+  text-align: left;
+  padding: 14px 6px 6px;
+  font-size: .8rem;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: 0;
+  border-bottom: 1px solid var(--border);
+}
+.hourly tr.sun-row th { color: var(--row-text); font-weight: 700; }
+/* Riga alba/tramonto in un'unica cella: l'orario esatto non allarga la colonna "Ora". */
+.sun-line { display: flex; align-items: center; gap: 18px; height: 20px; }
+.sun-time { font-variant-numeric: tabular-nums; }
+.hourly thead .sm { display: none; }
+.hourly tr.sun-row.rise { --row-text: var(--dawn-text); background: linear-gradient(90deg, var(--dawn-a), var(--dawn-b) 45%, transparent); }
+.hourly tr.sun-row.set { --row-text: var(--dusk-text); background: linear-gradient(90deg, var(--dusk-a), var(--dusk-b) 45%, transparent); }
+.hourly tr.sun-row > * { padding-top: 4px; padding-bottom: 4px; vertical-align: middle; line-height: 20px; }
+.hourly tr.sun-row > :first-child { border-radius: 8px 0 0 8px; }
+.sun-event { display: flex; align-items: center; gap: 6px; height: 20px; font-weight: 650; font-size: .85rem; line-height: 1; color: var(--row-text); }
+.sun-event .sun-ev { display: block; }
+.hourly td.pop-cell { color: var(--text); font-size: .85em; }
+.hourly td.pop-cell small { color: var(--muted); margin-left: 1px; }
+.hourly .wind { display: inline-flex; align-items: center; gap: 3px; }
+
+.wind-arrow { fill: currentColor; opacity: .75; flex: none; transition: none; }
+
+/* --- Icone meteo ----------------------------------------------------------------- */
+
+.wi { flex: none; overflow: visible; }
+.wi-sun circle { fill: var(--sun); }
+.wi-rays line { stroke: var(--sun); stroke-width: 2; stroke-linecap: round; }
+.wi-moon { fill: var(--moon); }
+.wi-cloud { fill: var(--cloud); stroke: var(--surface); stroke-width: 1.2; }
+.wi-cloud.back { opacity: .7; }
+.wi-cloud.dark { fill: var(--cloud-dark); }
+.wi-drop { stroke: var(--rain); stroke-width: 2; stroke-linecap: round; }
+.wi-drop.heavy { stroke-width: 2.4; }
+.wi-flake { fill: var(--rain); opacity: .8; }
+.wi-bolt { fill: var(--sun); }
+.wi-fog line { stroke: var(--cloud-dark); stroke-width: 2; stroke-linecap: round; }
+
+/* Nelle schede dei modelli lo sfondo è grigio: nuvole più scure e con contorno,
+   così non si confondono con il box. */
+.dm .wi-cloud, .now-card .wi-cloud { fill: var(--cloud-box); stroke: var(--cloud-box-line); stroke-width: 1; }
+.dm .wi-cloud.dark, .now-card .wi-cloud.dark { fill: var(--cloud-box-dark); }
+.dm .wi-cloud.back, .now-card .wi-cloud.back { opacity: .85; }
+.dm .wi-moon, .now-card .wi-moon { fill: var(--moon-box); }
+.dm .wi-fog line, .now-card .wi-fog line { stroke: var(--cloud-box-line); }
+.wi-none { display: inline-block; }
+
+/* --- Piè di pagina e notifiche --------------------------------------------------- */
+
+.footer {
+  max-width: var(--page-w);
+  width: 100%;
+  margin: 0 auto;
+  padding: 8px 16px calc(24px + env(safe-area-inset-bottom));
+  font-size: .78rem;
+}
+.footer p { margin: 2px 0; }
+.footer a { color: inherit; }
+
+.toast {
+  white-space: pre-line;
+  position: fixed;
+  left: 50%;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  max-width: min(92vw, 480px);
+  background: var(--text);
+  color: var(--bg);
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: .88rem;
+  box-shadow: 0 10px 30px rgb(0 0 0 / .25);
+  z-index: 50;
+}
+
+body.loading #forecast { opacity: .5; }
+
+/* --- Responsive ------------------------------------------------------------------ */
+
+@media (max-width: 720px) {
+  .day { grid-template-columns: 1fr; grid-template-areas: "name" "models" "delta" "bike"; gap: 8px; }
+  .bikes { grid-template-columns: auto 1fr; column-gap: 10px; }
+  .day-name { flex-direction: row; justify-content: flex-start; align-items: baseline; gap: 8px; }
+  .slots-head .day-name { display: none; }
+}
+
+@media (max-width: 560px) {
+  .topbar-inner { gap: 10px; }
+  h1 { font-size: 1.35rem; }
+  .brand-sub .coords { display: none; }
+  .now-card { padding: 10px; }
+  .now-hour { font-size: 1.15rem; }
+  .now-card header .small { display: none; } /* provider e risoluzione restano nel piè di pagina */
+  .now-main { gap: 6px; }
+  .now-main .wi { width: 42px; height: 42px; }
+  .now-temp { font-size: 1.8rem; }
+  .now-desc { font-size: .8rem; }
+  .now-stats { grid-template-columns: 1fr; gap: 4px; }
+  .now-stats dd { font-size: .86rem; }
+  .day-models { gap: 6px; }
+  /* Scheda giornaliera compatta: le due colonne restano affiancate come in "Adesso". */
+  .dm {
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "temps ico" "prec gust" "slots slots";
+    gap: 4px 8px;
+    padding: 8px 10px;
+  }
+  .dm .wi { justify-self: end; }
+  .dm .prec { text-align: left; }
+  .dm.dm-empty { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .slot { font-size: .74rem; }
+  .slot .wi { width: 20px; height: 20px; }
+  .slot .wet, .slot .dry { font-size: .66rem; }
+  .sl-name { display: none; }
+  .slots-legend { font-size: .66rem; }
+
+  .card { padding: 14px 12px; }
+  .table-wrap, .tabs { margin: 0 -12px; padding: 0 12px; }
+  .tabs { margin-bottom: 10px; }
+  .hourly { font-size: .82rem; }
+  .hourly th, .hourly td { padding: 3px 2px; }
+  .hourly td .wi { width: 20px; height: 20px; }
+  .hourly .wind-arrow { width: 10px; height: 10px; }
+  .hourly tbody .mm, .hourly td.pop-cell small { display: none; }
+  .hourly thead .lg { display: none; }
+  .hourly thead .sm { display: inline; }
+  .sun-line { gap: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn.spinning svg { animation: none; }
+}
+
+/* --- Fasce: layout affiancato --------------------------------------------------
+   Quando la scheda del modello è abbastanza larga, ogni fascia mostra un'icona più
+   grande con temperatura e pioggia impilate alla sua destra. Su schede strette
+   (mobile) resta il layout verticale. */
+
+.dm { container-type: inline-size; }
+
+@container (min-width: 240px) {
+  .slot:not(.na) {
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-areas: "ico t" "ico p";
+    justify-content: center;
+    align-items: center;
+    column-gap: 6px;
+    row-gap: 0;
+  }
+  .slot .wi { grid-area: ico; width: 28px; height: 28px; }
+  .slot b { grid-area: t; align-self: end; font-size: .88rem; line-height: 1.15; }
+  .slot .wet, .slot .dry { grid-area: p; align-self: start; font-size: .7rem; line-height: 1.2; }
+  .slot:not(.na) { column-gap: 3px; }
+  .slot.na { min-height: 34px; }
+}
+
+@container (min-width: 340px) {
+  .slot:not(.na) { column-gap: 6px; }
+  .slot .wi { width: 36px; height: 36px; }
+  .slot b { font-size: 1rem; }
+  .slot .wet, .slot .dry { font-size: .76rem; }
+  .slot.na { min-height: 40px; }
+}
+
+/* --- Adesso: layout compatto ---------------------------------------------------
+   Se la scheda del modello è abbastanza larga, i dati (percepita, pioggia, vento,
+   umidità) stanno a destra di icona e temperatura, in colonna. */
+
+.now-card { container-type: inline-size; }
+
+@container (min-width: 400px) {
+  /* Solo i box dei modelli: anche il box della centralina è un container */
+  .now-card .now-body { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0 24px; margin-top: 6px; }
+  .now-card .now-main { margin: 0; }
+  .now-card .now-stats { grid-template-columns: 1fr; gap: 3px; padding-left: 20px; border-left: 1px solid var(--slot-sep); }
+}
+

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Meteo Faenza</title>
+  <meta name="description" content="Meteo Faenza: previsioni a confronto tra i modelli ICON-2I e ICON-EU e dati della centralina">
+  <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0c111b" media="(prefers-color-scheme: dark)">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Meteo Faenza">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <img src="icons/icon.svg" alt="" width="32" height="32">
+        <div class="brand-text">
+          <h1 class="brand-name">Meteo Faenza</h1>
+          <p id="loc-sub" class="brand-sub"></p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="refresh-btn" class="icon-btn" type="button" title="Aggiorna" aria-label="Aggiorna previsioni">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <main class="container">
+    <section id="status" class="status" hidden>
+      <div class="status-art" aria-hidden="true"><img src="icons/icon.svg" alt="" width="64" height="64"></div>
+      <p id="status-msg"></p>
+      <button id="retry-btn" class="btn" type="button" hidden>Riprova</button>
+    </section>
+
+    <div id="forecast" hidden>
+      <p id="updated" class="meta-line muted"></p>
+
+      <section class="card" aria-labelledby="now-title">
+        <div id="now" class="daily"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Prossimi giorni</h2>
+        </div>
+        <div id="daily" class="daily"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head wrap">
+          <h2>Andamento orario</h2>
+          <div class="seg" id="range-seg" role="tablist" aria-label="Intervallo">
+            <button type="button" data-range="24">24 h</button>
+            <button type="button" data-range="72">72 h</button>
+            <button type="button" data-range="all">Tutto</button>
+          </div>
+        </div>
+        <div class="tabs" id="var-tabs" role="tablist" aria-label="Variabile"></div>
+        <div id="chart" class="chart"></div>
+        <p id="chart-note" class="chart-note muted"></p>
+      </section>
+
+      <section class="card collapsible" id="hourly-card">
+        <h2 class="card-head collapse-head">
+          <button id="hourly-toggle" class="collapse-btn" type="button" aria-expanded="false" aria-controls="hourly-body">
+            <span>Dettaglio orario</span>
+            <span class="collapse-hint muted" id="hourly-hint">Mostra</span>
+            <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+        </h2>
+        <div id="hourly-body" hidden>
+          <div class="table-wrap">
+            <table id="hourly-table" class="hourly"></table>
+          </div>
+          <button id="more-btn" class="btn btn-ghost btn-block" type="button" hidden>Mostra tutte le ore</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer muted">
+    <p>Dati: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0) ·
+      ICON-2I © <a href="https://www.arpae.it/" target="_blank" rel="noopener">ItaliaMeteo-ARPAE</a> ·
+      ICON-EU © <a href="https://www.dwd.de/" target="_blank" rel="noopener">Deutscher Wetterdienst</a>.</p>
+    <p>Dati misurati: <a href="https://www.meteofaenza.it/" target="_blank" rel="noopener">Osservatorio Meteorologico "E. Torricelli" – meteofaenza.it</a>.</p>
+    <p>Le previsioni vengono salvate solo nel tuo browser.</p>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
