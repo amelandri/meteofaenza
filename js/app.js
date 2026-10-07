@@ -687,10 +687,9 @@ function renderDaily() {
       const dmax = vals.i2i.tmax - vals.eu.tmax;
       const dp = (vals.i2i.prec ?? 0) - (vals.eu.prec ?? 0);
       const diff = `Δ max ${fmtSigned(dmax)}° · Δ pioggia ${fmtSigned(dp)} mm`;
-      // Le differenze sono anche nel tooltip/avviso: su mobile la riga .dd-diff è nascosta.
+      // Le differenze (Δ) sono mostrate solo nel tooltip/avviso dell'etichetta.
       const reason = `${ag.reason}\n${diff} (2I − EU)`;
-      delta = `<div class="dd"><button type="button" class="agree ${ag.cls}" title="${esc(reason)}" data-reason="${esc(reason)}" aria-label="${esc(reason)}">${ag.label}<span class="agree-i" aria-hidden="true">i</span></button>
-        <span class="muted small dd-diff">${diff} <span class="hint">(2I − EU)</span></span></div>`;
+      delta = `<div class="dd"><button type="button" class="agree ${ag.cls}" title="${esc(reason)}" data-reason="${esc(reason)}" aria-label="${esc(reason)}">${ag.label}<span class="agree-i" aria-hidden="true">i</span></button></div>`;
     }
     return `<div class="day">
       <div class="day-name"><b>${dayRelative(day, today)}</b>${sunTimes(daily, d)}</div>
@@ -704,7 +703,7 @@ function renderDaily() {
   const head = SLOTS.map((s) => `<span><span class="sl-name">${s.name}</span><span class="sl-hours">${slotRange(s)}</span></span>`).join('');
   $('#daily').innerHTML = rows && `<div class="day slots-head" aria-hidden="true">
       <div class="day-name"></div>
-      <div class="day-models">${MODELS.map((m) => `<div class="m-${m.key}"><span class="slots-model">${m.name}</span><div class="slots-legend">${head}</div></div>`).join('')}</div>
+      <div class="day-models">${MODELS.map((m) => `<div class="m-${m.key}"><div class="slots-legend">${head}</div></div>`).join('')}</div>
     </div>${rows}`;
   fitBikes();
 }

@@ -255,7 +255,7 @@ button { font: inherit; color: inherit; }
   margin-bottom: 16px;
 }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
-.sources { display: none; align-items: center; gap: 12px; font-size: .76rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.sources { display: inline-flex; align-items: center; gap: 12px; font-size: .76rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
 .sources span { display: inline-flex; align-items: center; gap: 5px; }
 .card-head.wrap { flex-wrap: wrap; }
 .legend { display: flex; gap: 12px; font-size: .8rem; font-weight: 600; }
@@ -313,7 +313,7 @@ button { font: inherit; color: inherit; }
   grid-template-areas: "ico temps prec" "ico temps gust" "slots slots slots";
   align-items: center;
   gap: 0 10px;
-  padding: 8px 10px;
+  padding: 8px 20px 8px 10px; /* a destra spazio per il pallino del modello (.dm::after) */
   border-radius: 10px;
   background: var(--surface-2);
   font-variant-numeric: tabular-nums;
@@ -372,11 +372,14 @@ button { font: inherit; color: inherit; }
 .slots-head + .day { border-top: 0; padding-top: 4px; }
 .slots-head .day-models > div { min-width: 0; }
 /* Nome del modello sopra ogni colonna: unico riferimento, i box non hanno bordi colorati */
-.slots-model { display: block; padding: 0 10px 4px; font-size: .78rem; font-weight: 700; color: var(--mc); }
+/* Fonte della previsione: legenda nel titolo della card (.sources) e pallino del colore
+   del modello in alto a destra di ogni box (desktop e mobile) */
+.dm { position: relative; }
+.dm::after { content: ""; position: absolute; top: 7px; right: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--mc); }
 .slots-legend {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  padding: 0 10px; /* come .dm */
+  padding: 0 20px 0 10px; /* come .dm */
   font-size: .72rem;
   color: var(--muted);
   text-align: center;
@@ -665,7 +668,6 @@ body.loading #forecast { opacity: .5; }
   .sl-name { display: none; }
   /* Su mobile niente riga di intestazione delle fasce: le ore stanno dentro i box */
   .slots-legend { display: none; }
-  /* Fonte dei dati nel titolo della card al posto dei nomi sopra le colonne */
   /* Alba, tramonto, durata della luce e probabilità di pioggia su una sola riga (forme brevi).
      Se accanto al nome del giorno non c'è spazio, la riga va a capo tutta insieme. */
   .day-name { flex-wrap: wrap; align-items: center; row-gap: 6px; }
@@ -678,8 +680,6 @@ body.loading #forecast { opacity: .5; }
   .daylight .short { display: inline; white-space: nowrap; }
   .sun-pill { gap: 3px; padding: 1px 7px 1px 4px; font-size: .74rem; }
   .sun-pill .sun-ev { width: 15px; height: 15px; }
-  /* Differenze Δ solo nel tooltip/avviso dell'etichetta di concordanza */
-  .dd-diff { display: none; }
   .obs-row { grid-template-areas: "name" "models"; }
   /* Tragitti: per ogni tragitto una sola riga di blocchi a colonne uguali; nel blocco
      l'orario sopra e icona di stato + probabilità sotto. mm e "solo EU" nell'avviso. */
@@ -693,10 +693,7 @@ body.loading #forecast { opacity: .5; }
   .bike-chip { padding: 5px 4px; }
   .bike-time { font-size: .72rem; }
   .slots-head { display: none; }
-  .sources { display: inline-flex; }
   /* Pallino del modello in alto a destra in ogni box (stesso colore della legenda) */
-  .dm { position: relative; }
-  .dm::after { content: ""; position: absolute; top: 7px; right: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--mc); }
   .slot-tick { display: block; }
   .slots { margin-top: 10px; padding-top: 8px; }
 
