@@ -675,7 +675,6 @@ function renderDaily() {
   const hourIdx = new Map(hourly.time.map((t, i) => [t, i]));
   const nowMin = toMinutes(localDateTime(Date.now(), state.data.timezone, utcOffset).time);
 
-  let firstCard = true;
   const rows = daily.time
     .map((day, d) => ({ day, d }))
     .filter(({ day }) => day >= today)
@@ -727,15 +726,13 @@ function renderDaily() {
       const reason = `${ag.reason}\n${diff} (2I − EU)`;
       delta = `<div class="dd"><button type="button" class="agree ${ag.cls}" title="${esc(reason)}" data-reason="${esc(reason)}" aria-label="${esc(reason)}">${ag.label}<span class="agree-i" aria-hidden="true">i</span></button></div>`;
     }
-    // Ogni giorno è una card con il titolo "Oggi" / "Domani" / "Dopodomani" e la data;
-    // la legenda delle fonti compare solo nella prima card.
+    // Ogni giorno è una card con il titolo "Oggi" / "Domani" / "Dopodomani", la data e la
+    // legenda delle fonti.
     const t = dayTitle(day, today);
-    const legend = firstCard ? SOURCES_LEGEND : '';
-    firstCard = false;
     return `<section class="card day-card">
       <div class="card-head">
         <h2>${t.title} <span class="day-date">${t.date}</span></h2>
-        ${legend}
+        ${SOURCES_LEGEND}
       </div>
       <div class="day">
         <div class="day-name">${sunTimes(daily, d)}</div>

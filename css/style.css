@@ -255,8 +255,10 @@ button { font: inherit; color: inherit; }
   margin-bottom: 16px;
 }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
-.sources { display: inline-flex; align-items: center; gap: 12px; font-size: .76rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
-.sources span { display: inline-flex; align-items: center; gap: 5px; }
+.sources { display: inline-flex; align-items: center; gap: 10px; font-size: .68rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
+/* Voce come testo in linea (non flex): la linea di base è quella del testo, non del pallino */
+.sources span { display: inline-block; }
+.sources .dot-i2i, .sources .dot-eu { width: 7px; height: 7px; margin-right: 4px; vertical-align: middle; position: relative; top: -1px; }
 .card-head.wrap { flex-wrap: wrap; }
 .legend { display: flex; gap: 12px; font-size: .8rem; font-weight: 600; }
 .key { display: inline-flex; align-items: center; gap: 6px; }
@@ -285,7 +287,7 @@ button { font: inherit; color: inherit; }
 .day-card .day { padding: 0; border-top: 0; }
 .day-date { margin-left: 6px; font-size: .82rem; font-weight: 500; color: var(--muted); white-space: nowrap; }
 /* Schermi molto stretti: la legenda delle fonti scende sotto il titolo invece di spezzare la data */
-.day-card .card-head { flex-wrap: wrap; row-gap: 4px; }
+.day-card .card-head { flex-wrap: wrap; row-gap: 4px; align-items: baseline; } /* legenda sulla stessa linea di base del nome del giorno */
 .day-name { grid-area: name; display: flex; flex-direction: column; justify-content: center; }
 .day-models { grid-area: models; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 /* Alba e tramonto impilati, probabilità di pioggia sotto */
