@@ -629,7 +629,7 @@ button { font: inherit; color: inherit; }
 .info .card { scroll-margin-top: 80px; }
 .info .card h2 { font-size: 1.15rem; margin-bottom: 10px; }
 .info h3 { font-size: .95rem; margin: 18px 0 6px; }
-.info p, .info li { max-width: 75ch; text-wrap: pretty; }
+.info p, .info li { text-wrap: pretty; } /* nei box il testo usa tutta la larghezza */
 .info p { margin: 0 0 10px; }
 .info ul { margin: 0 0 10px; padding-left: 20px; }
 .info li { margin-bottom: 4px; }
