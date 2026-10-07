@@ -459,22 +459,38 @@ function slotSummary(h, indices, nowIso = null) {
 
 // `pops`: probabilità di pioggia per fascia (dato comune ai due modelli, dall'ensemble):
 // stesso valore nei box ICON-2I e ICON-EU.
-function renderSlots(m, slots, pastUntil, pops = []) {
+function renderSlots(m, slots, pastUntil) {
   return `<div class="slots">${slots.map((sl, k) => {
     const past = k < pastUntil ? ' past' : '';
     const label = `${SLOTS[k].name} (${slotRange(SLOTS[k])})`;
     if (!sl) return `<div class="slot na${past}" title="${m.name} · ${label}: dati non disponibili">—</div>`;
-    const pop = pops[k];
-    const popTip = pop?.pop != null ? `\n${chanceText(pop, 'nella fascia')}\n(probabilità comune ai due modelli)` : '';
-    const tip = `${m.name} · ${label}: ${describe(sl.code)}, ${fmt(sl.tmin)}–${fmt(sl.tmax)} °C, ${fmt(sl.prec, 1)} mm${popTip}`;
+    const tip = `${m.name} · ${label}: ${describe(sl.code)}, ${fmt(sl.tmin)}–${fmt(sl.tmax)} °C, ${fmt(sl.prec, 1)} mm`;
     return `<div class="slot${past}" title="${esc(tip)}">
       ${icon(sl.code, sl.isDay, 24, describe(sl.code))}
-      <b>${fmt(sl.temp)}°</b>
-      <span class="slot-rain">${pop?.pop != null
-        ? `<span class="slot-pop">${pop.popExact ? '' : '~'}${fmt(pop.pop)}%</span>`
-        : '<span class="slot-pop">\u00a0</span>'}<span class="slot-mm ${sl.prec >= 0.1 ? 'wet' : 'dry'}">${sl.prec >= 0.1 ? fmt(sl.prec, 1) : '\u00a0'}</span></span>
+      <b>${fmt(sl.temp)}<span class="deg">°</span></b>
+      <span class="slot-rain"><span class="slot-mm ${sl.prec >= 0.1 ? 'wet' : 'dry'}">${sl.prec >= 0.1 ? fmt(sl.prec, 1) : '\u00a0'}</span></span>
     </div>`;
   }).join('')}${slotTicks()}</div>`;
+}
+
+// Riga della probabilità di pioggia, condivisa dai due modelli (viene dall'ensemble):
+// terzo segmento della "pillola", con una cella per fascia allineata alle fasce dei box.
+// Ogni cella: barra riempita in proporzione + percentuale; al tocco il dettaglio.
+function renderPopRow(pops, pastUntil) {
+  const cells = SLOTS.map((s, k) => {
+    const x = pops[k];
+    const past = k < pastUntil ? ' past' : '';
+    if (x?.pop == null) return `<div class="pop-cell na${past}">—</div>`;
+    const tip = `Probabilità di pioggia · ${s.name} (${slotRange(s)})\n${chanceText(x, 'nella fascia')}\n(dato comune ai due modelli)`;
+    return `<div class="pop-cell${past}${x.pop >= 20 ? ' high' : ''}" title="${esc(tip)}" data-tip="${esc(tip)}">
+      <span class="pop-bar" aria-hidden="true"><i style="width:${Math.max(0, Math.min(100, x.pop))}%"></i></span>
+      <span class="pop-val">${x.popExact ? '' : '~'}${fmt(x.pop)}%</span>
+    </div>`;
+  }).join('');
+  return `<div class="pop-row" aria-label="Probabilità di pioggia per fascia">
+    <span class="pop-label" title="Probabilità di pioggia (comune ai due modelli)">${DROP}<span class="pop-label-text">Probabilità di pioggia</span></span>
+    <div class="pop-cells">${cells}</div>
+  </div>`;
 }
 
 // Probabilità di pioggia per ciascuna fascia del giorno (stesso calcolo dei tragitti sulle
@@ -746,7 +762,7 @@ function renderDaily() {
       if (v.tmax == null) {
         return `<div class="dm m-${m.key}" title="${m.name}">
           <span class="partial muted small">${m.name}: dati solo per parte della giornata</span>
-          ${renderSlots(m, v.slots, pastUntil, pops)}
+          ${renderSlots(m, v.slots, pastUntil)}
         </div>`;
       }
       return `<div class="dm m-${m.key}" title="${m.name}">
@@ -754,7 +770,7 @@ function renderDaily() {
         <span class="temps"><b>${fmt(v.tmax)}°</b><span class="muted">${fmt(v.tmin)}°</span></span>
         <span class="prec ${v.prec >= 0.1 ? 'wet' : ''}">${fmt(v.prec, 1)}<small> mm</small></span>
         <span class="gust muted">${fmt(v.gust)}<small> km/h</small></span>
-        ${renderSlots(m, v.slots, pastUntil, pops)}
+        ${renderSlots(m, v.slots, pastUntil)}
       </div>`;
     }).join('');
 
@@ -777,7 +793,7 @@ function renderDaily() {
       </div>
       <div class="day">
         <div class="day-name">${sunTimes(daily, d)}</div>
-        <div class="day-models">${cells}</div>
+        <div class="day-models">${cells}${renderPopRow(pops, pastUntil)}</div>
         ${delta}
         ${bikeArea(BIKE_COMMUTES.map((c) => renderBike(c, day, hourIdx, today, nowMin)).join(''))}
       </div>

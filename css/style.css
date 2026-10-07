@@ -292,8 +292,33 @@ button { font: inherit; color: inherit; }
 .day-models { grid-area: models; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; }
 /* I due box (ICON-2I | ICON-EU) come un'unica pillola divisa da 1 px: angoli arrotondati
    solo all'esterno (affiancati su desktop, uno sopra l'altro su mobile) */
-.day-models > .dm:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
-.day-models > .dm:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.day-models > .dm:first-child { border-radius: 10px 0 0 0; }
+.day-models > .dm:nth-child(2) { border-radius: 0 10px 0 0; }
+
+/* Riga della probabilità di pioggia: terzo segmento della pillola, sotto i due box,
+   condivisa dai modelli (una cella per fascia, barra + percentuale) */
+.pop-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0 12px;
+  padding: 7px 20px 8px 10px;
+  border-radius: 0 0 10px 10px;
+  background: var(--surface-2);
+}
+.pop-label { display: inline-flex; align-items: center; gap: 5px; font-size: .74rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.pop-label .drop { width: 11px; height: 11px; fill: var(--rain); flex: none; }
+.pop-cells { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pop-cell { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0 8px; cursor: pointer; }
+.pop-cell + .pop-cell { border-left: 1px solid var(--slot-sep); }
+.pop-cell.na { justify-content: center; color: var(--muted); cursor: default; }
+.pop-cell.past { opacity: .45; }
+.pop-bar { flex: 1; min-width: 12px; height: 5px; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--rain) 14%, transparent); }
+.pop-bar i { display: block; height: 100%; border-radius: 3px; background: color-mix(in srgb, var(--rain) 55%, transparent); }
+.pop-cell.high .pop-bar i { background: var(--rain); }
+.pop-val { flex: none; min-width: 2.4em; text-align: right; font-size: .7rem; font-variant-numeric: tabular-nums; color: var(--muted); }
+.pop-cell.high .pop-val { color: var(--text); font-weight: 600; }
 /* Alba e tramonto impilati, probabilità di pioggia sotto */
 .sun {
   display: grid;
@@ -397,9 +422,6 @@ button { font: inherit; color: inherit; }
 .slot-rain { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0 5px; }
 .slot.na { justify-content: center; color: var(--muted); }
 .slot.past { opacity: .45; }
-/* Probabilità di pioggia della fascia (comune ai due modelli): percentuale in grigio,
-   per distinguerla dai mm (azzurri) */
-.slot-pop { display: inline-flex; align-items: center; color: var(--muted); line-height: 1.2; white-space: nowrap; }
 /* Separatore verticale tra le fasce */
 .slot + .slot { border-left: 1px solid var(--slot-sep); }
 /* Fonte della previsione: legenda nel titolo della card (.sources) e pallino del colore
@@ -737,9 +759,16 @@ body.loading #forecast { opacity: .5; }
   .day-models { grid-template-columns: minmax(0, 1fr); }
   /* uno sopra l'altro: arrotondati in alto il primo, in basso il secondo */
   .day-models > .dm:first-child { border-radius: 10px 10px 0 0; }
-  .day-models > .dm:last-child { border-radius: 0 0 10px 10px; }
+  .day-models > .dm:nth-child(2) { border-radius: 0; }
+  /* Riga probabilità allineata alle fasce: stessa colonna fissa delle temperature (40 px),
+     stesso spazio e padding dei box; al posto della scritta solo la goccia */
+  .pop-row { grid-template-columns: 40px minmax(0, 1fr); padding: 6px 10px 7px; }
+  .pop-label { justify-content: center; }
+  .pop-label-text { display: none; }
+  .pop-cell { gap: 4px; padding: 0 5px; }
+  .pop-val { font-size: .64rem; min-width: 2.2em; }
   .dm {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: 40px minmax(0, 1fr); /* colonna temperature fissa: fasce allineate tra i box e con la riga probabilità */
     grid-template-areas: "temps slots";
     align-items: center;
     gap: 0 12px;
@@ -814,21 +843,28 @@ body.loading #forecast { opacity: .5; }
     row-gap: 0;
   }
   .slot .wi { grid-area: ico; align-self: center; justify-self: center; width: 28px; height: 28px; }
-  .slot b { grid-area: t; align-self: center; font-size: .88rem; line-height: 1.15; }
+  .slot b { grid-area: t; align-self: center; justify-self: end; font-size: .88rem; line-height: 1.15; } /* a destra, come i mm sotto */
+  /* Il simbolo dei gradi sporge a destra senza occupare spazio: il bordo destro della
+     temperatura è l'ultima cifra, così i mm sotto si allineano al numero e non al "°" */
+  .slot b { position: relative; }
+  .slot b .deg { position: absolute; left: 100%; top: 0; }
+  .slot:not(.na) { padding-right: 6px; } /* spazio per il "°" che sporge (resta tutto centrato) */
   .slot { --slot-small: .63rem; }
   /* .slot-rain "trasparente" (display: contents, supportato ovunque, a differenza di
      subgrid): probabilità e mm diventano celle della griglia della fascia, quindi la
      probabilità sta sotto l'icona e i mm iniziano esattamente dove inizia la temperatura. */
   .slot .slot-rain { display: contents; }
-  .slot-rain .slot-pop { grid-area: pop; justify-self: center; align-self: center; margin-top: 3px; }
-  .slot-rain .slot-mm { grid-area: mm; justify-self: start; align-self: center; margin-top: 3px; }
-  .slot-rain .slot-pop, .slot-rain .slot-mm { font-size: var(--slot-small); line-height: 1.2; }
+  .slot-rain .slot-mm { grid-area: mm; justify-self: end; align-self: center; margin-top: 3px; } /* bordo destro allineato alla temperatura */
+  .slot-rain .slot-mm { font-size: var(--slot-small); line-height: 1.2; }
+  /* Larghezza 0 + flex-end: se i mm sono più larghi della temperatura sporgono a sinistra
+     (sotto l'icona, spazio vuoto) invece di allargare la colonna e spingere fuori il "°" */
+  .slot-rain .slot-mm { width: 0; display: flex; justify-content: flex-end; white-space: nowrap; }
   .slot:not(.na) { column-gap: 5px; }
   .slot.na { min-height: 34px; }
 }
 
 @container (min-width: 340px) {
-  .slot:not(.na) { column-gap: 6px; }
+  .slot:not(.na) { column-gap: 6px; padding-right: 9px; }
   .slot .wi { width: 36px; height: 36px; }
   .slot b { font-size: 1rem; }
   .slot { --slot-small: .68rem; }
