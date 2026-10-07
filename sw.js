@@ -2,12 +2,13 @@
 // Le previsioni NON passano da qui: sono salvate dall'app nel localStorage.
 // Ad ogni modifica dei file dell'app incrementare VERSION.
 
-const VERSION = 'v78';
+const VERSION = 'v79';
 const CACHE = `meteo-shell-${VERSION}`;
 
 const SHELL = [
   './',
   './index.html',
+  './info.html',
   './manifest.webmanifest',
   './css/style.css',
   './js/app.js',

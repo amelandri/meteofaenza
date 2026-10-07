@@ -71,7 +71,8 @@ La centralina è specifica di Faenza: cambiando località va sostituita o rimoss
 ## Struttura
 
 ```
-index.html             pagina
+index.html             pagina principale
+info.html              pagina "Come funziona" (modelli, ensemble, calcolo della probabilità)
 css/style.css          stile (tema chiaro e scuro automatico)
 js/app.js              logica e rendering
 js/api.js              previsioni, ensemble e metadati dei modelli (Open-Meteo)

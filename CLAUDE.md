@@ -24,6 +24,7 @@ Il service worker richiede `http://localhost` o HTTPS (non funziona da `file://`
 | File | Ruolo |
 |---|---|
 | `index.html` | Shell della pagina: intestazione "Meteo Faenza" (titolo, dettagli località `#loc-sub`, pulsante aggiorna), stato (caricamento/errore), "adesso" (centralina), `#daily` (una card per giorno), grafico, tabella oraria, piè di pagina (info di aggiornamento `#updated` + crediti) |
+| `info.html` | Pagina "Come funziona" (link con icona "i" nell'intestazione): spiega i due modelli, l'ensemble, il calcolo della probabilità, il verdetto dei tragitti, fasce e concordanza, centralina e limiti. Stessa `style.css` (sezione "Pagina informativa"), in `SHELL` del service worker |
 | `css/style.css` | Stile; token colore in `:root`, tema scuro via `prefers-color-scheme`. Colori modelli: `--i2i` (verde acqua), `--eu` (arancio) |
 | `js/app.js` | Località fissa (`LOCATION`), stato, rendering di tutte le sezioni, registrazione SW |
 | `js/api.js` | Chiamate HTTP: previsioni, ensemble, metadati del run. Definisce `MODELS`, `HOURLY_VARS`, `DAILY_VARS` |
@@ -89,6 +90,8 @@ Prefisso `meteo:` — `settings`, `cacheIndex`, `fc:<lat>,<lon>` (lat/lon con 3 
 Se cambia la forma dei dati salvati, gestire o scartare i dati vecchi in lettura.
 
 ## Convenzioni di sviluppo
+
+- **`info.html` riporta soglie e regole in chiaro** (0,2 mm, 20/30/60/80%, 2 ore o 1 mm per le fasce, criteri di concordanza, orizzonti e frequenza dei modelli, letture della centralina): se cambiano nel codice (`BIKE_*`, `SLOT_*`, `AGREE`, `ENSEMBLE_WET_MM`, `rainWords()`, `STATION_*`), aggiornare anche la pagina.
 
 - **Dopo ogni modifica a file della shell, incrementare `VERSION` in `sw.js`**, altrimenti gli utenti continuano a vedere la versione in cache. Se si aggiunge un file, inserirlo anche nell'array `SHELL`.
 - Prima di inserire testo proveniente da API nell'HTML usare `esc()` (`weather.js`).

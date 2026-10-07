@@ -619,6 +619,44 @@ button { font: inherit; color: inherit; }
 .dm .wi-fog line { stroke: var(--cloud-box-line); }
 .wi-none { display: inline-block; }
 
+/* --- Pagina informativa (info.html) ------------------------------------------------ */
+
+.brand-link { text-decoration: none; }
+.info > h1 { margin: 4px 0 8px; }
+.info-lead { color: var(--muted); margin: 0 0 16px; max-width: 70ch; text-wrap: pretty; }
+.info-toc { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .88rem; font-weight: 600; }
+.info-toc a { text-decoration: none; }
+.info .card { scroll-margin-top: 80px; }
+.info .card h2 { font-size: 1.15rem; margin-bottom: 10px; }
+.info h3 { font-size: .95rem; margin: 18px 0 6px; }
+.info p, .info li { max-width: 75ch; text-wrap: pretty; }
+.info p { margin: 0 0 10px; }
+.info ul { margin: 0 0 10px; padding-left: 20px; }
+.info li { margin-bottom: 4px; }
+.info-note { font-size: .86rem; color: var(--muted); }
+.info-formula { display: inline-block; padding: 8px 14px; border-radius: 8px; background: var(--surface-2); font-weight: 650; }
+.info-models { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 6px 0 12px; }
+.info-model { padding: 12px 14px; border-radius: 10px; background: var(--surface-2); }
+.info-model h3 { margin: 0 0 8px; display: flex; align-items: center; gap: 7px; color: var(--mc); }
+.info-model dl { margin: 0 0 8px; display: grid; gap: 3px; font-size: .86rem; }
+.info-model dl div { display: flex; justify-content: space-between; gap: 10px; }
+.info-model dt { color: var(--muted); }
+.info-model dd { margin: 0; font-weight: 600; text-align: right; }
+.info-model p { font-size: .88rem; margin: 0; }
+.info-table { width: 100%; border-collapse: collapse; font-size: .88rem; margin: 4px 0 12px; }
+.info-table th, .info-table td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.info-table th { font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.info-table td:first-child { white-space: nowrap; }
+.info-st { --st: var(--muted); display: inline-block; padding: 1px 8px; border-radius: 6px; font-weight: 650; font-size: .8rem; color: var(--st); background: color-mix(in srgb, var(--st) 13%, transparent); }
+.info-st.st-dry { --st: var(--good); }
+.info-st.st-wet { --st: var(--rain); }
+.info-st.st-risk, .info-st.st-mixed { --st: var(--mid); }
+.info-back { text-align: center; margin: 8px 0 0; }
+@media (max-width: 560px) {
+  .info-models { grid-template-columns: 1fr; }
+  .info-table td:first-child { white-space: normal; }
+}
+
 /* --- Piè di pagina e notifiche --------------------------------------------------- */
 
 .footer {
