@@ -219,7 +219,7 @@ button { font: inherit; color: inherit; }
 /* Riga "Misurato" (centralina) sopra i box dei modelli: occupa entrambe le colonne. */
 .obs-row { padding: 0 !important; }
 /* Solo etichetta e box: niente righe vuote per concordanza e tragitti */
-.obs-row { grid-template-areas: "name models"; }
+.day.obs-row { grid-template-areas: "name models"; } /* .day.obs-row: deve prevalere sulle 3 righe di .day */
 .obs-card {
   grid-area: models;
   min-width: 0;
@@ -637,6 +637,7 @@ body.loading #forecast { opacity: .5; }
 
 @media (max-width: 720px) {
   .day { grid-template-columns: 1fr; grid-template-areas: "name" "models" "delta" "bike"; gap: 8px; }
+  .day.obs-row { grid-template-areas: "name" "models"; }
   #daily.bikes-flow .bike:first-child .bike-label { width: auto; } /* giorno su una colonna: niente colonna dei nomi */
   .day-name { flex-direction: row; justify-content: flex-start; align-items: baseline; gap: 8px; }
   .slots-head .day-name { display: none; }
@@ -680,7 +681,6 @@ body.loading #forecast { opacity: .5; }
   .daylight .short { display: inline; white-space: nowrap; }
   .sun-pill { gap: 3px; padding: 1px 7px 1px 4px; font-size: .74rem; }
   .sun-pill .sun-ev { width: 15px; height: 15px; }
-  .obs-row { grid-template-areas: "name" "models"; }
   /* Tragitti: per ogni tragitto una sola riga di blocchi a colonne uguali; nel blocco
      l'orario sopra e icona di stato + probabilità sotto. mm e "solo EU" nell'avviso. */
   /* Mobile: un tragitto per riga (etichetta sopra, blocchi a colonne uguali) */
