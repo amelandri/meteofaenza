@@ -385,21 +385,54 @@ const SLOT_HOURS = 6;
 const DAILY_DAYS = 3;
 const slotRange = (s) => `${s.from}–${s.from + SLOT_HOURS}`;
 
-// Codice WMO che rappresenta una fascia:
-// - precipitazioni e temporali (codici ≥ 51): basta un'ora, vince il più severo;
+// Codice WMO che rappresenta una fascia, pesato su tutta la fascia:
+// - temporale (codice ≥ 95) anche in una sola ora: vince sempre (pericoloso);
+// - precipitazioni (codici ≥ 51) solo se rilevanti per la fascia: almeno
+//   SLOT_WET_HOURS ore con pioggia oppure almeno SLOT_WET_MM mm in totale; allora vince
+//   il codice di pioggia più severo;
 // - altrimenti il tempo prevalente (più ore) tra i gruppi sereno (0–1), nuvoloso (2–3)
-//   e nebbia (45–48); a parità prevale il gruppo peggiore, e nel gruppo il codice più
-//   frequente (a parità il più alto). Così 2 ore di nebbia non coprono 4 ore di sole.
+//   e nebbia (45–48), ignorando le ore di pioggerella; a parità prevale il gruppo peggiore,
+//   nel gruppo il codice più frequente (a parità il più alto). I mm restano visibili sotto
+//   la temperatura della fascia anche quando l'icona non è di pioggia.
 const SLOT_WET_CODE = 51;
+const SLOT_THUNDER_CODE = 95;
+const SLOT_WET_HOURS = 2; // ore con pioggia (su 6) perché la fascia sia "di pioggia"…
+const SLOT_WET_MM = 1; // …oppure mm totali nella fascia
 const codeGroup = (c) => (c <= 1 ? 0 : c <= 3 ? 1 : 2);
 
-function slotCode(codes) {
+function slotCode(codes, precs = []) {
+  const thunder = codes.filter((c) => c >= SLOT_THUNDER_CODE);
+  if (thunder.length) return Math.max(...thunder);
   const wet = codes.filter((c) => c >= SLOT_WET_CODE);
-  if (wet.length) return Math.max(...wet);
+  const mm = precs.reduce((a, p) => a + (p ?? 0), 0);
+  if (wet.length && (wet.length >= SLOT_WET_HOURS || mm >= SLOT_WET_MM)) return Math.max(...wet);
+  const dry = codes.filter((c) => c < SLOT_WET_CODE);
+  // Tutte le ore con pioggerella trascurabile: si mostra comunque la più lieve.
+  if (!dry.length) return Math.min(...codes);
   const count = (list, key) => list.reduce((m, c) => m.set(key(c), (m.get(key(c)) || 0) + 1), new Map());
   const pickMax = (m) => [...m].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0][0];
-  const group = pickMax(count(codes, codeGroup));
-  return pickMax(count(codes.filter((c) => codeGroup(c) === group), (c) => c));
+  const group = pickMax(count(dry, codeGroup));
+  return pickMax(count(dry.filter((c) => codeGroup(c) === group), (c) => c));
+}
+
+// Indici orari di una fascia. In Open-Meteo pioggia e codice meteo del timestamp T si
+// riferiscono all'ora precedente (T-1, T]: la fascia 6–12 usa quindi i timestamp 07…12
+// (la 24 è la mezzanotte del giorno dopo). Stessa convenzione di windowHours().
+function slotIndices(day, slot, hourIdx) {
+  return Array.from({ length: SLOT_HOURS }, (_, k) => {
+    const end = slot.from + k + 1;
+    return hourIdx.get(end === 24 ? `${nextDate(day)}T00:00` : `${day}T${String(end).padStart(2, '0')}:00`);
+  });
+}
+
+// Pioggia totale del giorno (ore 0–24) dai dati orari, con la stessa convenzione delle
+// fasce: coincide sempre con la somma delle quattro fasce. Il precipitation_sum di
+// Open-Meteo somma invece i timestamp 00…23, cioè dalle 23 del giorno prima alle 23.
+// null se manca anche una sola ora (si ripiega allora sul valore giornaliero dell'API).
+function dayPrecipitation(h, day, hourIdx) {
+  const idx = SLOTS.flatMap((s) => slotIndices(day, s, hourIdx));
+  if (idx.some((i) => i == null || h.precipitation[i] == null)) return null;
+  return Math.round(idx.reduce((sum, i) => sum + h.precipitation[i], 0) * 10) / 10;
 }
 
 // Riassume una fascia di 6 ore dai dati orari di un modello. Restituisce null se
@@ -409,10 +442,12 @@ function slotSummary(h, indices, nowIso = null) {
   const idx = indices.filter((i) => i != null && h.temperature_2m[i] != null);
   if (idx.length < SLOT_HOURS / 2) return null;
   const temps = idx.map((i) => h.temperature_2m[i]);
-  const ahead = nowIso ? idx.filter((i) => state.data.hourly.time[i] >= nowIso) : [];
+  // Ore non ancora trascorse: il valore del timestamp T copre l'ora (T-1, T], quindi
+  // l'ora corrente è ancora "da venire" solo se T è successivo all'ora piena attuale.
+  const ahead = nowIso ? idx.filter((i) => state.data.hourly.time[i] > nowIso) : [];
   const codeIdx = ahead.length ? ahead : idx;
   return {
-    code: slotCode(codeIdx.map((i) => h.weather_code[i] ?? 0)),
+    code: slotCode(codeIdx.map((i) => h.weather_code[i] ?? 0), codeIdx.map((i) => h.precipitation[i])),
     isDay: h.is_day[codeIdx[Math.floor(codeIdx.length / 2)]],
     temp: temps.reduce((a, b) => a + b, 0) / temps.length,
     tmin: Math.min(...temps),
@@ -647,12 +682,12 @@ function renderDaily() {
 
     const vals = Object.fromEntries(MODELS.map((m) => {
       const x = daily.models[m.key];
-      const slots = SLOTS.map((s) => slotSummary(hourly.models[m.key],
-        Array.from({ length: SLOT_HOURS }, (_, k) => hourIdx.get(`${day}T${String(s.from + k).padStart(2, '0')}:00`)),
+      const slots = SLOTS.map((s) => slotSummary(hourly.models[m.key], slotIndices(day, s, hourIdx),
         day === today ? nowIso : null));
       return [m.key, {
         code: x.weather_code[d], tmax: x.temperature_2m_max[d], tmin: x.temperature_2m_min[d],
-        prec: x.precipitation_sum[d], gust: x.wind_gusts_10m_max[d], slots,
+        prec: dayPrecipitation(hourly.models[m.key], day, hourIdx) ?? x.precipitation_sum[d],
+        gust: x.wind_gusts_10m_max[d], slots,
       }];
     }));
     const hasSlots = (v) => v.slots.some(Boolean);
