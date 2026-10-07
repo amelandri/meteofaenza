@@ -46,14 +46,21 @@
       <button id="retry-btn" class="btn" type="button" hidden>Riprova</button>
     </section>
 
-    <div id="forecast" hidden>
-      <section class="card" aria-labelledby="now-title">
-        <div id="now" class="daily"></div>
-      </section>
+    <!-- Due colonne su desktop (25% / 75%), una sola su mobile -->
+    <div id="forecast" class="layout" hidden>
+      <!-- Colonna sinistra: centralina e giorni, sempre con l'impaginazione "mobile"
+           (container query sulla colonna, non sullo schermo) -->
+      <div class="col-side">
+        <section class="card" aria-labelledby="now-title">
+          <div id="now" class="daily"></div>
+        </section>
 
-      <!-- Una card per giorno (oggi, domani, dopodomani), generate da renderDaily() -->
-      <div id="daily"></div>
+        <!-- Una card per giorno (oggi, domani, dopodomani), generate da renderDaily() -->
+        <div id="daily"></div>
+      </div>
 
+      <!-- Colonna destra: andamento e dettaglio orario -->
+      <div class="col-main">
       <section class="card">
         <div class="card-head wrap">
           <h2>Andamento orario</h2>
@@ -83,6 +90,7 @@
           <button id="more-btn" class="btn btn-ghost btn-block" type="button" hidden>Mostra tutte le ore</button>
         </div>
       </section>
+      </div>
     </div>
   </main>
 

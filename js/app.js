@@ -813,13 +813,16 @@ function fitBikes() {
   // Desktop: i tragitti stanno nelle colonne dei modelli solo se ci entrano; altrimenti
   // (o con il giorno su una colonna, ≤720 px) uno dopo l'altro. Su mobile decide il CSS.
   daily.classList.remove('bikes-flow');
-  if (matchMedia('(max-width: 560px)').matches) return;
+  // Soglie sulla larghezza della colonna (come le container query "side" del CSS), non
+  // dello schermo: su desktop la colonna dei giorni è stretta come un telefono.
+  const colWidth = daily.clientWidth;
+  if (colWidth <= 560) return;
   const col = daily.querySelector('.dm')?.getBoundingClientRect().width || 0;
   const gap = 6;
   const chipsWidth = (c) => c.windows.length * width + (c.windows.length - 1) * gap;
   const labelOf = (i) => daily.querySelectorAll('.bikes')[0]?.children[i]?.querySelector('.bike-label')?.getBoundingClientRect().width || 0;
   const fits = BIKE_COMMUTES.every((c, i) => (i === 0 ? chipsWidth(c) : labelOf(i) + 12 + chipsWidth(c)) <= col);
-  if (matchMedia('(max-width: 720px)').matches || !fits) daily.classList.add('bikes-flow');
+  if (colWidth <= 720 || !fits) daily.classList.add('bikes-flow');
 }
 
 function buildVarTabs() {

@@ -289,7 +289,11 @@ button { font: inherit; color: inherit; }
 /* Schermi molto stretti: la legenda delle fonti scende sotto il titolo invece di spezzare la data */
 .day-card .card-head { flex-wrap: wrap; row-gap: 4px; align-items: baseline; } /* legenda sulla stessa linea di base del nome del giorno */
 .day-name { grid-area: name; display: flex; flex-direction: column; justify-content: center; }
-.day-models { grid-area: models; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.day-models { grid-area: models; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; }
+/* I due box (ICON-2I | ICON-EU) come un'unica pillola divisa da 1 px: angoli arrotondati
+   solo all'esterno (affiancati su desktop, uno sopra l'altro su mobile) */
+.day-models > .dm:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.day-models > .dm:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; }
 /* Alba e tramonto impilati, probabilità di pioggia sotto */
 .sun {
   display: grid;
@@ -418,7 +422,7 @@ button { font: inherit; color: inherit; }
    La prima colonna è --label-w + 8 px e lo spazio tra colonne 8 px, così le colonne 2 e 3
    coincidono con i box dei modelli (.day: colonna --label-w + 16 px; .day-models: gap 8 px).
    Bike to work: etichetta a sinistra, blocchi sotto ICON-2I. Bike to school: sotto ICON-EU. */
-.bikes { display: grid; grid-template-columns: calc(var(--label-w) + 8px) minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: center; }
+.bikes { display: grid; grid-template-columns: calc(var(--label-w) + 15px) minmax(0, 1fr) minmax(0, 1fr); gap: 8px 1px; align-items: center; } /* colonne = box dei modelli (spazio tra i box 1 px) */
 .bike:first-child { display: contents; }
 .bike:first-child .bike-label { grid-column: 1; }
 .bike:first-child .bike-chips { grid-column: 2; }
@@ -698,27 +702,42 @@ body.loading #forecast { opacity: .5; }
 
 /* --- Responsive ------------------------------------------------------------------ */
 
-@media (max-width: 720px) {
+
+/* --- Layout a due colonne (desktop) ------------------------------------------------
+   Sinistra (25%): centralina e giorni; destra (75%): andamento e dettaglio orario.
+   La colonna sinistra è un container ("side"): le regole "mobile" qui sotto dipendono
+   dalla sua larghezza, quindi valgono sia sul telefono sia nella colonna stretta del
+   desktop. */
+
+.col-side { container: side / inline-size; min-width: 0; }
+.col-main { min-width: 0; }
+@media (min-width: 1200px) {
+  :root { --page-w: 1920px; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); gap: 16px; align-items: start; }
+}
+
+@container side (max-width: 720px) {
   .day { grid-template-columns: 1fr; grid-template-areas: "name" "models" "delta" "bike"; gap: 8px; padding: 30px 0; border-top-width: 1px; }
   .day.obs-row { grid-template-areas: "name" "models"; }
   #daily.bikes-flow .bike:first-child .bike-label { width: auto; } /* giorno su una colonna: niente colonna dei nomi */
   .day-name { flex-direction: row; justify-content: flex-start; align-items: baseline; gap: 8px; }
 }
 
-@media (max-width: 560px) {
-  .topbar-inner { gap: 10px; }
-  h1 { font-size: 1.35rem; }
-  .brand-sub .coords { display: none; }
+@container side (max-width: 560px) {
+  .card { padding: 14px 12px; }
   .now-hour { font-size: 1.15rem; }
   .now-temp { font-size: 1.8rem; }
   .now-desc { font-size: .8rem; }
   .now-stats { grid-template-columns: 1fr; gap: 4px; }
   .now-stats dd { font-size: .86rem; }
-  .day-models { gap: 6px; } /* colonne: vedi più sotto (una sola) */
+  .day-models { gap: 1px; } /* colonne: vedi più sotto (una sola) */
   /* Previsioni dei due modelli una sopra l'altra; in ogni box massima e minima a sinistra
      e le 4 fasce a destra. Niente icona, pioggia e vento del giorno (la pioggia resta
      indicata fascia per fascia). */
   .day-models { grid-template-columns: minmax(0, 1fr); }
+  /* uno sopra l'altro: arrotondati in alto il primo, in basso il secondo */
+  .day-models > .dm:first-child { border-radius: 10px 10px 0 0; }
+  .day-models > .dm:last-child { border-radius: 0 0 10px 10px; }
   .dm {
     grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas: "temps slots";
@@ -753,6 +772,12 @@ body.loading #forecast { opacity: .5; }
   .bike-chip { padding: 5px 4px; }
   .bike-time { font-size: .72rem; }
 
+}
+
+@media (max-width: 560px) {
+  .topbar-inner { gap: 10px; }
+  h1 { font-size: 1.35rem; }
+  .brand-sub .coords { display: none; }
   .card { padding: 14px 12px; }
   .table-wrap, .tabs { margin: 0 -12px; padding: 0 12px; }
   .tabs { margin-bottom: 10px; }
