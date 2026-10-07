@@ -294,7 +294,7 @@ button { font: inherit; color: inherit; }
 .sun {
   display: grid;
   grid-template-columns: auto;
-  grid-template-areas: "rise" "set" "pop";
+  grid-template-areas: "rise" "set";
   justify-content: start;
   align-items: center;
   gap: 6px 10px;
@@ -316,9 +316,6 @@ button { font: inherit; color: inherit; }
 }
 .sun-pill.rise { background: linear-gradient(120deg, var(--dawn-a), var(--dawn-b)); color: var(--dawn-text); }
 .sun-pill.set { background: linear-gradient(120deg, var(--dusk-a), var(--dusk-b)); color: var(--dusk-text); }
-.pop { grid-area: pop; display: flex; align-items: center; gap: 4px; font-size: .78rem; margin-top: 2px; white-space: nowrap; }
-.pop b { color: var(--rain); font-weight: 700; }
-.pop .drop { fill: var(--rain); flex: none; }
 
 /* Icona alba/tramonto */
 .sun-ev { flex: none; overflow: visible; }
@@ -386,10 +383,19 @@ button { font: inherit; color: inherit; }
   line-height: 1.2;
 }
 .slot b { font-weight: 650; }
-.slot .wet { font-size: .74rem; font-weight: 600; }
-.slot .dry { font-size: .74rem; }
+/* mm e probabilità della fascia: stessa dimensione (--slot-small, adattata allo spazio) */
+.slot { --slot-small: .66rem; }
+/* Testo secondario: piccolo, senza grassetto, staccato dalla riga icona + temperatura */
+.slot-rain { font-size: var(--slot-small); line-height: 1.2; font-weight: 500; margin-top: 3px; }
+.slot-mm.wet { color: color-mix(in srgb, var(--rain) 75%, var(--muted)); }
+/* Pioggia della fascia (.slot-rain = probabilità + mm in un unico elemento). Fasce strette:
+   riga flessibile centrata, va a capo da sola se lo spazio non basta. */
+.slot-rain { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0 5px; }
 .slot.na { justify-content: center; color: var(--muted); }
 .slot.past { opacity: .45; }
+/* Probabilità di pioggia della fascia (comune ai due modelli): percentuale in grigio,
+   per distinguerla dai mm (azzurri) */
+.slot-pop { display: inline-flex; align-items: center; color: var(--muted); line-height: 1.2; white-space: nowrap; }
 /* Separatore verticale tra le fasce */
 .slot + .slot { border-left: 1px solid var(--slot-sep); }
 /* Fonte della previsione: legenda nel titolo della card (.sources) e pallino del colore
@@ -726,16 +732,13 @@ body.loading #forecast { opacity: .5; }
   .dm.dm-empty { flex-direction: column; align-items: flex-start; gap: 4px; }
   .slot { font-size: .74rem; }
   .slot .wi { width: 20px; height: 20px; }
-  .slot .wet, .slot .dry { font-size: .66rem; }
+  .slot { --slot-small: .6rem; }
   /* Alba, tramonto, durata della luce e probabilità di pioggia su una sola riga (forme brevi).
      Se accanto al nome del giorno non c'è spazio, la riga va a capo tutta insieme. */
   .day-name { flex-wrap: wrap; align-items: center; row-gap: 6px; }
   /* La riga occupa tutto lo spazio disponibile (anche quando va a capo) e la probabilità
      di pioggia è spinta sul bordo destro */
   .sun { display: flex; flex: 1 0 auto; flex-wrap: nowrap; align-items: center; gap: 6px; margin-top: 0; }
-  .sun .pop { margin-left: auto; }
-  .pop { flex-basis: auto; margin-top: 0; }
-  .pop-word { display: none; }
   .sun-pill { gap: 3px; padding: 1px 7px 1px 4px; font-size: .74rem; }
   .sun-pill .sun-ev { width: 15px; height: 15px; }
   /* Tragitti: per ogni tragitto una sola riga di blocchi a colonne uguali; nel blocco
@@ -779,16 +782,23 @@ body.loading #forecast { opacity: .5; }
   .slot:not(.na) {
     display: grid;
     grid-template-columns: auto auto;
-    grid-template-areas: "ico t" ". p"; /* icona sulla riga della temperatura, mm sotto */
+    grid-template-areas: "ico t" "pop mm"; /* icona e temperatura; sotto: probabilità e mm */
     justify-content: center;
     align-items: center;
     column-gap: 6px;
     row-gap: 0;
   }
-  .slot .wi { grid-area: ico; align-self: center; width: 28px; height: 28px; }
+  .slot .wi { grid-area: ico; align-self: center; justify-self: center; width: 28px; height: 28px; }
   .slot b { grid-area: t; align-self: center; font-size: .88rem; line-height: 1.15; }
-  .slot .wet, .slot .dry { grid-area: p; align-self: start; margin-top: -2px; font-size: .7rem; line-height: 1.2; }
-  .slot:not(.na) { column-gap: 3px; }
+  .slot { --slot-small: .63rem; }
+  /* .slot-rain "trasparente" (display: contents, supportato ovunque, a differenza di
+     subgrid): probabilità e mm diventano celle della griglia della fascia, quindi la
+     probabilità sta sotto l'icona e i mm iniziano esattamente dove inizia la temperatura. */
+  .slot .slot-rain { display: contents; }
+  .slot-rain .slot-pop { grid-area: pop; justify-self: center; align-self: center; margin-top: 3px; }
+  .slot-rain .slot-mm { grid-area: mm; justify-self: start; align-self: center; margin-top: 3px; }
+  .slot-rain .slot-pop, .slot-rain .slot-mm { font-size: var(--slot-small); line-height: 1.2; }
+  .slot:not(.na) { column-gap: 5px; }
   .slot.na { min-height: 34px; }
 }
 
@@ -796,6 +806,6 @@ body.loading #forecast { opacity: .5; }
   .slot:not(.na) { column-gap: 6px; }
   .slot .wi { width: 36px; height: 36px; }
   .slot b { font-size: 1rem; }
-  .slot .wet, .slot .dry { font-size: .76rem; }
+  .slot { --slot-small: .68rem; }
   .slot.na { min-height: 40px; }
 }

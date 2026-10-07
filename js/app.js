@@ -457,44 +457,52 @@ function slotSummary(h, indices, nowIso = null) {
   };
 }
 
-function renderSlots(m, slots, pastUntil) {
+// `pops`: probabilità di pioggia per fascia (dato comune ai due modelli, dall'ensemble):
+// stesso valore nei box ICON-2I e ICON-EU.
+function renderSlots(m, slots, pastUntil, pops = []) {
   return `<div class="slots">${slots.map((sl, k) => {
     const past = k < pastUntil ? ' past' : '';
     const label = `${SLOTS[k].name} (${slotRange(SLOTS[k])})`;
     if (!sl) return `<div class="slot na${past}" title="${m.name} · ${label}: dati non disponibili">—</div>`;
-    const tip = `${m.name} · ${label}: ${describe(sl.code)}, ${fmt(sl.tmin)}–${fmt(sl.tmax)} °C, ${fmt(sl.prec, 1)} mm`;
-    return `<div class="slot${past}" title="${tip}">
-      ${icon(sl.code, sl.isDay, 24, tip)}
+    const pop = pops[k];
+    const popTip = pop?.pop != null ? `\n${chanceText(pop, 'nella fascia')}\n(probabilità comune ai due modelli)` : '';
+    const tip = `${m.name} · ${label}: ${describe(sl.code)}, ${fmt(sl.tmin)}–${fmt(sl.tmax)} °C, ${fmt(sl.prec, 1)} mm${popTip}`;
+    return `<div class="slot${past}" title="${esc(tip)}">
+      ${icon(sl.code, sl.isDay, 24, describe(sl.code))}
       <b>${fmt(sl.temp)}°</b>
-      <span class="${sl.prec >= 0.1 ? 'wet' : 'dry'}">${sl.prec >= 0.1 ? fmt(sl.prec, 1) : '\u00a0'}</span>
+      <span class="slot-rain">${pop?.pop != null
+        ? `<span class="slot-pop">${pop.popExact ? '' : '~'}${fmt(pop.pop)}%</span>`
+        : '<span class="slot-pop">\u00a0</span>'}<span class="slot-mm ${sl.prec >= 0.1 ? 'wet' : 'dry'}">${sl.prec >= 0.1 ? fmt(sl.prec, 1) : '\u00a0'}</span></span>
     </div>`;
   }).join('')}${slotTicks()}</div>`;
+}
+
+// Probabilità di pioggia per ciascuna fascia del giorno (stesso calcolo dei tragitti sulle
+// 6 ore della fascia); null dove mancano dati orari.
+function slotChances(day, hourIdx) {
+  return SLOTS.map((s) => {
+    const idx = slotIndices(day, s, hourIdx);
+    if (idx.some((i) => i == null)) return null;
+    return windowRainChance(idx.map((i) => ({ stamp: state.data.hourly.time[i], weight: 1, i })));
+  });
 }
 
 // Ore di confine tra le fasce (6, 12, 18) sulla linea tratteggiata, sopra i separatori.
 const slotTicks = () => SLOTS.slice(1).map((s, k) =>
   `<span class="slot-tick" style="left:${((k + 1) * 100) / SLOTS.length}%" aria-hidden="true">${s.from}</span>`).join('');
 
-// Orari di alba e tramonto (già nell'ora locale della località) e probabilità di pioggia.
+// Orari di alba e tramonto (già nell'ora locale della località). La probabilità di
+// pioggia non è indicata per il giorno intero ma fascia per fascia (renderSlots).
 function sunTimes(daily, d) {
   const rise = daily.sunrise?.[d], set = daily.sunset?.[d];
   if (!rise || !set) return '';
   return `<div class="sun">
     <span class="sun-pill rise" title="Alba">${sunEventIcon('rise', 18)}${hourLabel(rise)}</span>
     <span class="sun-pill set" title="Tramonto">${sunEventIcon('set', 18)}${hourLabel(set)}</span>
-    ${rainChance(daily.precipitation_probability_max?.[d])}
   </div>`;
 }
 
 const DROP = '<svg class="drop" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M8 1.6c2.4 3 4.4 5.5 4.4 8.1a4.4 4.4 0 0 1-8.8 0c0-2.6 2-5.1 4.4-8.1z"/></svg>';
-
-// Probabilità massima di precipitazioni del giorno: dato comune (ensemble), non di un modello.
-function rainChance(p) {
-  if (p == null) return '';
-  return `<span class="pop" title="Probabilità di precipitazioni (massima del giorno). Stima generale da modelli ensemble, non specifica di ICON-2I o ICON-EU.">
-    ${DROP}<b>${fmt(p)}%</b><span class="muted pop-word">pioggia</span>
-  </span>`;
-}
 
 // --- Tragitti in bici (Bike to work / Bike to school) -------------------------------
 // Ogni tragitto ha le sue finestre orarie (ora locale della località). Per ogni finestra
@@ -735,6 +743,7 @@ function renderDaily() {
     if (MODELS.every((m) => vals[m.key].tmax == null && !hasSlots(vals[m.key]))) return '';
 
     const ag = agreement(vals.i2i, vals.eu);
+    const pops = slotChances(day, hourIdx);
     const cells = MODELS.map((m) => {
       const v = vals[m.key];
       // Il modello è indicato dal pallino colorato nel box e dalla legenda nel titolo.
@@ -743,7 +752,7 @@ function renderDaily() {
       if (v.tmax == null) {
         return `<div class="dm m-${m.key}" title="${m.name}">
           <span class="partial muted small">${m.name}: dati solo per parte della giornata</span>
-          ${renderSlots(m, v.slots, pastUntil)}
+          ${renderSlots(m, v.slots, pastUntil, pops)}
         </div>`;
       }
       return `<div class="dm m-${m.key}" title="${m.name}">
@@ -751,7 +760,7 @@ function renderDaily() {
         <span class="temps"><b>${fmt(v.tmax)}°</b><span class="muted">${fmt(v.tmin)}°</span></span>
         <span class="prec ${v.prec >= 0.1 ? 'wet' : ''}">${fmt(v.prec, 1)}<small> mm</small></span>
         <span class="gust muted">${fmt(v.gust)}<small> km/h</small></span>
-        ${renderSlots(m, v.slots, pastUntil)}
+        ${renderSlots(m, v.slots, pastUntil, pops)}
       </div>`;
     }).join('');
 

@@ -60,7 +60,7 @@ export const DAILY_VARS = [
 // Quest'ultima Open-Meteo la ricava da modelli ensemble ed è restituita solo con il
 // suffisso icon_eu (per ICON-2I è sempre null): va presentata come dato generale.
 const COMMON_HOURLY = ['precipitation_probability'];
-const COMMON_DAILY = ['sunrise', 'sunset', 'precipitation_probability_max'];
+const COMMON_DAILY = ['sunrise', 'sunset'];
 
 export function inModelDomain(model, lat, lon) {
   const [la0, lo0, la1, lo1] = model.bbox;
