@@ -504,23 +504,17 @@ function sunTimes(daily, d) {
 
 const DROP = '<svg class="drop" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M8 1.6c2.4 3 4.4 5.5 4.4 8.1a4.4 4.4 0 0 1-8.8 0c0-2.6 2-5.1 4.4-8.1z"/></svg>';
 
-// --- Tragitti in bici (Bike to work / Bike to school) -------------------------------
-// Ogni tragitto ha le sue finestre orarie (ora locale della località). Per ogni finestra
-// si valuta se pioverà confrontando i due modelli e la probabilità dall'ensemble.
+// --- Tragitti in bici ("Bike") ------------------------------------------------------
+// Elenco di tragitti, ognuno con le sue finestre orarie (ora locale della località). Per
+// ogni finestra si valuta se pioverà confrontando i due modelli e la probabilità
+// dall'ensemble. Oggi c'è un'unica voce "Bike"; per aggiungerne basta un'altra voce.
 const BIKE_COMMUTES = [
   {
-    label: 'Bike to work',
+    label: 'Bike',
     windows: [
-      { from: '07:00', to: '08:00' },
-      { from: '12:20', to: '14:00' },
+      { from: '06:45', to: '08:00' },
+      { from: '12:30', to: '15:00' },
       { from: '17:00', to: '18:30' },
-    ],
-  },
-  {
-    label: 'Bike to school',
-    windows: [
-      { from: '06:45', to: '07:15' },
-      { from: '13:30', to: '15:00' },
     ],
   },
 ];
