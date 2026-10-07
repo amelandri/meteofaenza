@@ -3,7 +3,7 @@ import { fetchStation, STATION, STATION_STALE_MS } from './station.js';
 import * as store from './storage.js';
 import { renderChart, tipValue } from './chart.js';
 import {
-  icon, describe, fmt, fmtSigned, windDir, windArrow, hourLabel, dayShort, dayLong, dayRelative,
+  icon, describe, fmt, fmtSigned, windDir, windArrow, hourLabel, dayShort, dayRelative,
   localNowIso, localDateTime, fmtAgo, esc, sunEventIcon, duration,
 } from './weather.js';
 
@@ -215,18 +215,6 @@ async function loadStation() {
   }
 }
 
-// Temperatura prevista da un modello all'istante `ms`, interpolata linearmente tra le
-// due ore piene (temperature_2m è un valore istantaneo all'ora indicata).
-function modelTempAt(key, ms) {
-  const { hourly, timezone, utcOffset } = state.data;
-  const lt = localDateTime(ms, timezone, utcOffset);
-  const i = hourly.time.indexOf(`${lt.date}T${lt.time.slice(0, 2)}:00`);
-  const t = hourly.models[key].temperature_2m;
-  if (i < 0 || t[i] == null) return null;
-  if (t[i + 1] == null) return t[i];
-  return t[i] + (t[i + 1] - t[i]) * (Number(lt.time.slice(3, 5)) / 60);
-}
-
 function stationIsFresh() {
   return !!state.station && Date.now() - state.station.time < STATION_STALE_MS;
 }
@@ -258,8 +246,6 @@ function renderObservation() {
           ${stat('Umidità', st.humidity != null ? `${fmt(st.humidity)}%` : '')}
           ${stat('Vento', st.windSpeed != null ? `${windArrow(st.windDirection)} ${fmt(st.windSpeed)} <small>${windDir(st.windDirection)}</small>` : '')}
           ${stat('Pioggia oggi', st.rainToday != null && sameDay ? `${fmt(st.rainToday, 1)} mm` : '')}
-          ${stat('Pressione', st.pressure != null ? `${fmt(st.pressure, 1)} hPa` : '')}
-          ${stat('Rugiada', st.dewPoint != null ? `${fmt(st.dewPoint, 1)}°` : '')}
           ${stat('Raffica max', st.windMax != null && sameDay ? `${fmt(st.windMax)} km/h${st.windMaxTime ? ` <small>${st.windMaxTime}</small>` : ''}` : '')}
         </dl>
       </div>
@@ -267,62 +253,10 @@ function renderObservation() {
   </div>`;
 }
 
+// Box "Adesso": solo la lettura della centralina (nessuna previsione per l'ora corrente).
 function renderNow() {
-  const { hourly } = state.data;
-  const i = nowIndex();
-  const el = $('#now');
-  if (i < 0) {
-    el.innerHTML = `${renderObservation()}<p class="stale">Le previsioni salvate sono scadute. Aggiorna per scaricare quelle nuove.</p>`;
-    return;
-  }
-  // Scarto previsione − misura, solo con una misura recente.
-  const obs = stationIsFresh() ? state.station : null;
-  const vsObs = (key) => {
-    if (!obs) return '';
-    const v = modelTempAt(key, obs.time);
-    return v == null ? '' : `<div class="now-vs" title="Previsione interpolata all'ora della misura (${localDateTime(obs.time, state.data.timezone, state.data.utcOffset).time}) meno temperatura misurata">vs misurato <b>${fmtSigned(v - obs.temperature)}°</b></div>`;
-  };
-  const t = hourly.time[i];
-  const a = hourly.models.i2i.temperature_2m[i], b = hourly.models.eu.temperature_2m[i];
-  const delta = a != null && b != null
-    ? `<div class="dd"><span class="muted small">Δ temp. ${fmtSigned(a - b)}° <span class="hint">(2I − EU)</span></span></div>`
-    : '';
-  const cards = MODELS.map((m) => {
-    const h = hourly.models[m.key];
-    const outside = !inModelDomain(m, state.loc.lat, state.loc.lon);
-    if (h.temperature_2m[i] == null) {
-      return `<article class="now-card m-${m.key}">
-        <header><span class="model-tag">${m.name}</span><span class="muted small">${m.provider} · ${m.resolution}</span></header>
-        <p class="na">${outside ? 'Località fuori dal dominio del modello.' : 'Dato non disponibile per quest’ora.'}</p>
-      </article>`;
-    }
-    return `<article class="now-card m-${m.key}">
-      <header><span class="model-tag">${m.name}</span><span class="muted small">${m.provider} · ${m.resolution}</span></header>
-      <div class="now-body">
-      <div class="now-main">
-        ${icon(h.weather_code[i], h.is_day[i], 56)}
-        <div>
-          <div class="now-temp">${fmt(h.temperature_2m[i], 1)}<span>°C</span></div>
-          <div class="now-desc">${describe(h.weather_code[i])}</div>
-          ${vsObs(m.key)}
-        </div>
-      </div>
-      <dl class="now-stats">
-        <div><dt>Percepita</dt><dd>${fmt(h.apparent_temperature[i])}°</dd></div>
-        <div><dt>Pioggia</dt><dd>${fmt(h.precipitation[i], 1)} mm</dd></div>
-        <div><dt>Vento</dt><dd>${windArrow(h.wind_direction_10m[i])} ${fmt(h.wind_speed_10m[i])} <small>${windDir(h.wind_direction_10m[i])}</small></dd></div>
-        <div><dt>Umidità</dt><dd>${fmt(h.relative_humidity_2m[i])}%</dd></div>
-      </dl>
-      </div>
-    </article>`;
-  }).join('');
-
-  // Stessa griglia delle righe di "Prossimi giorni", così le colonne dei modelli coincidono.
-  el.innerHTML = `${renderObservation()}<div class="day now-row">
-    <div class="day-name"><b class="now-hour">${hourLabel(t)}</b><span class="muted small">Previsto · ${dayLong(t)}</span></div>
-    <div class="day-models">${cards}</div>
-    ${delta}
-  </div>`;
+  $('#now').innerHTML = renderObservation()
+    || `<p class="muted">Dati della centralina non disponibili${navigator.onLine ? '' : ' offline'}.</p>`;
 }
 
 // Valuta quanto i due modelli concordano su una giornata. Ogni criterio aggiunge punti di

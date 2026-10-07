@@ -204,16 +204,7 @@ button { font: inherit; color: inherit; }
 .m-eu { --mc: var(--eu); --mc-soft: var(--eu-soft); }
 .model-tag { font-weight: 700; color: var(--mc); letter-spacing: .01em; }
 
-.now-row { padding: 0; }
 .now-hour { font-size: 1.6rem; font-weight: 650; letter-spacing: -.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.now-card {
-  min-width: 0;
-  padding: 12px 14px;
-  border-radius: 10px;
-  background: var(--surface-2);
-}
-.now-card header { display: flex; align-items: baseline; justify-content: space-between; gap: 2px 8px; flex-wrap: wrap; }
-.now-main { display: flex; align-items: center; gap: 12px; margin: 6px 0 8px; }
 .now-temp { font-size: 2.2rem; font-weight: 650; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums; }
 .now-temp span { font-size: 1rem; font-weight: 500; color: var(--muted); margin-left: 2px; }
 .now-desc { color: var(--muted); font-size: .9rem; margin-top: 4px; }
@@ -225,7 +216,6 @@ button { font: inherit; color: inherit; }
 .now-stats small { color: var(--muted); font-weight: 500; }
 /* Riga "Misurato" (centralina) sopra i box dei modelli: occupa entrambe le colonne. */
 .obs-row { padding: 0 0 12px 0 !important; }
-.obs-row + .now-row { padding : 12px 0 0 0 !important; }
 .obs-card {
   grid-area: models;
   min-width: 0;
@@ -241,17 +231,11 @@ button { font: inherit; color: inherit; }
 .obs-main { display: flex; align-items: baseline; gap: 4px 14px; flex-wrap: wrap; }
 .obs-stats { grid-template-columns: 1fr 1fr; }
 .obs-stale { color: var(--mid); font-weight: 650; }
-.now-vs { font-size: .78rem; color: var(--muted); margin-top: 2px; }
-.now-vs b { white-space: nowrap; }
-.now-vs b { color: var(--obs); font-weight: 700; font-variant-numeric: tabular-nums; }
-/* Box della centralina: dati a destra della temperatura su 2 colonne, 3 se c'è spazio */
+/* Box della centralina: 4 dati in griglia 2×2 a destra della temperatura */
 @container (min-width: 560px) {
   .obs-body { flex-direction: row; align-items: center; gap: 24px; }
   .obs-main { flex-direction: column; align-items: flex-start; flex: none; }
   .obs-stats { flex: 1; grid-template-columns: repeat(2, 1fr); column-gap: 20px; padding-left: 20px; border-left: 1px solid var(--slot-sep); }
-}
-@container (min-width: 820px) {
-  .obs-stats { grid-template-columns: repeat(3, 1fr); }
 }
 .stale { margin: 0; color: var(--mid); font-weight: 600; }
 .na { color: var(--muted); }
@@ -581,11 +565,11 @@ button { font: inherit; color: inherit; }
 
 /* Nelle schede dei modelli lo sfondo è grigio: nuvole più scure e con contorno,
    così non si confondono con il box. */
-.dm .wi-cloud, .now-card .wi-cloud { fill: var(--cloud-box); stroke: var(--cloud-box-line); stroke-width: 1; }
-.dm .wi-cloud.dark, .now-card .wi-cloud.dark { fill: var(--cloud-box-dark); }
-.dm .wi-cloud.back, .now-card .wi-cloud.back { opacity: .85; }
-.dm .wi-moon, .now-card .wi-moon { fill: var(--moon-box); }
-.dm .wi-fog line, .now-card .wi-fog line { stroke: var(--cloud-box-line); }
+.dm .wi-cloud { fill: var(--cloud-box); stroke: var(--cloud-box-line); stroke-width: 1; }
+.dm .wi-cloud.dark { fill: var(--cloud-box-dark); }
+.dm .wi-cloud.back { opacity: .85; }
+.dm .wi-moon { fill: var(--moon-box); }
+.dm .wi-fog line { stroke: var(--cloud-box-line); }
 .wi-none { display: inline-block; }
 
 /* --- Piè di pagina e notifiche --------------------------------------------------- */
@@ -631,11 +615,7 @@ body.loading #forecast { opacity: .5; }
   .topbar-inner { gap: 10px; }
   h1 { font-size: 1.35rem; }
   .brand-sub .coords { display: none; }
-  .now-card { padding: 10px; }
   .now-hour { font-size: 1.15rem; }
-  .now-card header .small { display: none; } /* provider e risoluzione restano nel piè di pagina */
-  .now-main { gap: 6px; }
-  .now-main .wi { width: 42px; height: 42px; }
   .now-temp { font-size: 1.8rem; }
   .now-desc { font-size: .8rem; }
   .now-stats { grid-template-columns: 1fr; gap: 4px; }
@@ -705,17 +685,3 @@ body.loading #forecast { opacity: .5; }
   .slot .wet, .slot .dry { font-size: .76rem; }
   .slot.na { min-height: 40px; }
 }
-
-/* --- Adesso: layout compatto ---------------------------------------------------
-   Se la scheda del modello è abbastanza larga, i dati (percepita, pioggia, vento,
-   umidità) stanno a destra di icona e temperatura, in colonna. */
-
-.now-card { container-type: inline-size; }
-
-@container (min-width: 400px) {
-  /* Solo i box dei modelli: anche il box della centralina è un container */
-  .now-card .now-body { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0 24px; margin-top: 6px; }
-  .now-card .now-main { margin: 0; }
-  .now-card .now-stats { grid-template-columns: 1fr; gap: 3px; padding-left: 20px; border-left: 1px solid var(--slot-sep); }
-}
-
