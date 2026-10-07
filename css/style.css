@@ -654,16 +654,21 @@ body.loading #forecast { opacity: .5; }
   .now-desc { font-size: .8rem; }
   .now-stats { grid-template-columns: 1fr; gap: 4px; }
   .now-stats dd { font-size: .86rem; }
-  .day-models { gap: 6px; }
-  /* Scheda giornaliera compatta: le due colonne restano affiancate come in "Adesso". */
+  .day-models { gap: 6px; } /* colonne: vedi più sotto (una sola) */
+  /* Previsioni dei due modelli una sopra l'altra; in ogni box massima e minima a sinistra
+     e le 4 fasce a destra. Niente icona, pioggia e vento del giorno (la pioggia resta
+     indicata fascia per fascia). */
+  .day-models { grid-template-columns: minmax(0, 1fr); }
   .dm {
-    grid-template-columns: 1fr auto;
-    grid-template-areas: "temps ico" "prec gust" "slots slots";
-    gap: 4px 8px;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "temps slots";
+    align-items: center;
+    gap: 0 12px;
     padding: 8px 10px;
   }
-  .dm .wi { justify-self: end; }
-  .dm .prec { text-align: left; }
+  .dm > .wi, .dm > .prec, .dm > .gust { display: none; }
+  .dm .temps { flex-direction: column; align-items: center; gap: 0; min-width: 34px; font-size: 1rem; line-height: 1.2; }
+  .dm .slots { margin-top: 6px; }
   .dm.dm-empty { flex-direction: column; align-items: flex-start; gap: 4px; }
   .slot { font-size: .74rem; }
   .slot .wi { width: 20px; height: 20px; }
@@ -712,7 +717,9 @@ body.loading #forecast { opacity: .5; }
    grande con temperatura e pioggia impilate alla sua destra. Su schede strette
    (mobile) resta il layout verticale. */
 
-.dm { container-type: inline-size; }
+/* Il layout della fascia dipende dallo spazio delle fasce (non dell'intero box: su mobile
+   a sinistra c'è la colonna di massima e minima) */
+.slots { container-type: inline-size; }
 
 @container (min-width: 240px) {
   .slot:not(.na) {
