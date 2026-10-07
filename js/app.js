@@ -466,7 +466,11 @@ const BIKE_COMMUTES = [
   },
 ];
 const BIKE_WET_MM = 0.2; // mm nel tragitto oltre cui un modello "vede" pioggia
-const BIKE_RISK_POP = 40; // % di probabilità oltre cui c'è rischio anche con modelli asciutti
+// Soglie del verdetto, che combina i due modelli con la probabilità dell'ensemble:
+const BIKE_POP_BOTH = 30; // Pioggia se entrambi i modelli vedono pioggia e prob. ≥ 30%…
+const BIKE_POP_ONE = 60; // …oppure se la vede un solo modello e prob. ≥ 60%…
+const BIKE_POP_ANY = 80; // …oppure, comunque, con prob. ≥ 80%
+const BIKE_POP_DRY = 20; // Asciutto se nessun modello vede pioggia e prob. < 20%
 
 const toMinutes = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 
@@ -517,9 +521,32 @@ function windowRainChance(hrs) {
   return { pop: pops.length ? Math.max(...pops) : null, popExact: false };
 }
 
-// Verdetto per una finestra. Non si fa una semplice media dei mm tra i modelli
-// (2 mm e 0 mm darebbero "1 mm" nascondendo il disaccordo): il verdetto confronta
-// i due modelli; la media serve solo come quantità indicativa.
+// Verdetto per una finestra: combina quanti modelli "vedono pioggia" (≥ BIKE_WET_MM) con
+// la probabilità dell'ensemble. Non si fa una media dei mm tra i modelli (2 e 0 mm
+// darebbero "1 mm" nascondendo il disaccordo).
+//   Pioggia  = entrambi + prob ≥ 30% · uno solo + prob ≥ 60% · qualunque + prob ≥ 80%
+//   Asciutto = nessuno + prob < 20%
+//   Rischio  = nessun modello, ma prob ≥ 20%  ·  Incerto = gli altri casi
+// Senza probabilità si giudica solo sui modelli (tutti → Pioggia, alcuni → Incerto).
+function bikeVerdict(wet, total, pop) {
+  const all = wet === total, some = wet > 0;
+  if (pop == null) {
+    if (all) return { status: 'wet', why: 'tutti i modelli vedono pioggia (probabilità non disponibile)' };
+    if (some) return { status: 'mixed', why: 'un solo modello vede pioggia (probabilità non disponibile)' };
+    return { status: 'dry', why: 'nessun modello vede pioggia (probabilità non disponibile)' };
+  }
+  const p = `probabilità ${pop}%`;
+  let models;
+  if (total === 1) models = some ? "l'unico modello disponibile vede pioggia" : "l'unico modello disponibile non vede pioggia";
+  else models = all ? 'entrambi i modelli vedono pioggia' : some ? 'un solo modello vede pioggia' : 'nessun modello vede pioggia';
+  if (all && total > 1 && pop >= BIKE_POP_BOTH) return { status: 'wet', why: `${models} e ${p} (≥ ${BIKE_POP_BOTH}%)` };
+  if (some && pop >= BIKE_POP_ONE) return { status: 'wet', why: `${models} e ${p} (≥ ${BIKE_POP_ONE}%)` };
+  if (pop >= BIKE_POP_ANY) return { status: 'wet', why: `${p} (≥ ${BIKE_POP_ANY}%), anche se ${models}` };
+  if (!some && pop < BIKE_POP_DRY) return { status: 'dry', why: `${models} e ${p} (< ${BIKE_POP_DRY}%)` };
+  if (!some) return { status: 'risk', why: `${models}, ma ${p} (≥ ${BIKE_POP_DRY}%)` };
+  return { status: 'mixed', why: `${models}, ${p}` };
+}
+
 function bikeWindow(day, w, hourIdx) {
   const { hourly } = state.data;
   const hrs = windowHours(day, w).map((x) => ({ ...x, i: hourIdx.get(x.stamp) }));
@@ -533,12 +560,9 @@ function bikeWindow(day, w, hourIdx) {
   if (!avail.length) return { w, status: 'na', models, avail, pop, popExact, popMembers, popTotal };
 
   const wet = avail.filter((x) => x.mm >= BIKE_WET_MM).length;
-  let status;
-  if (wet === avail.length) status = 'wet';
-  else if (wet > 0) status = 'mixed';
-  else status = pop != null && pop >= BIKE_RISK_POP ? 'risk' : 'dry';
+  const { status, why } = bikeVerdict(wet, avail.length, pop);
   const mms = avail.map((x) => x.mm);
-  return { w, status, models, avail, pop, popExact, popMembers, popTotal, mean: mms.reduce((a, b) => a + b, 0) / mms.length, min: Math.min(...mms), max: Math.max(...mms) };
+  return { w, status, why, wet, models, avail, pop, popExact, popMembers, popTotal, mean: mms.reduce((a, b) => a + b, 0) / mms.length, min: Math.min(...mms), max: Math.max(...mms) };
 }
 
 // Icone dello stato (16×16, tratto): sole = asciutto, nuvola = rischio,
@@ -561,18 +585,20 @@ function renderBike(commute, day, hourIdx, today, nowMin) {
     const past = day === today && toMinutes(x.w.to) <= nowMin ? ' past' : '';
     const range = `${x.w.from}–${x.w.to}`;
     let mm = '';
-    if (x.status === 'wet') mm = `${fmt(x.mean, 1)} mm`;
-    else if (x.status === 'mixed') mm = `${x.min < 0.05 ? '0' : fmt(x.min, 1)}–${fmt(x.max, 1)} mm`;
+    // Media dei mm solo se tutti i modelli vedono pioggia, altrimenti l'intervallo min–max.
+    const mmRange = `${x.min < 0.05 ? '0' : fmt(x.min, 1)}–${fmt(x.max, 1)} mm`;
+    if (x.status === 'wet') mm = x.wet === x.avail.length ? `${fmt(x.mean, 1)} mm` : mmRange;
+    else if (x.status === 'mixed') mm = mmRange;
     const only = x.avail.length === 1 ? `<span class="bike-only">solo ${x.avail[0].m.short}</span>` : '';
     const detail = x.models.map((y) => `${y.m.name}: ${y.mm == null ? 'n.d.' : `${fmt(y.mm, 1)} mm`}`).join(' · ');
     let popTxt = 'probabilità n.d.';
     if (x.pop != null) {
       popTxt = x.popExact
-        ? `Probabilità di pioggia nel tragitto ${x.pop}% (${x.popMembers} scenari su ${x.popTotal} di ${state.data.ensemble.model})`
+        ? `Probabilità di pioggia nel tragitto ${x.pop}% (${x.popMembers} ${x.popMembers === 1 ? 'scenario' : 'scenari'} su ${x.popTotal} di ${state.data.ensemble.model})`
         : `Probabilità ~${x.pop}% (stima: massima oraria, ensemble non disponibile)`;
     }
     // Dettaglio: tooltip su desktop, avviso al tocco su mobile (dove mm e "solo EU" sono nascosti).
-    const tip = `Tragitto ${x.w.from}–${x.w.to}: ${st.label}${mm ? ` (${mm})` : ''}\n${detail}${x.avail.length === 1 ? ` (solo ${x.avail[0].m.name})` : ''}\n${popTxt}`;
+    const tip = `Tragitto ${x.w.from}–${x.w.to}: ${st.label}${mm ? ` (${mm})` : ''}${x.why ? `\nPerché: ${x.why}` : ''}\n${detail}${x.avail.length === 1 ? ` (solo ${x.avail[0].m.name})` : ''}\n${popTxt}`;
     return `<button type="button" class="bike-chip st-${x.status}${past}" title="${esc(tip)}" data-tip="${esc(tip)}">
       <span class="bike-time">${range}</span>
       <span class="bike-info">
