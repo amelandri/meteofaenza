@@ -725,15 +725,15 @@ body.loading #forecast { opacity: .5; }
   .slot:not(.na) {
     display: grid;
     grid-template-columns: auto auto;
-    grid-template-areas: "ico t" "ico p";
+    grid-template-areas: "ico t" ". p"; /* icona sulla riga della temperatura, mm sotto */
     justify-content: center;
     align-items: center;
     column-gap: 6px;
     row-gap: 0;
   }
-  .slot .wi { grid-area: ico; width: 28px; height: 28px; }
-  .slot b { grid-area: t; align-self: end; font-size: .88rem; line-height: 1.15; }
-  .slot .wet, .slot .dry { grid-area: p; align-self: start; font-size: .7rem; line-height: 1.2; }
+  .slot .wi { grid-area: ico; align-self: center; width: 28px; height: 28px; }
+  .slot b { grid-area: t; align-self: center; font-size: .88rem; line-height: 1.15; }
+  .slot .wet, .slot .dry { grid-area: p; align-self: start; margin-top: -2px; font-size: .7rem; line-height: 1.2; }
   .slot:not(.na) { column-gap: 3px; }
   .slot.na { min-height: 34px; }
 }
