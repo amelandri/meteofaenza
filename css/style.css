@@ -211,7 +211,6 @@ button { font: inherit; color: inherit; }
   padding: 12px 14px;
   border-radius: 10px;
   background: var(--surface-2);
-  border-left: 3px solid var(--mc);
 }
 .now-card header { display: flex; align-items: baseline; justify-content: space-between; gap: 2px 8px; flex-wrap: wrap; }
 .now-main { display: flex; align-items: center; gap: 12px; margin: 6px 0 8px; }
@@ -233,7 +232,6 @@ button { font: inherit; color: inherit; }
   padding: 12px 14px;
   border-radius: 10px;
   background: var(--surface-2);
-  border-left: 3px solid var(--obs);
   container-type: inline-size;
 }
 .obs-card header { display: flex; align-items: baseline; justify-content: space-between; gap: 2px 8px; flex-wrap: wrap; }
@@ -327,7 +325,6 @@ button { font: inherit; color: inherit; }
   padding: 8px 10px;
   border-radius: 10px;
   background: var(--surface-2);
-  border-left: 3px solid var(--mc);
   font-variant-numeric: tabular-nums;
 }
 .dm .wi { grid-area: ico; }
@@ -366,10 +363,13 @@ button { font: inherit; color: inherit; }
 .slot + .slot { border-left: 1px solid var(--slot-sep); }
 .slots-head { padding: 0 0 4px; border-top: 0; }
 .slots-head + .day { border-top: 0; padding-top: 4px; }
+.slots-head .day-models > div { min-width: 0; }
+/* Nome del modello sopra ogni colonna: unico riferimento, i box non hanno bordi colorati */
+.slots-model { display: block; padding: 0 10px 4px; font-size: .78rem; font-weight: 700; color: var(--mc); }
 .slots-legend {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  padding: 0 10px 0 13px; /* come .dm: padding + bordo sinistro */
+  padding: 0 10px; /* come .dm */
   font-size: .72rem;
   color: var(--muted);
   text-align: center;

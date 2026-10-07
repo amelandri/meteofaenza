@@ -651,7 +651,7 @@ function renderDaily() {
     const ag = agreement(vals.i2i, vals.eu);
     const cells = MODELS.map((m) => {
       const v = vals[m.key];
-      // Il modello è indicato dal colore del bordo e dalla legenda della card.
+      // Il modello è indicato dal nome in cima alla colonna (riga .slots-head).
       if (v.tmax == null && !hasSlots(v)) return `<div class="dm dm-empty m-${m.key}"><span class="muted small">${m.name} oltre l’orizzonte</span></div>`;
       // Giornata coperta solo in parte (fine dell'orizzonte del modello): solo le fasce.
       if (v.tmax == null) {
@@ -688,7 +688,7 @@ function renderDaily() {
   const head = SLOTS.map((s) => `<span><span class="sl-name">${s.name}</span><span class="sl-hours">${slotRange(s)}</span></span>`).join('');
   $('#daily').innerHTML = rows && `<div class="day slots-head" aria-hidden="true">
       <div class="day-name"></div>
-      <div class="day-models">${MODELS.map(() => `<div class="slots-legend">${head}</div>`).join('')}</div>
+      <div class="day-models">${MODELS.map((m) => `<div class="m-${m.key}"><span class="slots-model">${m.name}</span><div class="slots-legend">${head}</div></div>`).join('')}</div>
     </div>${rows}`;
   fitBikes();
 }
