@@ -274,10 +274,12 @@ button { font: inherit; color: inherit; }
      modelli occupano entrambe le righe */
   grid-template-areas: "name models" "delta models" "bike bike";
   gap: 6px 16px;
-  padding: 30px 0;
+  /* Desktop: giorni ben separati (su mobile 30 px, vedi media query) */
+  padding: 48px 0;
   border-top: 1px solid var(--border);
 }
-.day:first-child { border-top: 0; padding-top: 0; }
+.day:first-child { border-top: 0; padding-top: 15px; }
+.day:last-child { padding-bottom: 4px; }
 .day-name { grid-area: name; display: flex; flex-direction: column; justify-content: center; }
 .day-models { grid-area: models; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 /* Alba e tramonto impilati, probabilità di pioggia sotto */
@@ -637,7 +639,7 @@ body.loading #forecast { opacity: .5; }
 /* --- Responsive ------------------------------------------------------------------ */
 
 @media (max-width: 720px) {
-  .day { grid-template-columns: 1fr; grid-template-areas: "name" "models" "delta" "bike"; gap: 8px; }
+  .day { grid-template-columns: 1fr; grid-template-areas: "name" "models" "delta" "bike"; gap: 8px; padding: 30px 0; border-top-width: 1px; }
   .day.obs-row { grid-template-areas: "name" "models"; }
   #daily.bikes-flow .bike:first-child .bike-label { width: auto; } /* giorno su una colonna: niente colonna dei nomi */
   .day-name { flex-direction: row; justify-content: flex-start; align-items: baseline; gap: 8px; }
