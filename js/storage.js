@@ -39,7 +39,7 @@ export const locationId = (loc) => `${loc.lat.toFixed(3)},${loc.lon.toFixed(3)}`
 
 // --- Impostazioni ---------------------------------------------------------------
 
-const DEFAULT_SETTINGS = { variable: 'temp', range: '72', showAllHours: false, hourlyOpen: false };
+const DEFAULT_SETTINGS = { variable: 'rain', range: '72', showAllHours: false, hourlyOpen: false };
 export const getSettings = () => ({ ...DEFAULT_SETTINGS, ...read(KEYS.settings, {}) });
 export const saveSettings = (patch) => write(KEYS.settings, { ...getSettings(), ...patch });
 

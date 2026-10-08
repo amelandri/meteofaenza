@@ -10,14 +10,15 @@ import {
 const $ = (sel) => document.querySelector(sel);
 
 const VARIABLES = {
-  temp: {
-    label: 'Temperatura', unit: '°C', decimals: 1, minSpan: 4,
-    series: [{ v: 'temperature_2m' }],
-  },
+  // L'ordine è quello dei tab: Precipitazioni per prima
   rain: {
     label: 'Precipitazioni', unit: 'mm', decimals: 1, yFloor: 0, minSpan: 2, type: 'bar',
     series: [{ v: 'precipitation' }],
     pop: true, // anche la probabilità di pioggia (scala a destra)
+  },
+  temp: {
+    label: 'Temperatura', unit: '°C', decimals: 1, minSpan: 4,
+    series: [{ v: 'temperature_2m' }],
   },
   wind: {
     label: 'Vento', unit: 'km/h', decimals: 0, yFloor: 0, minSpan: 10,
@@ -856,8 +857,9 @@ function renderChartSection() {
   if (!state.data || $('#forecast').hidden) return;
   syncControls();
   const { hourly } = state.data;
-  const cfg = VARIABLES[state.settings.variable] || VARIABLES.temp;
-  const start = Math.max(0, nowIndex());
+  const cfg = VARIABLES[state.settings.variable] || VARIABLES.rain;
+  // Parte dall'ora piena precedente a quella attuale (alle 20:32 → dalle 19)
+  const start = Math.max(0, nowIndex() - 1);
   const len = state.settings.range === 'all' ? Infinity : Number(state.settings.range);
   const end = Math.min(hourly.time.length, start + len);
   const times = hourly.time.slice(start, end);

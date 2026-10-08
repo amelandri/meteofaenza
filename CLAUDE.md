@@ -103,6 +103,7 @@ Se cambia la forma dei dati salvati, gestire o scartare i dati vecchi in lettura
 - Prima di inserire testo proveniente da API nell'HTML usare `esc()` (`weather.js`).
 - Layout mobile-first: verificare a 390 px di larghezza che non ci sia scroll orizzontale della pagina, e su desktop a 1200 / 1400 / 1920 px (colonna sinistra 288–468 px).
 - Le sezioni "Adesso" e "Prossimi giorni" condividono la stessa griglia (`.day` → `.day-name` + `.day-models` a due colonne, larghezza etichetta `--label-w`): le colonne ICON-2I / ICON-EU devono restare allineate verticalmente a ogni larghezza. Non dare a una sola delle due sezioni padding o colonne diverse.
+- Grafico "Andamento orario": parte dall'ora piena **precedente** a quella attuale (alle 20:32 inizia alle 19, `nowIndex() - 1`); i tab seguono l'ordine di `VARIABLES`, con **Precipitazioni per prima** (anche variabile predefinita).
 - Nuove variabili del grafico: aggiungerle a `VARIABLES` in `app.js` (e a `HOURLY_VARS` in `api.js` se non già scaricate).
 - Rigenerare le icone PNG (Pillow) se cambia `icons/icon.svg`: 192, 512, maskable 512 (senza angoli arrotondati), apple-touch 180.
 
