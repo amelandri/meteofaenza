@@ -1091,4 +1091,15 @@ setInterval(() => {
   else renderHeader();
 }, 60 * 1000);
 
+// Desktop (≥ 1200 px, due colonne): il piè di pagina va in fondo alla colonna sinistra,
+// sotto i giorni; altrimenti resta in fondo alla pagina. Stessa soglia di .layout in style.css.
+const DESKTOP = window.matchMedia('(min-width: 1200px)');
+function placeFooter() {
+  const footer = $('.footer');
+  if (DESKTOP.matches) $('.col-side').append(footer);
+  else $('main').after(footer);
+}
+DESKTOP.addEventListener('change', placeFooter);
+placeFooter();
+
 init();

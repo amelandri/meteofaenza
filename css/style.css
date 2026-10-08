@@ -736,6 +736,8 @@ body.loading #forecast { opacity: .5; }
 @media (min-width: 1200px) {
   :root { --page-w: 1920px; }
   .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); gap: 16px; align-items: start; }
+  /* Piè di pagina spostato nella colonna sinistra da placeFooter() (app.js) */
+  .col-side > .footer { max-width: none; padding: 4px 4px 0; }
 }
 
 @container side (max-width: 720px) {

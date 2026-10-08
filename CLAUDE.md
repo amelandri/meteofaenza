@@ -46,7 +46,7 @@ Il service worker richiede `http://localhost` o HTTPS (non funziona da `file://`
 
 ## Layout e responsive
 
-- **Desktop (≥ 1200 px): due colonne 25% / 75%** (`#forecast.layout` grid `1fr 3fr`, `--page-w` 1920 px). Sinistra `.col-side`: centralina (`#now`) e card dei giorni (`#daily`). Destra `.col-main`: andamento orario (grafico) e dettaglio orario. Sotto i 1200 px una sola colonna (prima `.col-side`, poi `.col-main`).
+- **Desktop (≥ 1200 px): due colonne 25% / 75%** (`#forecast.layout` grid `1fr 3fr`, `--page-w` 1920 px). Sinistra `.col-side`: centralina (`#now`) e card dei giorni (`#daily`). Destra `.col-main`: andamento orario (grafico) e dettaglio orario. Sotto i 1200 px una sola colonna (prima `.col-side`, poi `.col-main`). Il **piè di pagina** su desktop è in fondo alla colonna sinistra: `placeFooter()` in `app.js` sposta `.footer` dentro `.col-side` con `matchMedia('(min-width: 1200px)')` (stessa soglia del CSS) e lo rimette dopo `<main>` sotto i 1200 px.
 - **La colonna sinistra ha sempre l'impaginazione "mobile"**: `.col-side` è un container (`container: side / inline-size`) e le regole compatte di centralina e giorni sono in `@container side (max-width: 560px)` / `(max-width: 720px)`, non in `@media`. Così valgono sul telefono (colonna = schermo) e nella colonna stretta del desktop. In `@media (max-width: 560px)` restano solo intestazione, padding delle card fuori dalla colonna sinistra e tabella oraria.
 - Le soglie JS che riguardano i giorni usano la larghezza della colonna, non dello schermo (`fitBikes()`: `#daily.clientWidth` ≤ 560 / ≤ 720). Non usare `matchMedia` per questi elementi.
 - Container anonimi annidati (`.obs-card`, `.slots`): le `@container` senza nome trovano il più vicino; quelle della colonna usano il nome `side`.
