@@ -96,30 +96,35 @@ function init() {
 // --- Caricamento dati ------------------------------------------------------------
 
 async function load({ force = false } = {}) {
+  // Un solo download alla volta: con due in parallelo la risposta arrivata per ultima
+  // (non necessariamente la più recente) sovrascriverebbe l'altra.
+  if (state.loading) return;
   const loc = state.loc;
   const cached = store.getCachedForecast(loc);
-  if (cached) {
+  // La cache si mostra solo se più recente dei dati a schermo (es. scaricata da un'altra
+  // scheda): se l'ultimo salvataggio è fallito è più vecchia e non va ripresa.
+  if (cached && (!state.data || cached.fetchedAt > state.data.fetchedAt)) {
     state.data = cached;
     render();
-  } else if (!state.data) {
-    showStatus('Caricamento delle previsioni…');
   }
-  // Le cache salvate da versioni precedenti senza alba/tramonto o probabilità vengono riscaricate.
-  if (!force && store.isFresh(cached) && cached.daily.sunrise && cached.hourly.precipitation_probability && 'ensemble' in cached) return;
+  // Anche a schermo non si tengono previsioni di più di un giorno (es. app aperta offline).
+  if (state.data && store.isExpired(state.data)) state.data = null;
+  if (!state.data) showStatus('Caricamento delle previsioni…');
+  if (!force && store.isFresh(state.data)) return;
   if (!navigator.onLine) {
-    if (!cached) showStatus('Sei offline e non ci sono previsioni salvate.', { retry: true });
+    if (!state.data) showStatus('Sei offline e non ci sono previsioni dell\'ultimo giorno salvate.', { retry: true });
     return;
   }
 
   setLoading(true);
   try {
-    const data = await fetchForecast(loc);
+    const data = await fetchForecast(loc, state.data || cached);
     state.data = data;
     if (!store.setCachedForecast(loc, data)) toast('Spazio locale esaurito: previsioni non salvate offline.');
     render();
   } catch (err) {
-    if (cached) toast(`Aggiornamento non riuscito (${err.message}). Dati salvati ${fmtAgo(cached.fetchedAt)}.`);
-    else showStatus(`Impossibile scaricare le previsioni: ${err.message}`, { retry: true });
+    if (state.data) toast(`Aggiornamento non riuscito: ${err.message}. Dati scaricati ${fmtAgo(state.data.fetchedAt)}.`);
+    else showStatus(`Impossibile scaricare le previsioni: ${err.message}.`, { retry: true });
   } finally {
     setLoading(false);
   }
@@ -187,8 +192,8 @@ function renderHeader() {
     return `<span class="run"><i class="dot-${m.key}"></i>${m.name}: run delle ${r ? at(r.init * 1000) : 'n.d.'}${nextRun(r)}</span>`;
   }).join('');
 
-  // Prossimo download dei dati da parte dell'app (scadenza della cache locale).
-  const due = data.fetchedAt + store.CACHE_TTL_MS;
+  // Prossimo download dei dati da parte dell'app (scadenza della cache o nuovo run atteso).
+  const due = store.nextDownloadAt(data);
   let next;
   if (!navigator.onLine) next = 'prossimo appena torni online';
   else if (state.loading) next = 'aggiornamento in corso…';
@@ -596,10 +601,20 @@ function ensembleCoarse(ens, idx) {
   });
 }
 
+// Indice timestamp → posizione nelle serie dell'ensemble, costruito una volta per ensemble
+// (windowRainChance è chiamata per ogni ora del grafico e della tabella).
+const ensembleIndex = new WeakMap();
+function ensembleStamps(ens) {
+  let map = ensembleIndex.get(ens);
+  if (!map) ensembleIndex.set(ens, map = new Map(ens.time.map((t, i) => [t, i])));
+  return map;
+}
+
 function windowRainChance(hrs) {
   const ens = state.data.ensemble;
   if (ens?.members?.length) {
-    const idx = hrs.map((x) => ens.time.indexOf(x.stamp));
+    const stamps = ensembleStamps(ens);
+    const idx = hrs.map((x) => stamps.get(x.stamp) ?? -1);
     if (idx.every((i) => i >= 0)) {
       const sums = ens.members
         .map((serie) => (idx.some((i) => serie[i] == null) ? null : idx.reduce((sum, i, k) => sum + serie[i] * hrs[k].weight, 0)))
@@ -632,6 +647,9 @@ function chanceText(x, where) {
     txt += `\n${x.popMembers === 1 ? "Nell'unico scenario" : 'Negli scenari'} con pioggia: ${amount} (${rainWords(x.wetTypical)})`;
   }
   if (x.coarse) txt += "\nOrario approssimato: a questa distanza l'ensemble ha dati ogni 3 ore";
+  // Ensemble ripreso dal download precedente perché l'ultimo non è riuscito.
+  const ens = state.data.ensemble;
+  if (ens.fetchedAt && state.data.fetchedAt - ens.fetchedAt > 60 * 1000) txt += `\nScenari scaricati ${fmtAgo(ens.fetchedAt)}: l'ultimo aggiornamento dell'ensemble non è riuscito`;
   return txt;
 }
 
@@ -1083,7 +1101,8 @@ function registerServiceWorker() {
 // aperta, riscarica le previsioni quando la cache scade (l'orario indicato come "prossimo").
 setInterval(() => {
   if (!state.data || document.visibilityState !== 'visible') return;
-  if (!state.loading && navigator.onLine && !store.isFresh(state.data)) {
+  // Offline si passa da load() solo per togliere la previsione quando supera un giorno.
+  if (!state.loading && (navigator.onLine ? !store.isFresh(state.data) : store.isExpired(state.data))) {
     load();
     return;
   }

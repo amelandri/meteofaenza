@@ -1,6 +1,9 @@
 // Accesso alle API pubbliche di Open-Meteo (nessun backend proprio): previsioni dei
 // modelli, ensemble e metadati dei run.
 
+import { FORECAST_SCHEMA } from './storage.js';
+import { localNowIso } from './weather.js';
+
 const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 const META_URL = 'https://api.open-meteo.com/data/{model}/static/meta.json';
 const ENSEMBLE_URL = 'https://ensemble-api.open-meteo.com/v1/ensemble';
@@ -67,22 +70,44 @@ export function inModelDomain(model, lat, lon) {
   return lat >= la0 && lat <= la1 && lon >= lo0 && lon <= lo1;
 }
 
-async function getJSON(url, { signal } = {}) {
-  const res = await fetch(url, { signal });
-  if (!res.ok) {
-    let reason = `HTTP ${res.status}`;
-    try {
-      const body = await res.json();
-      if (body && body.reason) reason = body.reason;
-    } catch { /* risposta non JSON */ }
-    throw new Error(reason);
+// Oltre questo tempo una richiesta viene interrotta: con una rete mobile che non risponde
+// il caricamento altrimenti resterebbe in corso per sempre (e bloccherebbe i successivi).
+const TIMEOUT_MS = 20 * 1000;
+
+// Errore con messaggio già in italiano, mostrato così com'è all'utente.
+class ApiError extends Error {}
+
+function httpReason(status, body) {
+  if (status === 429) return 'troppe richieste, riprova tra qualche minuto';
+  if (status >= 500) return `servizio non disponibile (HTTP ${status})`;
+  return body?.reason ? `richiesta non valida (${body.reason})` : `errore HTTP ${status}`;
+}
+
+async function getJSON(url) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) {
+      let body = null;
+      try { body = await res.json(); } catch { /* risposta non JSON */ }
+      throw new ApiError(httpReason(res.status, body));
+    }
+    return await res.json();
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+    if (err.name === 'AbortError') throw new ApiError('il server non risponde');
+    // fetch() rifiuta con TypeError ("Failed to fetch", "Load failed") se la rete manca.
+    if (err instanceof TypeError) throw new ApiError('connessione non riuscita');
+    throw new ApiError('risposta non valida');
+  } finally {
+    clearTimeout(timer);
   }
-  return res.json();
 }
 
 // Precipitazione oraria di ogni scenario dell'ensemble, per calcolare la probabilità che
 // piova durante un intervallo (quota di scenari con pioggia nell'intervallo). Restituisce
-// { model, time: [...], members: [[mm per ora], ...] } oppure null se non disponibile.
+// { model, time: [...], members: [[mm per ora], ...], fetchedAt } oppure null se non disponibile.
 async function fetchEnsemble(loc) {
   try {
     const params = new URLSearchParams({
@@ -91,6 +116,7 @@ async function fetchEnsemble(loc) {
       hourly: 'precipitation',
       models: ENSEMBLE_MODEL.id,
       forecast_days: '6', // come le previsioni: tragitti e dettaglio orario (ICON-EU-EPS arriva a ~5 giorni)
+      past_days: '1', // come le previsioni (vedi fetchForecast)
       timezone: 'auto',
     });
     const data = await getJSON(`${ENSEMBLE_URL}?${params}`);
@@ -100,9 +126,22 @@ async function fetchEnsemble(loc) {
     // comunque nel caso venga aggiunto.
     const key = new RegExp(`^precipitation(_member\\d+)?(_${ENSEMBLE_MODEL.id})?$`);
     const members = Object.keys(h).filter((k) => key.test(k)).map((k) => h[k]);
-    return members.length ? { model: ENSEMBLE_MODEL.name, time: h.time, members } : null;
+    return members.length ? { model: ENSEMBLE_MODEL.name, time: h.time, members, fetchedAt: Date.now() } : null;
   } catch {
     return null; // senza ensemble l'app ripiega sulla probabilità oraria (approssimata)
+  }
+}
+
+// Un ensemble scaricato in precedenza si riusa se l'aggiornamento fallisce, ma non oltre
+// questo tempo (ICON-EU-EPS esce ogni 6 ore).
+const ENSEMBLE_REUSE_MS = 12 * 60 * 60 * 1000;
+
+// Taglia le serie di un blocco (orario o giornaliero) all'intervallo [from, to).
+function sliceBlock(block, vars, common, from, to) {
+  block.time = block.time.slice(from, to);
+  for (const v of common) block[v] = block[v].slice(from, to);
+  for (const m of MODELS) {
+    for (const v of vars) block.models[m.key][v] = block.models[m.key][v].slice(from, to);
   }
 }
 
@@ -121,7 +160,9 @@ async function fetchModelRun(model) {
 
 // Scarica le previsioni di entrambi i modelli e le normalizza in
 // { hourly: { time, models: { i2i: {var: []}, eu: {...} } }, daily: {...}, runs, ... }
-export async function fetchForecast(loc) {
+// `prev`: previsione precedente, da cui recuperare ensemble e metadati dei run se il loro
+// download fallisce (il risultato è allora segnato `incomplete` e riscaricato prima).
+export async function fetchForecast(loc, prev = null) {
   const params = new URLSearchParams({
     latitude: loc.lat.toFixed(4),
     longitude: loc.lon.toFixed(4),
@@ -129,6 +170,9 @@ export async function fetchForecast(loc) {
     daily: [...DAILY_VARS, ...COMMON_DAILY].join(','),
     models: MODELS.map((m) => m.id).join(','),
     forecast_days: '6',
+    // Anche il giorno prima, per avere l'ora 23 di ieri: dopo mezzanotte il grafico parte
+    // dall'ora precedente. Il resto di ieri viene scartato subito sotto.
+    past_days: '1',
     timezone: 'auto',
     wind_speed_unit: 'kmh',
   });
@@ -163,23 +207,37 @@ export async function fetchForecast(loc) {
     const t = hourly.models[m.key].temperature_2m;
     for (let i = t.length - 1; i > last; i--) if (t[i] != null) { last = i; break; }
   }
-  if (last >= 0) {
-    hourly.time = hourly.time.slice(0, last + 1);
-    for (const v of COMMON_HOURLY) hourly[v] = hourly[v].slice(0, last + 1);
-    for (const m of MODELS) {
-      for (const v of HOURLY_VARS) hourly.models[m.key][v] = hourly.models[m.key][v].slice(0, last + 1);
+  // Di ieri si tiene solo l'ultima ora (23:00) per i dati orari, nulla per i giornalieri.
+  const today = localNowIso(data.utc_offset_seconds).slice(0, 10);
+  const firstToday = hourly.time.findIndex((t) => t >= today);
+  const first = Math.max(0, firstToday - 1);
+  sliceBlock(hourly, HOURLY_VARS, COMMON_HOURLY, first, last >= 0 ? last + 1 : undefined);
+  const firstDay = daily.time.findIndex((t) => t >= today);
+  if (firstDay > 0) sliceBlock(daily, DAILY_VARS, COMMON_DAILY, firstDay);
+
+  if (ensemble) {
+    const from = ensemble.time.indexOf(hourly.time[0]);
+    if (from > 0) {
+      ensemble.time = ensemble.time.slice(from);
+      ensemble.members = ensemble.members.map((s) => s.slice(from));
     }
   }
 
+  // Ensemble e metadati non riusciti: si tengono quelli della previsione precedente.
+  const oldEnsemble = prev?.ensemble?.fetchedAt > Date.now() - ENSEMBLE_REUSE_MS ? prev.ensemble : null;
+  const incomplete = !ensemble || runs.some((r) => !r);
+
   return {
+    schema: FORECAST_SCHEMA,
     fetchedAt: Date.now(),
+    incomplete,
     timezone: data.timezone,
     tzAbbr: data.timezone_abbreviation,
     utcOffset: data.utc_offset_seconds,
     gridElevation: data.elevation,
     hourly,
     daily,
-    runs: Object.fromEntries(MODELS.map((m, i) => [m.key, runs[i]])),
-    ensemble,
+    runs: Object.fromEntries(MODELS.map((m, i) => [m.key, runs[i] || prev?.runs?.[m.key] || null])),
+    ensemble: ensemble || oldEnsemble,
   };
 }

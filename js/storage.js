@@ -5,13 +5,19 @@ const PREFIX = 'meteo:';
 const KEYS = {
   settings: `${PREFIX}settings`,
   station: `${PREFIX}station`,
-  cacheIndex: `${PREFIX}cacheIndex`,
 };
 const CACHE_PREFIX = `${PREFIX}fc:`;
-const MAX_CACHED = 10;
+
+// Versione della forma dei dati prodotti da fetchForecast(): incrementarla quando cambia,
+// così le previsioni salvate con la forma precedente vengono scartate e riscaricate.
+export const FORECAST_SCHEMA = 2;
 
 // Dopo questo intervallo i dati in cache vengono riscaricati (se online).
 export const CACHE_TTL_MS = 30 * 60 * 1000;
+// Previsione incompleta (ensemble o metadati dei run non scaricati): si riprova prima.
+export const RETRY_TTL_MS = 5 * 60 * 1000;
+// Margine dopo l'orario stimato di un nuovo run, prima di riscaricare.
+export const RUN_DELAY_MS = 10 * 60 * 1000;
 
 function read(key, fallback) {
   try {
@@ -90,40 +96,60 @@ export const setStation = (data) => write(KEYS.station, data);
 
 // --- Cache previsioni ----------------------------------------------------------
 
+// Previsioni più vecchie di così non vengono più mostrate né tenute nello storage.
+export const MAX_AGE_MS = 24 * 60 * 60 * 1000;
+export const isExpired = (forecast) => Date.now() - forecast.fetchedAt > MAX_AGE_MS;
+
+// Previsione salvata, oppure null se manca, ha una forma diversa da quella attuale o è
+// più vecchia di MAX_AGE_MS (in questi ultimi due casi viene anche eliminata).
 export function getCachedForecast(loc) {
-  return read(CACHE_PREFIX + locationId(loc), null);
+  const key = CACHE_PREFIX + locationId(loc);
+  const f = read(key, null);
+  if (!f) return null;
+  if (f.schema === FORECAST_SCHEMA && Array.isArray(f.hourly?.time) && Array.isArray(f.daily?.time) && !isExpired(f)) return f;
+  remove(key);
+  return null;
 }
 
 export function setCachedForecast(loc, forecast) {
-  const id = locationId(loc);
-  let index = read(KEYS.cacheIndex, []).filter((x) => x !== id);
-  index.unshift(id);
-
-  // Elimina le voci più vecchie oltre il limite.
-  for (const old of index.slice(MAX_CACHED)) remove(CACHE_PREFIX + old);
-  index = index.slice(0, MAX_CACHED);
-
-  let ok = write(CACHE_PREFIX + id, forecast);
-  // Storage pieno: libera spazio sacrificando le voci meno recenti e riprova.
-  while (!ok && index.length > 1) {
-    remove(CACHE_PREFIX + index.pop());
-    ok = write(CACHE_PREFIX + id, forecast);
-  }
-  write(KEYS.cacheIndex, index);
-  return ok;
+  const key = CACHE_PREFIX + locationId(loc);
+  if (write(key, forecast)) return true;
+  // Storage pieno: la copia precedente occupa ancora spazio fino alla sostituzione.
+  remove(key);
+  return write(key, forecast);
 }
 
-export const isFresh = (forecast) => !!forecast && Date.now() - forecast.fetchedAt < CACHE_TTL_MS;
+// Istante del prossimo download: scadenza della cache (più breve se la previsione è
+// incompleta) oppure, se arriva prima, l'uscita stimata di un nuovo run di un modello
+// (ultima disponibilità + intervallo di pubblicazione + margine). Un run atteso prima del
+// download non conta: se non era ancora uscito si aspetta la scadenza normale.
+export function nextDownloadAt(forecast) {
+  let due = forecast.fetchedAt + (forecast.incomplete ? RETRY_TTL_MS : CACHE_TTL_MS);
+  for (const r of Object.values(forecast.runs || {})) {
+    if (!r?.available || !r.interval) continue;
+    const expected = (r.available + r.interval) * 1000 + RUN_DELAY_MS;
+    if (expected > forecast.fetchedAt && expected < due) due = expected;
+  }
+  return due;
+}
+
+export const isFresh = (forecast) => !!forecast && Date.now() < nextDownloadAt(forecast);
 
 // --- Pulizia ----------------------------------------------------------------------
 
-// Dati delle versioni con località selezionabile, non più usati: preferiti, ultima
-// località e previsioni salvate per località diverse da `keep`.
+// Dati delle versioni precedenti, non più usati: preferiti, ultima località, indice della
+// cache e previsioni salvate per località diverse da `keep`.
 export function removeLegacyKeys(keep) {
   remove(`${PREFIX}favorites`);
   remove(`${PREFIX}lastLocation`);
-  const keepId = locationId(keep);
-  const index = read(KEYS.cacheIndex, []);
-  for (const id of index) if (id !== keepId) remove(CACHE_PREFIX + id);
-  write(KEYS.cacheIndex, index.filter((id) => id === keepId));
+  remove(`${PREFIX}cacheIndex`);
+  const keepKey = CACHE_PREFIX + locationId(keep);
+  try {
+    const old = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith(CACHE_PREFIX) && k !== keepKey) old.push(k);
+    }
+    old.forEach(remove);
+  } catch { /* storage non accessibile */ }
 }
