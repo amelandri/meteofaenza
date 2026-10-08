@@ -19,6 +19,7 @@ const VARIABLES = {
   temp: {
     label: 'Temperatura', unit: '°C', decimals: 1, minSpan: 4,
     series: [{ v: 'temperature_2m' }],
+    fix: true, // anche la temperatura corretta con la centralina (tratteggio, prossime ore)
   },
   wind: {
     label: 'Vento', unit: 'km/h', decimals: 0, yFloor: 0, minSpan: 10,
@@ -216,18 +217,90 @@ async function loadStation() {
   state.stationLoading = true;
   state.stationTriedAt = Date.now();
   try {
-    state.station = await fetchStation();
+    state.station = withRainLog(await fetchStation(), state.station);
     store.setStation(state.station);
   } catch {
     // resta l'ultima misura salvata (se c'è), segnalata come non aggiornata se vecchia
   } finally {
     state.stationLoading = false;
-    if (state.data) renderNow();
+    renderStationViews();
   }
+}
+
+// La misura della centralina entra nel box Adesso, nei tragitti (pioggia in corso) e nel
+// grafico della temperatura (correzione): si ridisegnano tutti.
+function renderStationViews() {
+  if (!state.data || $('#forecast').hidden) return;
+  renderNow();
+  renderDaily();
+  renderChartSection();
 }
 
 function stationIsFresh() {
   return !!state.station && Date.now() - state.station.time < STATION_STALE_MS;
+}
+
+// --- Pioggia in corso (centralina) ---
+// La centralina dà solo i mm caduti da mezzanotte: confrontando la misura attuale con una
+// precedente si capisce se sta piovendo. Le letture delle ultime 2 ore sono tenute in
+// `rainLog` ({ t: istante della misura, day: data locale, mm }) dentro meteo:station.
+const RAIN_LOG_MS = 2 * 60 * 60 * 1000;
+const RAIN_NOW_MIN_GAP_MS = 8 * 60 * 1000; // lettura di confronto: almeno 8 minuti prima…
+const RAIN_NOW_MAX_GAP_MS = 40 * 60 * 1000; // …e al massimo 40
+const RAIN_NOW_FRESH_MS = 20 * 60 * 1000; // misura attuale non più vecchia di così
+const RAIN_NOW_LEAD_MIN = 30; // un tragitto che inizia entro 30 minuti è "imminente"
+
+const stationDay = (ms) => localDateTime(ms, state.data?.timezone || 'Europe/Rome', state.data?.utcOffset || 0).date;
+
+function withRainLog(st, prev) {
+  const log = (prev?.rainLog || []).filter((e) => st.time - e.t <= RAIN_LOG_MS && e.t < st.time);
+  if (st.rainToday != null) log.push({ t: st.time, day: stationDay(st.time), mm: st.rainToday });
+  return { ...st, rainLog: log };
+}
+
+// { raining, mm, minutes } oppure null se non si può dire (misura vecchia o nessuna
+// lettura precedente adatta, es. app appena aperta).
+function stationRainNow() {
+  const st = state.station;
+  if (!st || st.rainToday == null || Date.now() - st.time > RAIN_NOW_FRESH_MS) return null;
+  const day = stationDay(st.time);
+  // La lettura più recente nella finestra di confronto, dello stesso giorno (a mezzanotte
+  // il totale riparte da zero).
+  const ref = (st.rainLog || [])
+    .filter((e) => e.day === day && st.time - e.t >= RAIN_NOW_MIN_GAP_MS && st.time - e.t <= RAIN_NOW_MAX_GAP_MS)
+    .sort((a, b) => b.t - a.t)[0];
+  if (!ref) return null;
+  const mm = Math.max(0, st.rainToday - ref.mm);
+  return { raining: mm > 0.05, mm, minutes: Math.round((st.time - ref.t) / 60000) };
+}
+
+// --- Temperatura corretta con la centralina (solo nel grafico) ---
+// Per ogni modello: differenza tra la temperatura misurata e quella prevista nello stesso
+// istante (interpolata tra le due ore), applicata alle ore successive con un peso che si
+// dimezza ogni TEMP_FIX_HALF_H ore e si annulla dopo TEMP_FIX_MAX_H. Differenze oltre
+// TEMP_FIX_LIMIT non si usano: più probabile una misura anomala che un errore del modello.
+const TEMP_FIX_HALF_H = 3;
+const TEMP_FIX_MAX_H = 12;
+const TEMP_FIX_LIMIT = 5;
+
+function tempFix(key) {
+  const st = state.station;
+  if (!st || st.temperature == null || !stationIsFresh()) return null;
+  const { hourly, timezone, utcOffset } = state.data;
+  const lt = localDateTime(st.time, timezone, utcOffset);
+  const i = hourly.time.indexOf(`${lt.date}T${lt.time.slice(0, 2)}:00`);
+  const t = hourly.models[key].temperature_2m;
+  if (i < 0 || t[i] == null || t[i + 1] == null) return null;
+  const frac = Number(lt.time.slice(3, 5)) / 60;
+  const bias = st.temperature - (t[i] + (t[i + 1] - t[i]) * frac);
+  if (Math.abs(bias) > TEMP_FIX_LIMIT) return null;
+  // Valore corretto all'indice orario j (null prima della misura e oltre TEMP_FIX_MAX_H).
+  const at = (j) => {
+    const dt = j - (i + frac);
+    if (j < i || dt > TEMP_FIX_MAX_H || t[j] == null) return null;
+    return t[j] + bias * 0.5 ** (Math.max(0, dt) / TEMP_FIX_HALF_H);
+  };
+  return { bias, time: lt.time, at };
 }
 
 // Ultimo istante di lettura programmata (:00, :10, … + ritardo) e il successivo.
@@ -244,7 +317,7 @@ function stationDue(now = Date.now()) {
   const saved = store.getStation();
   if (saved?.fetchedAt > (state.station?.fetchedAt || 0)) {
     state.station = saved;
-    if (state.data) renderNow();
+    renderStationViews();
   }
   const last = Math.max(state.station?.fetchedAt || 0, state.stationTriedAt || 0);
   return now - last > STATION_SLOT_MS;
@@ -274,6 +347,8 @@ function renderObservation() {
     ? `min ${fmt(st.tMin, 1)}°${st.tMinTime ? ` (${st.tMinTime})` : ''} · max ${fmt(st.tMax, 1)}°${st.tMaxTime ? ` (${st.tMaxTime})` : ''}`
     : '';
   const stat = (label, value) => (value ? `<div><dt>${label}</dt><dd>${value}</dd></div>` : '');
+  const rn = stationRainNow();
+  const rainNow = rn?.raining ? ` <small class="obs-rain" title="${esc(`+${fmt(rn.mm, 1)} mm negli ultimi ${rn.minutes} minuti`)}">sta piovendo</small>` : '';
   return `<div class="day obs-row">
     <div class="day-name"><b class="now-hour">${when}</b><span class="muted small">Misurato${stale ? ' · <span class="obs-stale">non aggiornato</span>' : ''}</span><span class="muted small">prossima lettura ${localDateTime(nextStationSlot() - STATION_SLOT_DELAY_MS, timezone, utcOffset).time}</span></div>
     <article class="obs-card">
@@ -286,7 +361,7 @@ function renderObservation() {
         <dl class="now-stats obs-stats">
           ${stat('Umidità', st.humidity != null ? `${fmt(st.humidity)}%` : '')}
           ${stat('Vento', st.windSpeed != null ? `${windArrow(st.windDirection)} ${fmt(st.windSpeed)} <small>${windDir(st.windDirection)}</small>` : '')}
-          ${stat('Pioggia oggi', st.rainToday != null && sameDay ? `${fmt(st.rainToday, 1)} mm` : '')}
+          ${stat('Pioggia oggi', st.rainToday != null && sameDay ? `${fmt(st.rainToday, 1)} mm${rainNow}` : '')}
           ${stat('Raffica max', st.windMax != null && sameDay ? `${fmt(st.windMax)} km/h${st.windMaxTime ? ` <small>${st.windMaxTime}</small>` : ''}` : '')}
         </dl>
       </div>
@@ -593,9 +668,9 @@ function rainWords(mm) {
 
 // Vero se nelle ore del tragitto l'ensemble ha dati ogni 3 ore (oltre ~2 giorni): i valori
 // orari sono allora uguali a gruppi di tre e il momento esatto della pioggia non è noto.
-function ensembleCoarse(ens, idx) {
+function ensembleCoarse(members, idx) {
   return idx.some((i) => {
-    const rainy = ens.members.filter((s) => (s[i] ?? 0) > 0);
+    const rainy = members.filter((s) => (s[i] ?? 0) > 0);
     if (rainy.length < 3) return false; // senza pioggia non si può dire (e non serve)
     return rainy.every((s) => s[i] === s[i - 1] || s[i] === s[i + 1]);
   });
@@ -610,24 +685,39 @@ function ensembleStamps(ens) {
   return map;
 }
 
+// Con più ensemble (ICON-EU-EPS e, nei primi ~2 giorni, ICON-D2-EPS) la probabilità è la
+// media delle quote di ciascuno: ogni ensemble pesa uguale, altrimenti i 40 scenari di
+// ICON-EU-EPS prevarrebbero sui 20 di ICON-D2-EPS. Un ensemble conta solo se copre l'intervallo
+// con almeno metà dei suoi scenari.
 function windowRainChance(hrs) {
   const ens = state.data.ensemble;
-  if (ens?.members?.length) {
+  if (ens?.groups?.length) {
     const stamps = ensembleStamps(ens);
     const idx = hrs.map((x) => stamps.get(x.stamp) ?? -1);
     if (idx.every((i) => i >= 0)) {
-      const sums = ens.members
-        .map((serie) => (idx.some((i) => serie[i] == null) ? null : idx.reduce((sum, i, k) => sum + serie[i] * hrs[k].weight, 0)))
-        .filter((v) => v != null);
-      if (sums.length >= ens.members.length / 2) {
-        const wetSums = sums.filter((v) => v >= ENSEMBLE_WET_MM - 1e-9).sort((a, b) => a - b);
+      const parts = []; // { model, wet, total } per ensemble
+      const wetSums = []; // mm degli scenari bagnati di tutti gli ensemble
+      let coarse = false;
+      for (const g of ens.groups) {
+        const sums = g.members
+          .map((serie) => (idx.some((i) => serie[i] == null) ? null : idx.reduce((sum, i, k) => sum + serie[i] * hrs[k].weight, 0)))
+          .filter((v) => v != null);
+        if (!sums.length || sums.length < g.members.length / 2) continue;
+        const wet = sums.filter((v) => v >= ENSEMBLE_WET_MM - 1e-9);
+        parts.push({ model: g.model, wet: wet.length, total: sums.length });
+        wetSums.push(...wet);
+        if (ensembleCoarse(g.members, idx)) coarse = true;
+      }
+      if (parts.length) {
+        wetSums.sort((a, b) => a - b);
         const wet = wetSums.length;
         return {
-          pop: Math.round((100 * wet) / sums.length), popExact: true, popMembers: wet, popTotal: sums.length,
+          pop: Math.round((100 * parts.reduce((s, p) => s + p.wet / p.total, 0)) / parts.length),
+          popExact: true, popMembers: wet, parts,
           // quanta pioggia negli scenari bagnati: valore tipico (mediana) e massimo
           wetTypical: wet ? wetSums[Math.floor((wet - 1) / 2)] : null,
           wetMax: wet ? wetSums[wet - 1] : null,
-          coarse: ensembleCoarse(ens, idx),
+          coarse,
         };
       }
     }
@@ -641,7 +731,8 @@ function windowRainChance(hrs) {
 function chanceText(x, where) {
   if (x.pop == null) return 'Probabilità n.d.';
   if (!x.popExact) return `Probabilità ~${x.pop}% (stima Open-Meteo: ensemble non disponibile)`;
-  let txt = `Probabilità di pioggia ${where} ${x.pop}% (${x.popMembers} ${x.popMembers === 1 ? 'scenario' : 'scenari'} su ${x.popTotal} di ${state.data.ensemble.model} con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm)`;
+  const scen = x.parts.map((p) => `${p.model} ${p.wet} su ${p.total}`).join(', ');
+  let txt = `Probabilità di pioggia ${where} ${x.pop}% (scenari con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm: ${scen}${x.parts.length > 1 ? '; media dei due ensemble' : ''})`;
   if (x.popMembers) {
     const amount = x.popMembers === 1 ? `${fmt(x.wetMax, 1)} mm` : `tipicamente ${fmt(x.wetTypical, 1)} mm, al massimo ${fmt(x.wetMax, 1)} mm`;
     txt += `\n${x.popMembers === 1 ? "Nell'unico scenario" : 'Negli scenari'} con pioggia: ${amount} (${rainWords(x.wetTypical)})`;
@@ -710,8 +801,21 @@ const BIKE_STATUS = {
 };
 const BIKE_ICON = '<svg class="bike-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="5.5" cy="16.5" r="3.5"/><circle cx="18.5" cy="16.5" r="3.5"/><path d="M5.5 16.5 9 9h6l3.5 7.5M9 9l3.5 7.5L15 9M8 6.5h3M15 9l-1-2.5h2.5"/></svg>';
 
+// Pioggia in corso misurata dalla centralina: per un tragitto di oggi in corso o che inizia
+// entro RAIN_NOW_LEAD_MIN minuti il verdetto diventa "Pioggia", qualunque cosa dicano i modelli.
+function applyRainNow(x, rn, nowMin) {
+  if (!rn?.raining || x.status === 'na') return x;
+  if (nowMin >= toMinutes(x.w.to) || toMinutes(x.w.from) - nowMin > RAIN_NOW_LEAD_MIN) return x;
+  const forecast = `previsione: ${BIKE_STATUS[x.status].label.toLowerCase()}${x.why ? `, ${x.why}` : ''}`;
+  return {
+    ...x, status: 'wet', rainNow: true,
+    why: `sta piovendo adesso (centralina: ${fmt(rn.mm, 1)} mm negli ultimi ${rn.minutes} minuti); ${forecast}`,
+  };
+}
+
 function renderBike(commute, day, hourIdx, today, nowMin) {
-  const items = commute.windows.map((w) => bikeWindow(day, w, hourIdx));
+  const rn = day === today ? stationRainNow() : null;
+  const items = commute.windows.map((w) => applyRainNow(bikeWindow(day, w, hourIdx), rn, nowMin));
   if (items.every((x) => x.status === 'na')) return '';
   const chips = items.map((x) => {
     const st = BIKE_STATUS[x.status];
@@ -720,7 +824,10 @@ function renderBike(commute, day, hourIdx, today, nowMin) {
     let mm = '';
     // Media dei mm solo se tutti i modelli vedono pioggia, altrimenti l'intervallo min–max.
     const mmRange = `${x.min < 0.05 ? '0' : fmt(x.min, 1)}–${fmt(x.max, 1)} mm`;
-    if (x.status === 'wet') mm = x.wet === x.avail.length ? `${fmt(x.mean, 1)} mm` : mmRange;
+    // Con la pioggia in corso i mm previsti dai modelli (anche 0) non descrivono il verdetto:
+    // restano nel dettaglio per modello.
+    if (x.rainNow) mm = '';
+    else if (x.status === 'wet') mm = x.wet === x.avail.length ? `${fmt(x.mean, 1)} mm` : mmRange;
     else if (x.status === 'mixed') mm = mmRange;
     const only = x.avail.length === 1 ? `<span class="bike-only">solo ${x.avail[0].m.short}</span>` : '';
     const detail = x.models.map((y) => `${y.m.name}: ${y.mm == null ? 'n.d.' : `${fmt(y.mm, 1)} mm`}`).join(' · ');
@@ -895,6 +1002,16 @@ function renderChartSection() {
     }
   }
 
+  // Temperatura corretta con la centralina (dopo le serie dei modelli: il Δ del tooltip usa
+  // le prime due).
+  const fixes = cfg.fix ? MODELS.map((m) => ({ m, fix: tempFix(m.key) })).filter((x) => x.fix) : [];
+  for (const { m, fix } of fixes) {
+    series.push({
+      cls: `s-${m.key}`, dash: true, model: m, varLabel: 'corretta',
+      values: times.map((_, k) => fix.at(start + k)),
+    });
+  }
+
   // Probabilità di pioggia ora per ora (stesso calcolo della tabella oraria), scala a destra.
   if (cfg.pop) {
     series.push({
@@ -920,7 +1037,11 @@ function renderChartSection() {
 
   const note = [];
   let legend = cfg.series.some((s) => s.dash) ? 'Linea continua: velocità media · tratteggio: raffiche. ' : '';
-  if (cfg.pop) legend = `Barre: pioggia in mm (ICON-2I, ICON-EU) · area azzurra: probabilità di pioggia (scenari ${state.data.ensemble?.model || 'ensemble'} con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm, scala a destra). `;
+  if (fixes.length) {
+    const diffs = fixes.map(({ m, fix }) => `${m.name} ${fmtSigned(fix.bias, 1)}°`).join(', ');
+    legend = `Tratteggio: previsione corretta con la centralina (alle ${fixes[0].fix.time} misurato − previsto: ${diffs}), correzione dimezzata ogni ${TEMP_FIX_HALF_H} ore. `;
+  }
+  if (cfg.pop) legend = `Barre: pioggia in mm (ICON-2I, ICON-EU) · area azzurra: probabilità di pioggia (scenari ${state.data.ensemble?.groups.map((g) => g.model).join(' e ') || 'ensemble'} con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm, scala a destra). `;
   for (const m of MODELS) {
     if (!inModelDomain(m, state.loc.lat, state.loc.lon)) note.push(`${m.name} non copre questa località.`);
     else {

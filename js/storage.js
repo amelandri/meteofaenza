@@ -10,7 +10,7 @@ const CACHE_PREFIX = `${PREFIX}fc:`;
 
 // Versione della forma dei dati prodotti da fetchForecast(): incrementarla quando cambia,
 // così le previsioni salvate con la forma precedente vengono scartate e riscaricate.
-export const FORECAST_SCHEMA = 2;
+export const FORECAST_SCHEMA = 3;
 
 // Dopo questo intervallo i dati in cache vengono riscaricati (se online).
 export const CACHE_TTL_MS = 30 * 60 * 1000;

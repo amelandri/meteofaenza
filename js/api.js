@@ -7,9 +7,13 @@ import { localNowIso } from './weather.js';
 const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 const META_URL = 'https://api.open-meteo.com/data/{model}/static/meta.json';
 const ENSEMBLE_URL = 'https://ensemble-api.open-meteo.com/v1/ensemble';
-// Ensemble usato per la probabilità di pioggia sui tragitti (stessa famiglia della
-// precipitation_probability di Open-Meteo): 40 scenari orari.
-export const ENSEMBLE_MODEL = { id: 'icon_eu_eps', name: 'ICON-EU-EPS' };
+// Ensemble usati per la probabilità di pioggia (tragitti, fasce, dettaglio orario), con
+// scenari orari: ICON-EU-EPS (40 scenari, ~5 giorni) e ICON-D2-EPS (20 scenari a 2,2 km,
+// ~2 giorni, più adatto a temporali e rilievi). Dove ci sono entrambi pesano uguale.
+export const ENSEMBLE_MODELS = [
+  { id: 'icon_eu_eps', name: 'ICON-EU-EPS' },
+  { id: 'icon_d2_eps', name: 'ICON-D2-EPS' },
+];
 
 export const MODELS = [
   {
@@ -107,26 +111,30 @@ async function getJSON(url) {
 
 // Precipitazione oraria di ogni scenario dell'ensemble, per calcolare la probabilità che
 // piova durante un intervallo (quota di scenari con pioggia nell'intervallo). Restituisce
-// { model, time: [...], members: [[mm per ora], ...], fetchedAt } oppure null se non disponibile.
+// { time: [...], groups: [{ model, members: [[mm per ora], ...] }], fetchedAt } (un gruppo
+// per ensemble) oppure null se non disponibile.
 async function fetchEnsemble(loc) {
   try {
     const params = new URLSearchParams({
       latitude: loc.lat.toFixed(4),
       longitude: loc.lon.toFixed(4),
       hourly: 'precipitation',
-      models: ENSEMBLE_MODEL.id,
+      models: ENSEMBLE_MODELS.map((m) => m.id).join(','),
       forecast_days: '6', // come le previsioni: tragitti e dettaglio orario (ICON-EU-EPS arriva a ~5 giorni)
       past_days: '1', // come le previsioni (vedi fetchForecast)
       timezone: 'auto',
     });
     const data = await getJSON(`${ENSEMBLE_URL}?${params}`);
     const h = data.hourly;
-    // Chiavi: "precipitation" (scenario di controllo) e "precipitation_memberNN". Con un
-    // solo modello richiesto l'API non aggiunge il suffisso del modello; lo si accetta
-    // comunque nel caso venga aggiunto.
-    const key = new RegExp(`^precipitation(_member\\d+)?(_${ENSEMBLE_MODEL.id})?$`);
-    const members = Object.keys(h).filter((k) => key.test(k)).map((k) => h[k]);
-    return members.length ? { model: ENSEMBLE_MODEL.name, time: h.time, members, fetchedAt: Date.now() } : null;
+    // Chiavi: "precipitation_<modello>" (scenario di controllo) e
+    // "precipitation_memberNN_<modello>". Il suffisso c'è perché si chiedono più modelli
+    // (con uno solo l'API lo ometterebbe). Si scartano gli ensemble senza alcun valore.
+    const groups = ENSEMBLE_MODELS.map((m) => {
+      const key = new RegExp(`^precipitation(_member\\d+)?_${m.id}$`);
+      const members = Object.keys(h).filter((k) => key.test(k)).map((k) => h[k]);
+      return { model: m.name, members };
+    }).filter((g) => g.members.some((s) => s.some((v) => v != null)));
+    return groups.length ? { time: h.time, groups, fetchedAt: Date.now() } : null;
   } catch {
     return null; // senza ensemble l'app ripiega sulla probabilità oraria (approssimata)
   }
@@ -219,7 +227,7 @@ export async function fetchForecast(loc, prev = null) {
     const from = ensemble.time.indexOf(hourly.time[0]);
     if (from > 0) {
       ensemble.time = ensemble.time.slice(from);
-      ensemble.members = ensemble.members.map((s) => s.slice(from));
+      for (const g of ensemble.groups) g.members = g.members.map((s) => s.slice(from));
     }
   }
 

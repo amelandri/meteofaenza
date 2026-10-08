@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Come funziona – Meteo Faenza</title>
-  <meta name="description" content="Come funziona Meteo Faenza: i modelli ICON-2I e ICON-EU, l'ensemble ICON-EU-EPS e il calcolo della probabilità di pioggia">
+  <meta name="description" content="Come funziona Meteo Faenza: i modelli ICON-2I e ICON-EU, gli ensemble ICON-EU-EPS e ICON-D2-EPS e il calcolo della probabilità di pioggia">
   <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0c111b" media="(prefers-color-scheme: dark)">
   <link rel="manifest" href="manifest.webmanifest">
@@ -78,9 +78,10 @@
     <section class="card" id="ensemble">
       <h2>Previsione singola e ensemble</h2>
       <p>ICON-2I e ICON-EU sono previsioni <strong>deterministiche</strong>: ognuna calcola <strong>un solo scenario</strong>, quello ritenuto più probabile. Ma l'atmosfera è caotica: piccolissime differenze nello stato di partenza possono portare, dopo qualche giorno, a risultati molto diversi.</p>
-      <p>Per misurare questa incertezza il DWD calcola anche l'<strong>ensemble ICON-EU-EPS</strong>: lo stesso modello europeo viene rilanciato <strong>40 volte</strong>, ogni volta con condizioni di partenza leggermente diverse (e a risoluzione più bassa). Si ottengono 40 scenari plausibili.</p>
+      <p>Per misurare questa incertezza il DWD calcola anche l'<strong>ensemble ICON-EU-EPS</strong>: lo stesso modello europeo viene rilanciato <strong>40 volte</strong>, ogni volta con condizioni di partenza leggermente diverse (e a risoluzione più bassa). Si ottengono 40 scenari plausibili, per circa 5 giorni.</p>
+      <p>Per le prime 48 ore circa l'app usa anche l'<strong>ensemble ICON-D2-EPS</strong>, sempre del DWD: 20 scenari a 2,2 km, una risoluzione simile a quella di ICON-2I, che descrive meglio temporali, colline e Appennino.</p>
       <ul>
-        <li>Se i 40 scenari sono simili, la previsione è <strong>stabile</strong> e affidabile.</li>
+        <li>Se gli scenari sono simili, la previsione è <strong>stabile</strong> e affidabile.</li>
         <li>Se divergono, la situazione è <strong>incerta</strong>: i modelli possono cambiare idea nei prossimi aggiornamenti.</li>
       </ul>
       <p>Per questo può succedere che <strong>entrambi i modelli prevedano 0 mm</strong> e allo stesso tempo l'app indichi una probabilità di pioggia del 40%: lo scenario principale è asciutto, ma in 16 scenari su 40 piove. Non è una contraddizione, è l'informazione sull'incertezza.</p>
@@ -88,9 +89,10 @@
 
     <section class="card" id="probabilita">
       <h2>La probabilità di pioggia</h2>
-      <p>La probabilità è calcolata contando quanti dei 40 scenari dell'ensemble prevedono pioggia nel periodo considerato:</p>
-      <p class="info-formula">probabilità = scenari con almeno 0,2 mm ÷ 40</p>
-      <p>Esempio: se in un'ora 12 scenari su 40 danno almeno 0,2 mm di pioggia, la probabilità per quell'ora è del 30%.</p>
+      <p>La probabilità è calcolata contando quanti scenari di ciascun ensemble prevedono pioggia nel periodo considerato:</p>
+      <p class="info-formula">probabilità = scenari con almeno 0,2 mm ÷ scenari totali</p>
+      <p>Esempio: se in un'ora 12 scenari su 40 di ICON-EU-EPS danno almeno 0,2 mm di pioggia, la probabilità per quell'ora è del 30%.</p>
+      <p>Dove ci sono entrambi gli ensemble (le prime 48 ore circa) la probabilità è la <strong>media delle due</strong>: ognuno pesa uguale, anche se ICON-EU-EPS ha il doppio degli scenari. Esempio: 12 su 40 (30%) e 10 su 20 (50%) danno il 40%. Il dettaglio mostra il conteggio di ciascuno.</p>
 
       <h3>Perché 0,2 mm</h3>
       <p>Con soglie più basse conterebbero come "pioggia" anche poche gocce. 0,2 mm è la stessa soglia usata per dire che uno dei due modelli "vede pioggia", così modelli e probabilità parlano della stessa cosa.</p>
@@ -123,7 +125,7 @@
       <table class="info-table">
         <thead><tr><th>Indicazione</th><th>Quando</th></tr></thead>
         <tbody>
-          <tr><td><span class="info-st st-wet">Pioggia</span></td><td>entrambi i modelli prevedono pioggia e probabilità ≥ 30%, oppure uno solo e probabilità ≥ 60%, oppure probabilità ≥ 80%</td></tr>
+          <tr><td><span class="info-st st-wet">Pioggia</span></td><td>entrambi i modelli prevedono pioggia e probabilità ≥ 30%, oppure uno solo e probabilità ≥ 60%, oppure probabilità ≥ 80%; oppure <strong>sta piovendo adesso</strong> secondo la centralina e il tragitto è in corso o inizia entro 30 minuti</td></tr>
           <tr><td><span class="info-st st-dry">Asciutto</span></td><td>nessun modello prevede pioggia e probabilità sotto il 20%</td></tr>
           <tr><td><span class="info-st st-risk">Rischio</span></td><td>nessun modello prevede pioggia, ma probabilità ≥ 20%</td></tr>
           <tr><td><span class="info-st st-mixed">Incerto</span></td><td>tutti gli altri casi (es. un modello prevede pioggia, l'altro no, con probabilità media)</td></tr>
@@ -164,6 +166,10 @@
       <h2>La centralina</h2>
       <p>Il riquadro "Adesso" mostra le misure reali dell'Osservatorio Meteorologico "E. Torricelli" di Faenza (<a href="https://www.meteofaenza.it/" target="_blank" rel="noopener">meteofaenza.it</a>): temperatura con minima e massima del giorno, umidità, vento, pioggia caduta da mezzanotte e raffica massima.</p>
       <p>L'app legge la centralina ai minuti :00, :10, :20, :30, :40 e :50. Aprendo l'app (o tornandoci) fa una lettura subito solo se l'ultima ha più di 10 minuti; altrimenti mostra quella salvata e aspetta la lettura programmata. Se la misura ha più di 30 minuti viene segnalata come "non aggiornata".</p>
+      <h3>Pioggia in corso</h3>
+      <p>La centralina fornisce solo i millimetri caduti da mezzanotte. Confrontando la misura con una lettura di 8–40 minuti prima l'app capisce se sta piovendo e lo scrive accanto alla pioggia del giorno ("sta piovendo"). Serve quindi almeno una lettura precedente: subito dopo l'apertura dell'app l'indicazione può mancare. Se sta piovendo, un tragitto in corso o che inizia entro 30 minuti diventa <em>Pioggia</em>, qualunque cosa dicano i modelli; il dettaglio riporta anche cosa prevedevano.</p>
+      <h3>Temperatura corretta</h3>
+      <p>Nel grafico della temperatura le linee tratteggiate sono le previsioni dei due modelli corrette con la centralina: l'app calcola la differenza tra la temperatura misurata e quella prevista nello stesso momento e la applica alle ore successive, dimezzandola ogni 3 ore e azzerandola dopo 12. Differenze di oltre 5 °C non vengono usate (più probabile una misura anomala). I box dei giorni mostrano invece le previsioni originali, per non alterare il confronto tra i modelli.</p>
     </section>
 
     <section class="card" id="limiti">
@@ -182,7 +188,7 @@
   <footer class="footer muted">
     <p>Dati: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0) ·
       ICON-2I © <a href="https://www.arpae.it/" target="_blank" rel="noopener">ItaliaMeteo-ARPAE</a> ·
-      ICON-EU e ICON-EU-EPS © <a href="https://www.dwd.de/" target="_blank" rel="noopener">Deutscher Wetterdienst</a>.</p>
+      ICON-EU, ICON-EU-EPS e ICON-D2-EPS © <a href="https://www.dwd.de/" target="_blank" rel="noopener">Deutscher Wetterdienst</a>.</p>
     <p>Dati misurati: <a href="https://www.meteofaenza.it/" target="_blank" rel="noopener">Osservatorio Meteorologico "E. Torricelli" – meteofaenza.it</a>.</p>
   </footer>
 </body>
