@@ -524,17 +524,9 @@ const DROP = '<svg class="drop" viewBox="0 0 16 16" width="13" height="13" aria-
 // --- Tragitti in bici ("Bike") ------------------------------------------------------
 // Elenco di tragitti, ognuno con le sue finestre orarie (ora locale della località). Per
 // ogni finestra si valuta se pioverà confrontando i due modelli e la probabilità
-// dall'ensemble. Oggi c'è un'unica voce "Bike"; per aggiungerne basta un'altra voce.
-const BIKE_COMMUTES = [
-  {
-    label: 'Bike',
-    windows: [
-      { from: '06:45', to: '08:00' },
-      { from: '12:30', to: '15:00' },
-      { from: '17:00', to: '18:30' },
-    ],
-  },
-];
+// dall'ensemble. Oggi c'è un'unica voce: gli "intervalli monitorati" (nome e al massimo 3
+// intervalli) scelti nella pagina Impostazioni (settings.html, salvati in settings.watch).
+let BIKE_COMMUTES = [store.getWatch()];
 const BIKE_WET_MM = 0.2; // mm nel tragitto oltre cui un modello "vede" pioggia
 // Soglie del verdetto, che combina i due modelli con la probabilità dell'ensemble:
 const BIKE_POP_BOTH = 30; // Pioggia se entrambi i modelli vedono pioggia e prob. ≥ 30%…
@@ -716,7 +708,7 @@ function renderBike(commute, day, hourIdx, today, nowMin) {
     </button>`;
   }).join('');
   return `<div class="bike">
-    <span class="bike-label">${BIKE_ICON}<span>${commute.label}</span></span>
+    <span class="bike-label">${BIKE_ICON}<span>${esc(commute.label)}</span></span>
     <div class="bike-chips">${chips}</div>
   </div>`;
 }
@@ -1101,5 +1093,17 @@ function placeFooter() {
 }
 DESKTOP.addEventListener('change', placeFooter);
 placeFooter();
+
+// Tornando dalla pagina Impostazioni la pagina può essere ripristinata dalla cache del
+// browser (bfcache) senza ricaricare i moduli: rilegge gli intervalli monitorati e ridisegna
+// se sono cambiati.
+function reloadWatch() {
+  const watch = store.getWatch();
+  if (JSON.stringify(watch) === JSON.stringify(BIKE_COMMUTES[0])) return;
+  BIKE_COMMUTES = [watch];
+  if (state.data) render();
+}
+window.addEventListener('pageshow', (e) => { if (e.persisted) reloadWatch(); });
+window.addEventListener('storage', (e) => { if (e.key === 'meteo:settings') reloadWatch(); });
 
 init();

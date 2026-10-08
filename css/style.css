@@ -689,6 +689,32 @@ button { font: inherit; color: inherit; }
   .info-table td:first-child { white-space: normal; }
 }
 
+/* --- Pagina Impostazioni (settings.html) ------------------------------------------- */
+
+.settings .card { max-width: 560px; }
+.field { display: block; margin: 16px 0 0; padding: 0; border: 0; min-width: 0; }
+.field-label { display: block; padding: 0; margin-bottom: 6px; font-size: .78rem; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.settings input {
+  font: inherit; color: var(--text);
+  height: 40px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface-2);
+  min-width: 0;
+}
+.settings input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+#watch-label { width: 100%; }
+.win-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 8px; }
+.win-row { display: flex; align-items: center; gap: 8px; }
+.win-row label { display: flex; align-items: center; gap: 6px; flex: 1 1 0; min-width: 0; }
+.win-row input { flex: 1 1 auto; width: 100%; }
+.win-tag { font-size: .86rem; color: var(--muted); }
+.win-remove:disabled { opacity: .35; }
+.win-remove:disabled:hover { background: transparent; color: var(--muted); }
+.btn-sm { height: 34px; padding: 0 12px; font-size: .88rem; }
+.form-error { margin: 14px 0 0 !important; color: var(--bad); font-size: .88rem; font-weight: 600; }
+.form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 18px; }
+.form-saved { color: var(--good); font-weight: 650; font-size: .9rem; }
+
 /* --- Piè di pagina e notifiche --------------------------------------------------- */
 
 .footer {

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Impostazioni – Meteo Faenza</title>
+  <meta name="description" content="Impostazioni di Meteo Faenza: intervalli orari monitorati">
+  <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0c111b" media="(prefers-color-scheme: dark)">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/settings.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand brand-link" href="./" aria-label="Torna alle previsioni">
+        <img src="icons/icon.svg" alt="" width="32" height="32">
+        <div class="brand-text">
+          <p class="brand-name">Meteo Faenza</p>
+          <p class="brand-sub">Impostazioni</p>
+        </div>
+      </a>
+      <div class="topbar-actions">
+        <a class="icon-btn" href="./" title="Torna alle previsioni" aria-label="Torna alle previsioni">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container info settings">
+    <h1>Impostazioni</h1>
+    <p class="info-lead">Le impostazioni sono salvate solo in questo browser.</p>
+
+    <form id="watch-form" class="card" novalidate>
+      <h2>Intervalli monitorati</h2>
+      <p class="info-note">Fasce orarie da tenere d'occhio (es. gli spostamenti in bici): per ognuna, in "Prossimi giorni" l'app indica se pioverà e con quale probabilità. Al massimo 3 intervalli, in ora locale di Faenza. Il nome compare accanto agli intervalli.</p>
+
+      <label class="field">
+        <span class="field-label">Nome</span>
+        <input id="watch-label" type="text" required autocomplete="off" placeholder="Bike">
+      </label>
+
+      <fieldset class="field">
+        <legend class="field-label">Intervalli</legend>
+        <ol id="watch-windows" class="win-list"></ol>
+        <button id="add-window" type="button" class="btn btn-ghost btn-sm">+ Aggiungi intervallo</button>
+      </fieldset>
+
+      <p id="form-error" class="form-error" role="alert" hidden></p>
+
+      <div class="form-actions">
+        <button type="submit" class="btn">Salva</button>
+        <button id="reset-watch" type="button" class="btn btn-ghost">Ripristina predefiniti</button>
+        <span id="saved" class="form-saved" role="status" hidden>Salvato</span>
+      </div>
+    </form>
+
+    <p class="info-back"><a class="btn btn-ghost" href="./">Torna alle previsioni</a></p>
+  </main>
+</body>
+</html>

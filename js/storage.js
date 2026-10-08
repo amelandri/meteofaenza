@@ -43,6 +43,46 @@ const DEFAULT_SETTINGS = { variable: 'rain', range: '72', showAllHours: false, h
 export const getSettings = () => ({ ...DEFAULT_SETTINGS, ...read(KEYS.settings, {}) });
 export const saveSettings = (patch) => write(KEYS.settings, { ...getSettings(), ...patch });
 
+// --- Intervalli monitorati (pagina Impostazioni) ---------------------------------
+// Gruppo di intervalli orari in cui l'app valuta se pioverà (oggi mostrati come tragitti
+// in bici). Salvato in settings.watch come { label, windows: [{ from, to }] } (ora locale, HH:MM).
+
+export const MAX_WATCH_WINDOWS = 3;
+export const MAX_WATCH_LABEL = 24;
+export const DEFAULT_WATCH = {
+  label: 'Bike',
+  windows: [
+    { from: '06:45', to: '08:00' },
+    { from: '12:30', to: '15:00' },
+    { from: '17:00', to: '18:30' },
+  ],
+};
+
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+// Normalizza gli intervalli monitorati (letti dallo storage o dal modulo): etichetta non vuota,
+// intervalli validi con inizio < fine, ordinati, al massimo MAX_WATCH_WINDOWS.
+// Ciò che non è valido torna al valore predefinito.
+export function normalizeWatch(watch) {
+  const label = typeof watch?.label === 'string' ? watch.label.trim().slice(0, MAX_WATCH_LABEL) : '';
+  const windows = (Array.isArray(watch?.windows) ? watch.windows : [])
+    .filter((w) => HHMM.test(w?.from) && HHMM.test(w?.to) && w.from < w.to)
+    .map((w) => ({ from: w.from, to: w.to }))
+    .sort((a, b) => a.from.localeCompare(b.from))
+    .slice(0, MAX_WATCH_WINDOWS);
+  return {
+    label: label || DEFAULT_WATCH.label,
+    windows: windows.length ? windows : DEFAULT_WATCH.windows.map((w) => ({ ...w })),
+  };
+}
+
+export const getWatch = () => normalizeWatch(getSettings().watch);
+export const saveWatch = (watch) => saveSettings({ watch: normalizeWatch(watch) });
+export const resetWatch = () => {
+  const { watch, ...rest } = getSettings();
+  return write(KEYS.settings, rest);
+};
+
 // --- Ultima misura della centralina ---------------------------------------------
 
 export const getStation = () => read(KEYS.station, null);
