@@ -70,7 +70,7 @@ function init() {
   registerServiceWorker();
   store.removeLegacyKeys(LOCATION);
 
-  window.addEventListener('online', () => { setBanner(null); if (!store.isFresh(state.data)) load(); if (stationMissedSlot()) loadStation(); });
+  window.addEventListener('online', () => { setBanner(null); if (!store.isFresh(state.data)) load(); if (stationDue()) loadStation(); });
   window.addEventListener('offline', () => setBanner('Sei offline: vengono mostrate le ultime previsioni salvate.'));
   if (!navigator.onLine) setBanner('Sei offline: vengono mostrate le ultime previsioni salvate.');
 
@@ -84,12 +84,12 @@ function init() {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && navigator.onLine) {
       if (!store.isFresh(state.data)) load();
-      if (stationMissedSlot()) loadStation();
+      if (stationDue()) loadStation();
     }
   });
 
   load();
-  if (stationMissedSlot()) loadStation();
+  if (stationDue()) loadStation();
   scheduleStation();
 }
 
@@ -209,6 +209,7 @@ function nowIndex() {
 async function loadStation() {
   if (state.stationLoading || !navigator.onLine) return;
   state.stationLoading = true;
+  state.stationTriedAt = Date.now();
   try {
     state.station = await fetchStation();
     store.setStation(state.station);
@@ -230,12 +231,22 @@ function lastStationSlot(now = Date.now()) {
 }
 const nextStationSlot = () => lastStationSlot() + STATION_SLOT_MS;
 
-// Vero se l'ultima lettura è precedente all'ultimo orario programmato: succede all'avvio o
-// quando l'app era in background al momento della lettura (si recupera subito).
-const stationMissedSlot = () => !state.station || state.station.fetchedAt < lastStationSlot();
+// Lettura puntuale (all'avvio, al ritorno in primo piano o online): solo se l'ultima lettura
+// salvata (`fetchedAt` in meteo:station, aggiornata anche da altre schede) ha più di 10
+// minuti, o se non ce n'è. Anche un tentativo fallito da meno di 10 minuti la rimanda:
+// nel frattempo restano le letture programmate ogni 10 minuti (scheduleStation).
+function stationDue(now = Date.now()) {
+  const saved = store.getStation();
+  if (saved?.fetchedAt > (state.station?.fetchedAt || 0)) {
+    state.station = saved;
+    if (state.data) renderNow();
+  }
+  const last = Math.max(state.station?.fetchedAt || 0, state.stationTriedAt || 0);
+  return now - last > STATION_SLOT_MS;
+}
 
 // Programma la prossima lettura all'orario esatto. Con l'app in background la lettura
-// viene saltata e recuperata al ritorno in primo piano (stationMissedSlot).
+// viene saltata; al ritorno in primo piano si legge subito solo se serve (stationDue).
 function scheduleStation() {
   clearTimeout(state.stationTimer);
   state.stationTimer = setTimeout(() => {
