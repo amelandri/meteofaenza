@@ -97,6 +97,19 @@ Controllo: `curl -s https://<dominio>/api/status`.
 
 Dopo ogni modifica ai file del frontend va incrementato `VERSION` in `sw.js`: altrimenti chi ha già aperto l'app continua a vedere la versione salvata nel browser. Dopo una modifica al server: `systemctl restart meteo-api`.
 
+## Plugin per la barra dei menu del Mac (SwiftBar)
+
+`swiftbar/meteo-faenza.5m.py` mostra la temperatura della centralina nella barra dei menu e, nel menu, tutte le misure della giornata: massima e minima (con lo scarto dalla media del periodo), percepita, pioggia (e se sta piovendo), umidità, pressione, vento, radiazione, totali del mese e dell'anno, dati del sole. Legge i dati dal server (`api/station`, `api/normals`), non dalla centralina; si aggiorna ogni 5 minuti (lo dice il nome del file).
+
+Installazione: [SwiftBar](https://swiftbar.app) e poi
+
+```bash
+chmod +x swiftbar/meteo-faenza.5m.py
+ln -s "$PWD/swiftbar/meteo-faenza.5m.py" "<cartella dei plugin di SwiftBar>/"
+```
+
+Server diverso da `https://meteofa.melandri.net`: variabile `METEO_URL` (in SwiftBar, con `<swiftbar.environment>` o modificando `BASE_URL` nel file). Serve solo Python 3, senza pacchetti aggiuntivi.
+
 ## Installazione su telefono
 
 L'app è una PWA: da Chrome o Edge si installa con l'icona nella barra degli indirizzi, da Safari su iPhone con *Condividi → Aggiungi alla schermata Home*.
@@ -147,6 +160,7 @@ server/jobs.py         job di aggiornamento (lanciati da cron)
 server/api.py          API JSON (e file statici in locale)
 server/db.py           database SQLite
 tests/                 test del server
+swiftbar/              plugin SwiftBar per la barra dei menu del Mac
 deploy/                nginx, systemd, crontab
 ```
 

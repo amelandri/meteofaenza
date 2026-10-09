@@ -286,6 +286,21 @@ def parse_station(text, fetched_at=None):
         'heatIndex': _num(w.get('heatIndex')),
         'windChill': _num(w.get('windChill')),
         'radiation': _num(w.get('radiation')),  # W/m²
+        # Estremi e totali della giornata (usati dal plugin SwiftBar, swiftbar/)
+        'humidityMin': _num(w.get('humidityMin')), 'humidityMinTime': _hhmm(w.get('humidityMinTime')),
+        'humidityMax': _num(w.get('humidityMax')), 'humidityMaxTime': _hhmm(w.get('humidityMaxTime')),
+        'pressureMin': _num(w.get('pressureMin')), 'pressureMinTime': _hhmm(w.get('pressureMinTime')),
+        'pressureMax': _num(w.get('pressureMax')), 'pressureMaxTime': _hhmm(w.get('pressureMaxTime')),
+        'windMaxDirection': _num(w.get('windDirectionOfMaxSpeed')),  # gradi, provenienza della raffica
+        'rainMonth': _num(w.get('rainfallMonth')),  # mm dall'inizio del mese
+        'rainYear': _num(w.get('rainfallYear')),  # mm dall'inizio dell'anno
+        'radiationMax': _num(w.get('radiationMax')), 'radiationMaxTime': _hhmm(w.get('radiationMaxTime')),
+        # Sole (calcolati dalla centralina)
+        'sunrise': _hhmm(w.get('sunrise')), 'sunset': _hhmm(w.get('sunset')), 'sunNoon': _hhmm(w.get('sunNoon')),
+        'trueSolarTime': _hhmm(w.get('trueSolarTime')),
+        'sunAzimuth': _num(w.get('sunAzimuth')),  # gradi
+        'sunAltitude': _num(w.get('sunAltitude')),  # gradi sull'orizzonte
+        'skyTransparency': _num(w.get('skytransparency')),  # %
         'fetchedAt': fetched_at or now_ms(),
     }
 

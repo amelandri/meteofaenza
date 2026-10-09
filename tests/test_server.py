@@ -23,6 +23,11 @@ var temperatureMaxTime = '12:47';
 var humidity = '70';
 var windSpeed = '';
 var rainfall = '9.4';
+var rainfallYear = '427.8';
+var pressureMax = '1013.6';
+var pressureMaxTime = '10:42';
+var sunrise = '07:18';
+var skytransparency = '9';
 """
 
 
@@ -34,6 +39,11 @@ class StationTest(unittest.TestCase):
         self.assertEqual(r['tMinTime'], '08:11')  # ora con lo zero davanti
         self.assertIsNone(r['windSpeed'])  # stringa vuota → None
         self.assertEqual(r['rainToday'], 9.4)
+        self.assertEqual(r['rainYear'], 427.8)
+        self.assertEqual((r['pressureMax'], r['pressureMaxTime']), (1013.6, '10:42'))
+        self.assertEqual(r['sunrise'], '07:18')
+        self.assertEqual(r['skyTransparency'], 9)
+        self.assertIsNone(r['radiationMax'])  # campo assente → None
 
     def test_parse_invalid(self):
         with self.assertRaises(sources.SourceError):

@@ -45,6 +45,7 @@ Il service worker richiede `http://localhost` o HTTPS (non funziona da `file://`
 | `server/jobs.py` | Job per cron (`station`, `forecast`, `normals`, `all`; `--force`), con lock su file per non sovrapporsi |
 | `server/api.py` | API JSON (`ThreadingHTTPServer`), con ETag e `Cache-Control: no-cache` (il browser rivalida e riceve 304); `--static` serve anche il frontend (solo sviluppo) |
 | `tests/test_server.py` | Test del server senza rete (centralina, medie, taglio delle previsioni, rainLog) |
+| `swiftbar/meteo-faenza.5m.py` | Plugin SwiftBar (Python, solo libreria standard): temperatura nella barra dei menu del Mac e tutte le misure della centralina nel menu, da `api/station` e `api/normals` di `https://meteofa.melandri.net` (`METEO_URL` per cambiarlo; medie in cache per 7 giorni in `~/Library/Caches`). Stesse regole dell'app per pioggia in corso (`RAIN_*`) e misura non aggiornata (30 min); "Percepita" = indice di calore se più alto della temperatura, temperatura apparente del vento se più bassa. Righe mostrate solo se il dato c'è. Non pubblico (escluso in nginx) |
 | `deploy/` | `nginx-meteo.conf`, `meteo-api.service`, `crontab`, `INSTALL.md` (guida di installazione passo per passo: aggiornarla se cambiano percorsi, servizi o job) |
 | `manifest.webmanifest`, `icons/` | Metadati PWA e icone (PNG generate da `icons/icon.svg`) |
 

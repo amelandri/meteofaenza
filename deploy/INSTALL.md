@@ -116,7 +116,7 @@ sudo rm -f /etc/nginx/sites-enabled/default      # solo se il server non ospita 
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-La configurazione non espone `server/`, `data/`, `tests/`, `deploy/`, i file nascosti e i file `.py`, `.md` e `.db`.
+La configurazione non espone `server/`, `data/`, `tests/`, `deploy/`, `swiftbar/`, i file nascosti e i file `.py`, `.md` e `.db`.
 
 Per installare l'app in una **sottocartella** di un sito esistente (es. `https://example.it/meteo/`), in fondo al file c'è una variante commentata, da inserire nel blocco `server { }` esistente.
 
