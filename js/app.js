@@ -614,23 +614,29 @@ const slotTicks = () => SLOTS.slice(1).map((s, k) =>
 
 // Orari di alba e tramonto (già nell'ora locale della località). La probabilità di
 // pioggia non è indicata per il giorno intero ma fascia per fascia (renderSlots).
-// Alba a sinistra e tramonto a destra. Per oggi (`today` vero) in mezzo una linea con un
-// piccolo sole nella posizione dell'ora attuale tra alba e tramonto (aggiornato ogni minuto
-// da updateSunNow(), senza ridisegnare la card).
+// Alba a sinistra e tramonto a destra. Per oggi (`today` vero) una linea dell'intera
+// giornata, da 00 a 24: notte grigia, giorno con la sfumatura alba → mezzogiorno → tramonto,
+// e le due pillole sotto, con una punta a fumetto rivolta al loro orario. Sulla linea il sole
+// (di giorno) o la luna piena (di notte) all'ora attuale, aggiornati ogni minuto da
+// updateSunNow() senza ridisegnare la card.
 function sunTimes(daily, d, today = false) {
   const rise = daily.sunrise?.[d], set = daily.sunset?.[d];
   if (!rise || !set) return '';
-  const track = today
-    ? `<span class="sun-track" data-rise="${toMinutes(hourLabel(rise))}" data-set="${toMinutes(hourLabel(set))}">${SUN_NOW}</span>`
-    : '';
-  return `<div class="sun${today ? ' today' : ''}">
-    <span class="sun-pill rise" title="Alba">${sunEventIcon('rise', 18)}${hourLabel(rise)}</span>
-    ${track}
-    <span class="sun-pill set" title="Tramonto">${sunEventIcon('set', 18)}${hourLabel(set)}</span>
+  const pills = (style = (kind) => '') => `
+    <span class="sun-pill rise" title="Alba"${style('rise')}>${sunEventIcon('rise', 18)}${hourLabel(rise)}</span>
+    <span class="sun-pill set" title="Tramonto"${style('set')}>${sunEventIcon('set', 18)}${hourLabel(set)}</span>`;
+  if (!today) return `<div class="sun">${pills()}</div>`;
+  const r = toMinutes(hourLabel(rise)), st = toMinutes(hourLabel(set));
+  const pct = (m) => `${((100 * m) / 1440).toFixed(2)}%`;
+  // --rise / --set / --noon: posizioni sulla linea (CSS: sfumatura e pillole)
+  return `<div class="sun day24" style="--rise:${pct(r)};--set:${pct(st)};--noon:${pct((r + st) / 2)}">
+    <span class="sun-track" data-rise="${r}" data-set="${st}">${SUN_NOW}${MOON_NOW}</span>${pills((kind) => ` style="--at:var(--${kind})"`)}
   </div>`;
 }
 
-const SUN_NOW = '<svg class="sun-now" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="3.3"/><path d="M8 1.4v1.8M8 12.8v1.8M1.4 8h1.8M12.8 8h1.8M3.3 3.3l1.3 1.3M11.4 11.4l1.3 1.3M3.3 12.7l1.3-1.3M11.4 4.6l1.3-1.3"/></svg>';
+// Luna piena: disco chiaro con alone e qualche cratere (colori in style.css, .moon-now).
+const MOON_NOW = '<svg class="moon-now" viewBox="0 0 16 16" width="20" height="20" aria-hidden="true"><circle class="glow" cx="8" cy="8" r="7.4"/><circle class="disc" cx="8" cy="8" r="5"/><circle class="crater" cx="6.3" cy="6.6" r="1.1"/><circle class="crater" cx="9.6" cy="9.4" r="1.4"/><circle class="crater" cx="9.4" cy="5.7" r=".6"/></svg>';
+const SUN_NOW = '<svg class="sun-now" viewBox="0 0 16 16" width="20" height="20" aria-hidden="true"><circle cx="8" cy="8" r="3.6"/><path d="M8 1.4v1.8M8 12.8v1.8M1.4 8h1.8M12.8 8h1.8M3.3 3.3l1.3 1.3M11.4 11.4l1.3 1.3M3.3 12.7l1.3-1.3M11.4 4.6l1.3-1.3"/></svg>';
 
 // Colore del sole lungo la giornata: dall'alba (f = 0) a mezzogiorno (0,5) al tramonto (1),
 // interpolando i colori --day-* di style.css (gli stessi della sfumatura della linea).
@@ -645,9 +651,9 @@ function sunColor(f, night) {
   return `rgb(${a.map((x, i) => Math.round(x + (b[i] - x) * t)).join(',')})`;
 }
 
-// Posiziona il sole sulla linea alba–tramonto di oggi (--sun-f da 0 a 1) e ne imposta il
-// colore secondo l'ora (--sun-c). Prima dell'alba e dopo il tramonto resta all'estremità,
-// grigio-azzurro, con la linea grigia (.night).
+// Posiziona sole o luna sulla linea di oggi (--now-f: frazione delle 24 ore) e colora il sole
+// secondo il punto della giornata tra alba e tramonto (--sun-c). Di notte (.night) al posto
+// del sole c'è la luna piena.
 function updateSunNow() {
   const track = document.querySelector('.sun-track');
   if (!track || !state.data) return;
@@ -656,7 +662,7 @@ function updateSunNow() {
   const rise = Number(track.dataset.rise), set = Number(track.dataset.set);
   const f = (now - rise) / (set - rise);
   const night = f < 0 || f > 1;
-  track.style.setProperty('--sun-f', String(Math.min(1, Math.max(0, f))));
+  track.style.setProperty('--now-f', String(now / 1440));
   track.style.setProperty('--sun-c', sunColor(f, night));
   track.classList.toggle('night', night);
   const left = set - now;

@@ -331,9 +331,8 @@ button { font: inherit; color: inherit; }
 .pop-cell.high .pop-bar i { background: var(--rain); }
 .pop-val { flex: none; min-width: 2.4em; text-align: right; font-size: .7rem; font-variant-numeric: tabular-nums; color: var(--muted); }
 .pop-cell.high .pop-val { color: var(--text); font-weight: 600; }
-/* Alba a sinistra, tramonto allineato a destra. Oggi in mezzo la linea alba–tramonto con il
-   sole all'ora attuale (.sun-track). Nella colonna dei nomi del layout largo (giorno a due
-   colonne, oltre 720 px) la linea va su una riga a sé sotto le due pillole. */
+/* Alba a sinistra, tramonto allineato a destra. Oggi (.day24) la linea dell'intera giornata
+   con sole o luna all'ora attuale e le pillole sotto, nella loro posizione (vedi sotto). */
 .sun {
   display: flex;
   flex-wrap: wrap;
@@ -347,21 +346,51 @@ button { font: inherit; color: inherit; }
 /* pillole compatte, così alba e tramonto stanno affiancati anche nella colonna dei nomi (150 px) */
 .sun .sun-pill { gap: 3px; padding: 1px 7px 1px 4px; font-size: .74rem; }
 .sun .sun-pill .sun-ev { width: 15px; height: 15px; }
-.sun-track { order: 3; flex: 1 0 100%; position: relative; height: 16px; min-width: 28px; }
-/* linea: alba → mezzogiorno → tramonto, sbiadita rispetto al sole; di notte grigia */
-.sun-track::before {
-  content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px;
-  border-radius: 1px; background: linear-gradient(90deg, var(--day-dawn), var(--day-noon), var(--day-dusk)); opacity: .35;
+/* Oggi: linea 00–24 (.sun-track) in alto, pillole sotto centrate sul loro orario (--at, senza
+   uscire dai bordi). --rise / --set / --noon: posizioni in % impostate da sunTimes(). */
+.sun.day24 { display: block; position: relative; height: 44px; flex: 1 0 auto; }
+.sun.day24 .sun-pill {
+  position: absolute; top: 20px; margin: 0;
+  left: clamp(31px, var(--at), calc(100% - 31px)); transform: translateX(-50%);
 }
-.sun-track.night::before { background: var(--day-night); }
-/* sole: --sun-f da 0 (alba) a 1 (tramonto), con 8 px di margine alle estremità */
-.sun-now {
-  position: absolute; top: 50%; left: calc(8px + (100% - 16px) * var(--sun-f, 0));
+/* punta a fumetto in alto, rivolta al punto della linea (colore della pillola al centro della
+   sua sfumatura). Con alba e tramonto alle nostre latitudini la pillola non tocca mai i bordi,
+   quindi la punta al centro coincide con l'orario. */
+.sun.day24 .sun-pill::before {
+  /* forma morbida: cima arrotondata e lati concavi che si raccordano alla pillola; sovrapposta
+     di 1 px al bordo superiore, così non resta una fessura tra punta e pillola */
+  content: ""; position: absolute; left: 50%; top: -6px; width: 16px; height: 7px;
+  transform: translateX(-50%); background: var(--pill-tip);
+  clip-path: path('M0 7 C4.5 7 5.6 1.2 7.2 .4 Q8 0 8.8 .4 C10.4 1.2 11.5 7 16 7 Z');
+}
+.sun.day24 .sun-pill.rise { --pill-tip: color-mix(in srgb, var(--dawn-a), var(--dawn-b)); }
+.sun.day24 .sun-pill.set { --pill-tip: color-mix(in srgb, var(--dusk-a), var(--dusk-b)); }
+.sun-track { position: absolute; left: 0; right: 0; top: 0; height: 20px; } /* centro a 10 px, come le icone da 20 px */
+/* linea: notte grigia, giorno alba → mezzogiorno → tramonto; sbiadita rispetto all'indicatore.
+   Notte e giorno si fondono in circa un'ora (4% della giornata) prima dell'alba e dopo il
+   tramonto, come un crepuscolo, invece di un cambio netto. */
+.sun-track::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 3px; margin-top: -1.5px;
+  border-radius: 2px; opacity: .45;
+  background: linear-gradient(90deg,
+    var(--day-night) 0%, var(--day-night) calc(var(--rise) - 4%), var(--day-dawn) var(--rise),
+    var(--day-noon) var(--noon), var(--day-dusk) var(--set), var(--day-night) calc(var(--set) + 4%), var(--day-night) 100%);
+}
+/* sole o luna all'ora attuale: --now-f = frazione delle 24 ore (updateSunNow) */
+.sun-now, .moon-now {
+  position: absolute; top: 50%; left: calc(100% * var(--now-f, 0));
   transform: translate(-50%, -50%); overflow: visible;
 }
-/* colore del sole: --sun-c, impostato da updateSunNow() secondo l'ora (grigio-azzurro di notte) */
+.sun-track.night .sun-now, .sun-track:not(.night) .moon-now { display: none; }
+/* colore del sole: --sun-c, impostato da updateSunNow() secondo il punto della giornata */
 .sun-now circle { fill: var(--sun-c, var(--sun)); stroke: var(--surface); stroke-width: 1.2; paint-order: stroke; }
-.sun-now path { stroke: var(--sun-c, var(--sun)); stroke-width: 1.5; stroke-linecap: round; }
+.sun-now path { stroke: var(--sun-c, var(--sun)); stroke-width: 1.6; stroke-linecap: round; }
+/* luna piena */
+.moon-now .disc { fill: #f3ecc9; stroke: #9c9370; stroke-width: 1; }
+.moon-now .crater { fill: #9c9370; opacity: .5; }
+.moon-now .glow { fill: #c9c09a; opacity: .25; }
+:root[data-theme="dark"] .moon-now .disc { fill: #ece6c6; stroke: none; }
+:root[data-theme="dark"] .moon-now .glow { fill: #efe8c8; opacity: .18; }
 .sun-pill {
   display: inline-flex;
   align-items: center;
@@ -811,9 +840,8 @@ body.loading #forecast { opacity: .5; }
   .day.obs-row { grid-template-areas: "name" "models"; }
   #daily.bikes-flow .bike:first-child .bike-label { width: auto; } /* giorno su una colonna: niente colonna dei nomi */
   .day-name { flex-direction: row; justify-content: flex-start; align-items: baseline; gap: 8px; }
-  /* giorno su una colonna: alba, linea e tramonto sulla stessa riga, a tutta larghezza */
+  /* giorno su una colonna: alba e tramonto sulla stessa riga, a tutta larghezza */
   .sun { flex: 1 0 auto; flex-wrap: nowrap; }
-  .sun-track { order: 0; flex: 1 1 auto; }
 }
 
 @container side (max-width: 560px) {
