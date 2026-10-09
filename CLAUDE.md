@@ -45,7 +45,7 @@ Il service worker richiede `http://localhost` o HTTPS (non funziona da `file://`
 | `server/jobs.py` | Job per cron (`station`, `forecast`, `normals`, `all`; `--force`), con lock su file per non sovrapporsi |
 | `server/api.py` | API JSON (`ThreadingHTTPServer`), con ETag e `Cache-Control: no-cache` (il browser rivalida e riceve 304); `--static` serve anche il frontend (solo sviluppo) |
 | `tests/test_server.py` | Test del server senza rete (centralina, medie, taglio delle previsioni, rainLog) |
-| `deploy/` | `nginx-meteo.conf`, `meteo-api.service`, `crontab` |
+| `deploy/` | `nginx-meteo.conf`, `meteo-api.service`, `crontab`, `INSTALL.md` (guida di installazione passo per passo: aggiornarla se cambiano percorsi, servizi o job) |
 | `manifest.webmanifest`, `icons/` | Metadati PWA e icone (PNG generate da `icons/icon.svg`) |
 
 ## Fonti dati (tutte senza chiave, interrogate solo dal server)

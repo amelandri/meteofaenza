@@ -81,6 +81,8 @@ Il service worker funziona solo su `http://localhost`/`127.0.0.1` o in HTTPS.
 
 ## Installazione sul server (Linux + nginx)
 
+Guida completa, passo per passo: [`deploy/INSTALL.md`](deploy/INSTALL.md). In breve:
+
 1. Codice in `/opt/meteo` (es. `git clone`), utente di servizio e cartella del database:
    ```bash
    useradd --system --home /var/lib/meteo meteo
