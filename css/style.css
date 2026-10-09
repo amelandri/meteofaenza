@@ -233,17 +233,15 @@ button { font: inherit; color: inherit; }
   background: var(--surface-2);
   container-type: inline-size;
 }
-.obs-card header { display: flex; align-items: baseline; justify-content: space-between; gap: 2px 8px; flex-wrap: wrap; }
-.obs-card header a { color: var(--muted); }
-.obs-tag { font-weight: 700; color: var(--obs); letter-spacing: .01em; }
+.obs-card header { display: flex; align-items: center; justify-content: space-between; gap: 2px 8px; flex-wrap: wrap; }
+/* "Centralina" è il link al sito dell'osservatorio, con l'aspetto della semplice etichetta. */
+.obs-tag { font-weight: 700; color: var(--obs); letter-spacing: .01em; text-decoration: none; }
 .obs-body { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
 .obs-main { display: flex; align-items: baseline; gap: 4px 14px; flex-wrap: wrap; }
 .obs-stats { grid-template-columns: 1fr 1fr; }
 .obs-stale { color: var(--mid); font-weight: 650; }
-/* "sta piovendo" prima dei mm: inline (non flex) così la linea di base della riga resta quella
-   del testo e l'etichetta a sinistra rimane allineata; l'icona scende sotto la linea di base. */
-.now-stats .obs-rain { display: inline-block; margin-right: 4px; color: var(--rain); font-weight: 650; white-space: nowrap; }
-.now-stats .obs-rain .wi { vertical-align: -4px; margin-right: 3px; }
+/* "Sta piovendo" nell'intestazione del box, a destra di "Centralina". */
+.obs-rain { display: inline-flex; align-items: center; gap: 4px; color: var(--rain); font-weight: 700; white-space: nowrap; }
 /* Box della centralina: 4 dati in griglia 2×2 a destra della temperatura */
 @container (min-width: 560px) {
   .obs-body { flex-direction: row; align-items: center; gap: 24px; }

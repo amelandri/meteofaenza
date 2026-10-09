@@ -97,7 +97,7 @@ def compose_forecast(conn, now_ms):
 
 def compose_station(conn):
     """Ultima misura con le letture delle ultime 2 ore (rainLog: istante, data locale, mm
-    di oggi), da cui il frontend capisce se sta piovendo."""
+    di oggi), da cui il frontend capisce se Sta piovendo."""
     st = db.latest_station(conn)
     if not st:
         return None

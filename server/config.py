@@ -41,7 +41,7 @@ NORMALS_MAX_AGE_S = 365 * 24 * 3600
 
 # Centralina: letta ogni 10 minuti; storico conservato per eventuali verifiche future.
 STATION_KEEP_DAYS = 400
-RAIN_LOG_S = 2 * 3600  # letture restituite al frontend per capire se sta piovendo
+RAIN_LOG_S = 2 * 3600  # letture restituite al frontend per capire se Sta piovendo
 
 # Forma dei dati delle previsioni servite: deve coincidere con FORECAST_SCHEMA di
 # js/storage.js (il frontend scarta le cache con schema diverso).

@@ -1,7 +1,7 @@
 // Dati osservati dalla centralina dell'Osservatorio Meteorologico "Evangelista Torricelli"
 // di Faenza (www.meteofaenza.it). Li legge il server ogni 10 minuti (cron, vedi
 // server/jobs.py) e li salva nel database: qui si chiede solo l'ultima misura al server,
-// con le letture delle ultime 2 ore (rainLog) per capire se sta piovendo.
+// con le letture delle ultime 2 ore (rainLog) per capire se Sta piovendo.
 
 import { fetchStationData } from './api.js';
 

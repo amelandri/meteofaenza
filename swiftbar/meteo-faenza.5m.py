@@ -98,7 +98,7 @@ def feels_like(st):
 
 
 def rain_now(st):
-    """(mm caduti, minuti) se sta piovendo secondo le ultime letture, altrimenti None."""
+    """(mm caduti, minuti) se Sta piovendo secondo le ultime letture, altrimenti None."""
     if st.get('rainToday') is None or time.time() * 1000 - st['time'] > RAIN_FRESH_S * 1000:
         return None
     day = datetime.fromtimestamp(st['time'] / 1000).strftime('%Y-%m-%d')

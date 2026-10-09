@@ -131,7 +131,7 @@
       <table class="info-table">
         <thead><tr><th>Indicazione</th><th>Quando</th></tr></thead>
         <tbody>
-          <tr><td><span class="info-st st-wet">Pioggia</span></td><td>entrambi i modelli prevedono pioggia e probabilità ≥ 30%, oppure uno solo e probabilità ≥ 60%, oppure probabilità ≥ 80%; oppure <strong>sta piovendo adesso</strong> secondo la centralina e il tragitto è in corso o inizia entro 30 minuti</td></tr>
+          <tr><td><span class="info-st st-wet">Pioggia</span></td><td>entrambi i modelli prevedono pioggia e probabilità ≥ 30%, oppure uno solo e probabilità ≥ 60%, oppure probabilità ≥ 80%; oppure <strong>Sta piovendo adesso</strong> secondo la centralina e il tragitto è in corso o inizia entro 30 minuti</td></tr>
           <tr><td><span class="info-st st-dry">Asciutto</span></td><td>nessun modello prevede pioggia e probabilità sotto il 20%</td></tr>
           <tr><td><span class="info-st st-risk">Rischio</span></td><td>nessun modello prevede pioggia, ma probabilità ≥ 20%</td></tr>
           <tr><td><span class="info-st st-mixed">Incerto</span></td><td>tutti gli altri casi (es. un modello prevede pioggia, l'altro no, con probabilità media)</td></tr>
@@ -197,7 +197,7 @@
       <p>Il riquadro "Adesso" mostra le misure reali dell'Osservatorio Meteorologico "E. Torricelli" di Faenza (<a href="https://www.meteofaenza.it/" target="_blank" rel="noopener">meteofaenza.it</a>): temperatura con minima e massima del giorno, umidità, vento, pioggia caduta da mezzanotte e raffica massima.</p>
       <p>Il server dell'app legge la centralina ai minuti :00, :10, :20, :30, :40 e :50 e conserva le letture; l'app chiede la nuova misura al server poco dopo. Aprendo l'app (o tornandoci) la chiede subito solo se l'ultima ha più di 10 minuti; altrimenti mostra quella salvata e aspetta la lettura programmata. Se la misura ha più di 30 minuti viene segnalata come "non aggiornata".</p>
       <h3>Pioggia in corso</h3>
-      <p>La centralina fornisce solo i millimetri caduti da mezzanotte. Confrontando la misura con una lettura di 8–40 minuti prima l'app capisce se sta piovendo e lo scrive accanto alla pioggia del giorno ("sta piovendo"). Le letture precedenti le conserva il server, quindi l'indicazione c'è subito, anche appena aperta l'app. Se sta piovendo, un tragitto in corso o che inizia entro 30 minuti diventa <em>Pioggia</em>, qualunque cosa dicano i modelli; il dettaglio riporta anche cosa prevedevano.</p>
+      <p>La centralina fornisce solo i millimetri caduti da mezzanotte. Confrontando la misura con una lettura di 8–40 minuti prima l'app capisce se Sta piovendo e lo scrive in alto nel box della centralina ("Sta piovendo"). Le letture precedenti le conserva il server, quindi l'indicazione c'è subito, anche appena aperta l'app. Se Sta piovendo, un tragitto in corso o che inizia entro 30 minuti diventa <em>Pioggia</em>, qualunque cosa dicano i modelli; il dettaglio riporta anche cosa prevedevano.</p>
       <h3>Temperatura corretta</h3>
       <p>Nel grafico della temperatura le linee tratteggiate sono le previsioni dei due modelli corrette con la centralina: l'app calcola la differenza tra la temperatura misurata e quella prevista nello stesso momento e la applica alle ore successive, dimezzandola ogni 3 ore e azzerandola dopo 12. Differenze di oltre 5 °C non vengono usate (più probabile una misura anomala). I box dei giorni mostrano invece le previsioni originali, per non alterare il confronto tra i modelli.</p>
     </section>

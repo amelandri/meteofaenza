@@ -10,7 +10,7 @@ Web app (PWA) che mette a confronto le previsioni di due modelli meteorologici p
 
 ## Cosa mostra
 
-- **Adesso**: l'ultima misura della centralina (temperatura con minima e massima del giorno, umidità, vento, pioggia di oggi, raffica massima). Viene aggiornata ai minuti :00, :10, :20, :30, :40, :50. Se i millimetri di oggi aumentano tra una lettura e l'altra compare "sta piovendo".
+- **Adesso**: l'ultima misura della centralina (temperatura con minima e massima del giorno, umidità, vento, pioggia di oggi, raffica massima). Viene aggiornata ai minuti :00, :10, :20, :30, :40, :50. Se i millimetri di oggi aumentano tra una lettura e l'altra compare "Sta piovendo".
 - **Oggi, Domani, Dopodomani**: una scheda per giorno, con i due modelli a confronto:
   - riepilogo del giorno e suddivisione in quattro fasce (notte, mattina, pomeriggio, sera);
   - alba e tramonto; per ogni fascia anche la probabilità di pioggia;
@@ -34,7 +34,7 @@ Per ogni intervallo l'app controlla se ciascun modello prevede almeno 0,2 mm di 
 
 | Verdetto | Quando |
 |---|---|
-| ☂ Pioggia | entrambi i modelli vedono pioggia e probabilità ≥ 30%, oppure uno solo e ≥ 60%, oppure probabilità ≥ 80%; oppure sta piovendo adesso secondo la centralina e il tragitto è in corso o inizia entro 30 minuti |
+| ☂ Pioggia | entrambi i modelli vedono pioggia e probabilità ≥ 30%, oppure uno solo e ≥ 60%, oppure probabilità ≥ 80%; oppure Sta piovendo adesso secondo la centralina e il tragitto è in corso o inizia entro 30 minuti |
 | ☀ Asciutto | nessun modello vede pioggia e probabilità < 20% |
 | ☁ Rischio | nessun modello vede pioggia, ma probabilità ≥ 20% |
 | ☁💧 Incerto | tutti gli altri casi |
@@ -103,7 +103,7 @@ Dopo ogni modifica ai file del frontend va incrementato `VERSION` in `sw.js`: al
 
 ## Plugin per la barra dei menu del Mac (SwiftBar)
 
-`swiftbar/meteo-faenza.5m.py` mostra la temperatura della centralina nella barra dei menu e, nel menu, tutte le misure della giornata: massima e minima (con lo scarto dalla media del periodo), percepita, pioggia (e se sta piovendo), umidità, pressione, vento, radiazione, totali del mese e dell'anno, dati del sole. Legge i dati dal server (`api/station`, `api/normals`), non dalla centralina; si aggiorna ogni 5 minuti (lo dice il nome del file).
+`swiftbar/meteo-faenza.5m.py` mostra la temperatura della centralina nella barra dei menu e, nel menu, tutte le misure della giornata: massima e minima (con lo scarto dalla media del periodo), percepita, pioggia (e se Sta piovendo), umidità, pressione, vento, radiazione, totali del mese e dell'anno, dati del sole. Legge i dati dal server (`api/station`, `api/normals`), non dalla centralina; si aggiorna ogni 5 minuti (lo dice il nome del file).
 
 Installazione: [SwiftBar](https://swiftbar.app) e poi
 

@@ -298,7 +298,7 @@ function stationIsFresh() {
 
 // --- Pioggia in corso (centralina) ---
 // La centralina dà solo i mm caduti da mezzanotte: confrontando la misura attuale con una
-// precedente si capisce se sta piovendo. Le letture delle ultime 2 ore arrivano dal server
+// precedente si capisce se Sta piovendo. Le letture delle ultime 2 ore arrivano dal server
 // in `rainLog` ({ t: istante della misura, day: data locale, mm }), salvato in meteo:station.
 const RAIN_NOW_MIN_GAP_MS = 8 * 60 * 1000; // lettura di confronto: almeno 8 minuti prima…
 const RAIN_NOW_MAX_GAP_MS = 40 * 60 * 1000; // …e al massimo 40
@@ -400,15 +400,15 @@ function renderObservation() {
     : '';
   const stat = (label, value) => (value ? `<div><dt>${label}</dt><dd>${value}</dd></div>` : '');
   const rn = stationRainNow();
-  // Prima dei mm, così il valore resta allineato a destra come gli altri. Stessa icona
-  // "pioggia" delle previsioni (codice WMO 63), con lo stesso dettaglio del testo
-  // come titolo (altrimenti il suo tooltip "Pioggia moderata" coprirebbe quello del testo).
+  // Nell'intestazione del box, a destra di "Centralina". Stessa icona "pioggia" delle
+  // previsioni (codice WMO 63), con lo stesso dettaglio del testo come titolo
+  // (altrimenti il suo tooltip "Pioggia moderata" coprirebbe quello del testo).
   const rainTip = rn?.raining ? `+${fmt(rn.mm, 1)} mm negli ultimi ${rn.minutes} minuti` : '';
-  const rainNow = rn?.raining ? `<small class="obs-rain" title="${esc(rainTip)}">${icon(63, 1, 18, esc(rainTip))}sta piovendo</small>` : '';
+  const rainNow = rn?.raining ? `<span class="obs-rain" title="${esc(rainTip)}">${icon(63, 1, 24, esc(rainTip))}Sta piovendo</span>` : '';
   return `<div class="day obs-row">
     <div class="day-name"><b class="now-hour">${when}</b><span class="muted small">Misurato${stale ? ' · <span class="obs-stale">non aggiornato</span>' : ''}</span><span class="muted small">prossima lettura ${localDateTime(nextStationSlot() - STATION_SLOT_DELAY_MS, timezone, utcOffset).time}</span></div>
     <article class="obs-card">
-      <header><span class="obs-tag">Centralina</span><a class="muted small" href="${STATION.site}" target="_blank" rel="noopener" title="${esc(STATION.fullName)}">${esc(STATION.name)}</a></header>
+      <header><a class="obs-tag" href="${STATION.site}" target="_blank" rel="noopener" title="${esc(STATION.fullName)}">Centralina</a>${rainNow}</header>
       <div class="obs-body">
         <div class="obs-main">
           <div class="now-temp">${fmt(st.temperature, 1)}<span>°C</span></div>
@@ -417,7 +417,7 @@ function renderObservation() {
         <dl class="now-stats obs-stats">
           ${stat('Umidità', st.humidity != null ? `${fmt(st.humidity)}%` : '')}
           ${stat('Vento', st.windSpeed != null ? `${windArrow(st.windDirection)} ${fmt(st.windSpeed)} <small>${windDir(st.windDirection)}</small>` : '')}
-          ${stat('Pioggia oggi', st.rainToday != null && sameDay ? `${rainNow}${fmt(st.rainToday, 1)} mm` : '')}
+          ${stat('Pioggia oggi', st.rainToday != null && sameDay ? `${fmt(st.rainToday, 1)} mm` : '')}
           ${stat('Raffica max', st.windMax != null && sameDay ? `${fmt(st.windMax)} km/h${st.windMaxTime ? ` <small>${st.windMaxTime}</small>` : ''}` : '')}
         </dl>
       </div>
@@ -950,7 +950,7 @@ function applyRainNow(x, rn, nowMin) {
   const forecast = `previsione: ${BIKE_STATUS[x.status].label.toLowerCase()}${x.why ? `, ${x.why}` : ''}`;
   return {
     ...x, status: 'wet', rainNow: true,
-    why: `sta piovendo adesso (centralina: ${fmt(rn.mm, 1)} mm negli ultimi ${rn.minutes} minuti); ${forecast}`,
+    why: `Sta piovendo adesso (centralina: ${fmt(rn.mm, 1)} mm negli ultimi ${rn.minutes} minuti); ${forecast}`,
   };
 }
 
