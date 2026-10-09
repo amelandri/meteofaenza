@@ -1,8 +1,9 @@
 // Service worker: rende disponibile offline la "shell" dell'app.
-// Le previsioni NON passano da qui: sono salvate dall'app nel localStorage.
+// Le previsioni NON passano da qui (le richieste a api/ vanno sempre in rete): l'app ne
+// tiene una copia nel localStorage per l'uso offline.
 // Ad ogni modifica dei file dell'app incrementare VERSION.
 
-const VERSION = 'v129';
+const VERSION = 'v130';
 const CACHE = `meteo-shell-${VERSION}`;
 
 const SHELL = [
@@ -45,6 +46,9 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  // API del nostro server (previsioni, centralina, medie): sempre dalla rete, mai dalla
+  // cache del service worker (dati che cambiano; l'app ha già la sua copia offline).
+  if (url.pathname.includes('/api/')) return;
 
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);

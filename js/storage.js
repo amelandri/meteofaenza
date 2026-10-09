@@ -12,12 +12,10 @@ const CACHE_PREFIX = `${PREFIX}fc:`;
 // così le previsioni salvate con la forma precedente vengono scartate e riscaricate.
 export const FORECAST_SCHEMA = 3;
 
-// Dopo questo intervallo i dati in cache vengono riscaricati (se online).
-export const CACHE_TTL_MS = 30 * 60 * 1000;
-// Previsione incompleta (ensemble o metadati dei run non scaricati): si riprova prima.
-export const RETRY_TTL_MS = 5 * 60 * 1000;
-// Margine dopo l'orario stimato di un nuovo run, prima di riscaricare.
-export const RUN_DELAY_MS = 10 * 60 * 1000;
+// Ogni quanto l'app ricontrolla il proprio server (se online). È il server a scaricare le
+// fonti esterne appena escono nuovi run (cron): qui basta un controllo leggero, e grazie
+// all'ETag il browser riscarica il JSON solo se è cambiato.
+export const CACHE_TTL_MS = 10 * 60 * 1000;
 
 function read(key, fallback) {
   try {
@@ -108,12 +106,13 @@ export const resetWatch = () => {
 };
 
 // --- Medie del periodo (climatologia, fetchNormals() di api.js) --------------------
-// Salvate in meteo:normals come { schema, id, fetchedAt, tmax: [366], tmin: [366] }. Non
-// cambiano: si riscaricano solo se mancano, sono di un'altra località o forma, o hanno più
-// di un anno (NORMALS_MAX_AGE_MS).
+// Copia locale di quelle del server (che le aggiorna una volta l'anno), in meteo:normals
+// come { schema, id, fetchedAt (quando l'app le ha prese dal server), tmax: [366],
+// tmin: [366] }. Si richiedono al server se mancano, sono di un'altra località o forma, o
+// la copia ha più di 30 giorni (NORMALS_MAX_AGE_MS).
 const NORMALS_KEY = `${PREFIX}normals`;
 const NORMALS_SCHEMA = 1;
-export const NORMALS_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000;
+export const NORMALS_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 export function getNormals(loc) {
   const n = read(NORMALS_KEY, null);
@@ -154,19 +153,9 @@ export function setCachedForecast(loc, forecast) {
   return write(key, forecast);
 }
 
-// Istante del prossimo download: scadenza della cache (più breve se la previsione è
-// incompleta) oppure, se arriva prima, l'uscita stimata di un nuovo run di un modello
-// (ultima disponibilità + intervallo di pubblicazione + margine). Un run atteso prima del
-// download non conta: se non era ancora uscito si aspetta la scadenza normale.
-export function nextDownloadAt(forecast) {
-  let due = forecast.fetchedAt + (forecast.incomplete ? RETRY_TTL_MS : CACHE_TTL_MS);
-  for (const r of Object.values(forecast.runs || {})) {
-    if (!r?.available || !r.interval) continue;
-    const expected = (r.available + r.interval) * 1000 + RUN_DELAY_MS;
-    if (expected > forecast.fetchedAt && expected < due) due = expected;
-  }
-  return due;
-}
+// Prossimo controllo del server: CACHE_TTL_MS dopo l'ultimo (checkedAt; nelle cache delle
+// versioni precedenti manca e si usa fetchedAt).
+export const nextDownloadAt = (forecast) => (forecast.checkedAt ?? forecast.fetchedAt) + CACHE_TTL_MS;
 
 export const isFresh = (forecast) => !!forecast && Date.now() < nextDownloadAt(forecast);
 

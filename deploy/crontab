@@ -1,0 +1,19 @@
+# Meteo Faenza – aggiornamento dei dati (crontab dell'utente meteo: crontab -u meteo deploy/crontab).
+# Le richieste alle fonti esterne partono solo da qui, mai dal browser. Output in syslog
+# (journalctl -t meteo). Ogni job ha un lock: se il precedente è ancora in corso, salta.
+
+METEO_DB=/var/lib/meteo/meteo.db
+SHELL=/bin/sh
+
+# Centralina (meteofaenza.it): ogni 10 minuti, 20 s dopo lo scoccare del minuto (il file
+# viene pubblicato qualche secondo dopo). L'app chiede la nuova misura 45 s dopo.
+*/10 * * * *  sleep 20; cd /opt/meteo && python3 -m server.jobs station 2>&1 | logger -t meteo
+
+# Previsioni: ogni 15 minuti si leggono i metadati dei modelli (pochi byte) e si scaricano
+# le previsioni solo se è uscito un nuovo run (ICON-2I ogni 12 h, ICON-EU ogni 3 h) o se
+# hanno più di 6 ore; gli ensemble ogni 3 ore. Minuti sfalsati rispetto alla centralina.
+2,17,32,47 * * * *  cd /opt/meteo && python3 -m server.jobs forecast 2>&1 | logger -t meteo
+
+# Medie del periodo 1991–2020: controllo giornaliero, scarica solo se mancano o hanno più
+# di un anno (dopo un errore, es. troppe richieste, riprova il giorno dopo).
+40 4 * * *  cd /opt/meteo && python3 -m server.jobs normals 2>&1 | logger -t meteo

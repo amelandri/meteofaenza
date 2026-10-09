@@ -72,7 +72,9 @@ const state = {
 // La misura della centralina si aggiorna solo ai minuti 0, 10, 20, 30, 40, 50 (più un
 // piccolo ritardo: il file viene pubblicato qualche secondo dopo lo scoccare del minuto).
 const STATION_SLOT_MS = 10 * 60 * 1000;
-const STATION_SLOT_DELAY_MS = 15 * 1000;
+// Il server legge la centralina via cron ai minuti :00, :10… (dopo 20 s, deploy/crontab):
+// l'app chiede la nuova misura 45 s dopo, quando è già nel database.
+const STATION_SLOT_DELAY_MS = 45 * 1000;
 
 // --- Avvio -----------------------------------------------------------------------
 
@@ -115,7 +117,7 @@ async function loadNormals() {
   if (normalsLoading || !navigator.onLine || !store.normalsDue(state.normals)) return;
   normalsLoading = true;
   try {
-    const n = await fetchNormals(state.loc);
+    const n = await fetchNormals();
     store.setNormals(state.loc, n);
     state.normals = store.getNormals(state.loc) || { ...n, fetchedAt: Date.now() };
     if (state.data && !$('#forecast').hidden) render();
@@ -169,12 +171,14 @@ async function load({ force = false } = {}) {
 
   setLoading(true);
   try {
-    const data = await fetchForecast(loc, state.data || cached);
+    // Dal nostro server (che scarica le fonti via cron): checkedAt = quando l'app ha
+    // controllato, per sapere quando ricontrollare (fetchedAt è il download del server).
+    const data = { ...(await fetchForecast()), checkedAt: Date.now() };
     state.data = data;
     if (!store.setCachedForecast(loc, data)) toast('Spazio locale esaurito: previsioni non salvate offline.');
     render();
   } catch (err) {
-    if (state.data) toast(`Aggiornamento non riuscito: ${err.message}. Dati scaricati ${fmtAgo(state.data.fetchedAt)}.`);
+    if (state.data) toast(`Aggiornamento non riuscito: ${err.message}. Previsioni scaricate ${fmtAgo(state.data.fetchedAt)}.`);
     else showStatus(`Impossibile scaricare le previsioni: ${err.message}.`, { retry: true });
   } finally {
     setLoading(false);
@@ -243,14 +247,15 @@ function renderHeader() {
     return `<span class="run"><i class="dot-${m.key}"></i>${m.name}: run delle ${r ? at(r.init * 1000) : 'n.d.'}${nextRun(r)}</span>`;
   }).join('');
 
-  // Prossimo download dei dati da parte dell'app (scadenza della cache o nuovo run atteso).
+  // fetchedAt: quando il server ha scaricato le previsioni dalla fonte (lo fa da sé, via
+  // cron, appena esce un nuovo run). L'app ricontrolla il server ogni CACHE_TTL_MS.
   const due = store.nextDownloadAt(data);
   let next;
-  if (!navigator.onLine) next = 'prossimo appena torni online';
-  else if (state.loading) next = 'aggiornamento in corso…';
-  else next = due > Date.now() ? `prossimo alle ${at(due)}` : 'prossimo a breve';
+  if (!navigator.onLine) next = 'nuovo controllo appena torni online';
+  else if (state.loading) next = 'controllo in corso…';
+  else next = due > Date.now() ? `nuovo controllo alle ${at(due)}` : 'nuovo controllo a breve';
 
-  $('#updated').innerHTML = `<span>Aggiornato alle ${at(data.fetchedAt)} (${fmtAgo(data.fetchedAt)}) · ${next}</span>`
+  $('#updated').innerHTML = `<span>Previsioni scaricate alle ${at(data.fetchedAt)} (${fmtAgo(data.fetchedAt)}) · ${next}</span>`
     + `<span>Orari locali di ${esc(loc.name)} (${esc(data.tzAbbr || data.timezone || '')})</span>${runs}`;
 }
 
@@ -267,7 +272,8 @@ async function loadStation() {
   state.stationLoading = true;
   state.stationTriedAt = Date.now();
   try {
-    state.station = withRainLog(await fetchStation(), state.station);
+    // Il server conserva le letture: rainLog arriva già con le ultime 2 ore.
+    state.station = await fetchStation();
     store.setStation(state.station);
   } catch {
     // resta l'ultima misura salvata (se c'è), segnalata come non aggiornata se vecchia
@@ -292,21 +298,14 @@ function stationIsFresh() {
 
 // --- Pioggia in corso (centralina) ---
 // La centralina dà solo i mm caduti da mezzanotte: confrontando la misura attuale con una
-// precedente si capisce se sta piovendo. Le letture delle ultime 2 ore sono tenute in
-// `rainLog` ({ t: istante della misura, day: data locale, mm }) dentro meteo:station.
-const RAIN_LOG_MS = 2 * 60 * 60 * 1000;
+// precedente si capisce se sta piovendo. Le letture delle ultime 2 ore arrivano dal server
+// in `rainLog` ({ t: istante della misura, day: data locale, mm }), salvato in meteo:station.
 const RAIN_NOW_MIN_GAP_MS = 8 * 60 * 1000; // lettura di confronto: almeno 8 minuti prima…
 const RAIN_NOW_MAX_GAP_MS = 40 * 60 * 1000; // …e al massimo 40
 const RAIN_NOW_FRESH_MS = 20 * 60 * 1000; // misura attuale non più vecchia di così
 const RAIN_NOW_LEAD_MIN = 30; // un tragitto che inizia entro 30 minuti è "imminente"
 
 const stationDay = (ms) => localDateTime(ms, state.data?.timezone || 'Europe/Rome', state.data?.utcOffset || 0).date;
-
-function withRainLog(st, prev) {
-  const log = (prev?.rainLog || []).filter((e) => st.time - e.t <= RAIN_LOG_MS && e.t < st.time);
-  if (st.rainToday != null) log.push({ t: st.time, day: stationDay(st.time), mm: st.rainToday });
-  return { ...st, rainLog: log };
-}
 
 // { raining, mm, minutes } oppure null se non si può dire (misura vecchia o nessuna
 // lettura precedente adatta, es. app appena aperta).
@@ -875,9 +874,10 @@ function chanceText(x, where) {
     txt += `\n${x.popMembers === 1 ? "Nell'unico scenario" : 'Negli scenari'} con pioggia: ${amount} (${rainWords(x.wetTypical)})`;
   }
   if (x.coarse) txt += "\nOrario approssimato: a questa distanza l'ensemble ha dati ogni 3 ore";
-  // Ensemble ripreso dal download precedente perché l'ultimo non è riuscito.
+  // Il server riscarica l'ensemble ogni 3 ore: oltre 6 vuol dire che gli ultimi
+  // aggiornamenti non sono riusciti (oltre 12 non lo serve più).
   const ens = state.data.ensemble;
-  if (ens.fetchedAt && state.data.fetchedAt - ens.fetchedAt > 60 * 1000) txt += `\nScenari scaricati ${fmtAgo(ens.fetchedAt)}: l'ultimo aggiornamento dell'ensemble non è riuscito`;
+  if (ens.fetchedAt && Date.now() - ens.fetchedAt > 6 * 3600 * 1000) txt += `\nScenari scaricati ${fmtAgo(ens.fetchedAt)}: gli ultimi aggiornamenti dell'ensemble non sono riusciti`;
   return txt;
 }
 

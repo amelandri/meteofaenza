@@ -6,7 +6,7 @@ Web app (PWA) che mette a confronto le previsioni di due modelli meteorologici p
 - **ICON-EU**: modello europeo (7 km) del servizio meteorologico tedesco DWD, copre circa 5 giorni e mezzo;
 - **Centralina**: Osservatorio Meteorologico "E. Torricelli" ([meteofaenza.it](https://www.meteofaenza.it/)).
 
-È composta solo da file statici: nessun server, nessuna API key, nessun passaggio di build. Le previsioni vengono salvate nel browser e restano consultabili anche offline (fino a un giorno dal download).
+È composta da un **frontend statico** (HTML, CSS e JavaScript senza passaggio di build) e da un **piccolo server in Python** (solo libreria standard) con un database **SQLite**. Il server scarica le fonti esterne a intervalli regolari, via cron, e le serve al frontend come API JSON. Così le fonti vengono interrogate una volta per tutti gli utenti e non da ogni browser. Non serve alcuna API key e non c'è login: le preferenze restano nel browser. Le previsioni vengono salvate anche nel browser e restano consultabili offline (fino a un giorno dal download).
 
 ## Cosa mostra
 
@@ -19,13 +19,13 @@ Web app (PWA) che mette a confronto le previsioni di due modelli meteorologici p
 - **Andamento orario**: grafico che sovrappone i due modelli per precipitazioni (con la probabilità di pioggia ora per ora), temperatura, vento, nuvolosità, umidità e pressione. Nella temperatura due linee tratteggiate mostrano le previsioni corrette con la misura della centralina per le ore successive.
 - **Dettaglio orario** (chiuso di default): tabella ora per ora con entrambi i modelli e la probabilità di pioggia.
 
-Massima e minima (previste e misurate) sono confrontate con le **medie del periodo** 1991–2020: lo scarto compare accanto ai valori nelle card dei giorni e nel box Adesso, e il grafico della temperatura ha due linee punteggiate con massima e minima medie. Le medie si scaricano una volta e si aggiornano una volta l'anno.
+Massima e minima (previste e misurate) sono confrontate con le **medie del periodo** 1991–2020: lo scarto compare accanto ai valori nelle card dei giorni e nel box Adesso, e il grafico della temperatura ha due linee punteggiate con massima e minima medie. Il server le scarica una volta e le aggiorna una volta l'anno.
 
 Tutti gli orari sono nell'ora locale di Faenza.
 
 La pagina **Impostazioni** (icona a ingranaggio) permette di scegliere il tema (automatico, chiaro o scuro), quali previsioni mostrare (entrambi i modelli, solo ICON-2I o solo ICON-EU; la probabilità di pioggia resta sempre visibile) e gli intervalli monitorati. La pagina **Come funziona** (icona "i") spiega modelli, ensemble, calcolo della probabilità e regole dei verdetti.
 
-Con l'app aperta le previsioni vengono riscaricate ogni 30 minuti e circa 10 minuti dopo l'uscita prevista di un nuovo run dei modelli.
+Il server controlla ogni 15 minuti se è uscito un nuovo run dei modelli e solo allora scarica le previsioni; legge la centralina ogni 10 minuti. Con l'app aperta, il browser ricontrolla il server ogni 10 minuti (e scarica i dati solo se sono cambiati).
 
 ### Come leggere i tragitti in bici
 
@@ -40,21 +40,60 @@ Per ogni intervallo l'app controlla se ciascun modello prevede almeno 0,2 mm di 
 
 Toccando un tragitto (o passandoci sopra con il mouse) si vede il dettaglio: millimetri per modello, probabilità e motivo del verdetto.
 
-## Avvio in locale
+## Architettura
 
-Serve un qualsiasi server HTTP statico, per esempio:
-
-```bash
-python3 -m http.server 8000
+```
+fonti esterne ──(cron)──▶ server/jobs.py ──▶ SQLite ◀── server/api.py ◀──(nginx /api/)── browser
+(Open-Meteo, centralina)                                                  nginx: file statici
 ```
 
-poi aprire <http://localhost:8000>. Aprendo direttamente `index.html` dal disco (`file://`) il service worker non funziona e l'app non è installabile.
+| Dato | Fonte | Aggiornamento sul server |
+|---|---|---|
+| Centralina | meteofaenza.it | ogni 10 minuti (20 s dopo lo scoccare) |
+| Previsioni ICON-2I / ICON-EU | Open-Meteo | controllo dei metadati ogni 15 minuti; download solo se c'è un nuovo run (ICON-2I ogni 12 h, ICON-EU ogni 3 h) o se hanno più di 6 ore |
+| Ensemble ICON-EU-EPS / ICON-D2-EPS | Open-Meteo | ogni 3 ore (i loro metadati non sono affidabili) |
+| Metadati dei run | Open-Meteo | ogni 15 minuti (pochi byte) |
+| Medie del periodo 1991–2020 | archivio Open-Meteo (ERA5-Land) | controllo giornaliero, download solo se mancano o hanno più di un anno |
 
-## Pubblicazione
+In una giornata il server fa così circa 10 download di previsioni, 8 di ensemble e 144 letture della centralina, qualunque sia il numero di utenti. Prima ogni browser aperto scaricava previsioni ed ensemble ogni 30 minuti.
 
-Basta copiare la cartella su un hosting statico con HTTPS (GitHub Pages, Netlify, un qualsiasi web server). I percorsi sono relativi, quindi l'app funziona anche in una sottocartella.
+API (tutte in sola lettura, con `ETag`: il browser riscarica solo se i dati sono cambiati):
 
-Dopo ogni modifica ai file dell'app va incrementato `VERSION` in `sw.js`: altrimenti chi l'ha già aperta continua a vedere la versione salvata nel browser.
+| Percorso | Contenuto |
+|---|---|
+| `api/forecast` | previsioni dei due modelli, ensemble e metadati dei run |
+| `api/station` | ultima misura della centralina e letture delle ultime 2 ore |
+| `api/normals` | medie del periodo |
+| `api/status` | stato dei job (ultimo aggiornamento, errori) |
+
+## Avvio in locale
+
+Serve solo Python 3.9 o successivo, senza pacchetti aggiuntivi:
+
+```bash
+python3 -m server.jobs all          # primo popolamento del database (data/meteo.db)
+python3 -m server.api --static      # API + file del frontend su http://127.0.0.1:8085
+```
+
+poi aprire <http://127.0.0.1:8085>. In locale i job si rilanciano a mano (`python3 -m server.jobs station`, `forecast`, `normals`). Test: `python3 -m unittest discover -s tests`.
+
+Il service worker funziona solo su `http://localhost`/`127.0.0.1` o in HTTPS.
+
+## Installazione sul server (Linux + nginx)
+
+1. Codice in `/opt/meteo` (es. `git clone`), utente di servizio e cartella del database:
+   ```bash
+   useradd --system --home /var/lib/meteo meteo
+   mkdir -p /var/lib/meteo && chown meteo:meteo /var/lib/meteo
+   ```
+2. Primo popolamento: `sudo -u meteo env METEO_DB=/var/lib/meteo/meteo.db sh -c 'cd /opt/meteo && python3 -m server.jobs all'`
+3. API come servizio: `deploy/meteo-api.service` in `/etc/systemd/system/`, poi `systemctl enable --now meteo-api` (ascolta solo su `127.0.0.1:8085`).
+4. Aggiornamenti: `crontab -u meteo deploy/crontab` (log con `journalctl -t meteo`).
+5. nginx: `deploy/nginx-meteo.conf` in `/etc/nginx/sites-available/`, adattare `server_name`, collegare in `sites-enabled`, `nginx -t && systemctl reload nginx`; HTTPS con `certbot --nginx`. La configurazione non espone `server/`, `data/`, `tests/` e `deploy/`. Per installare l'app in una sottocartella c'è una variante commentata nello stesso file.
+
+Controllo: `curl -s https://<dominio>/api/status`.
+
+Dopo ogni modifica ai file del frontend va incrementato `VERSION` in `sw.js`: altrimenti chi ha già aperto l'app continua a vedere la versione salvata nel browser. Dopo una modifica al server: `systemctl restart meteo-api`.
 
 ## Installazione su telefono
 
@@ -73,12 +112,14 @@ Tema, modelli mostrati e intervalli monitorati si scelgono dalla pagina Impostaz
 | Correzione della temperatura con la centralina | `TEMP_FIX_*` in `js/app.js` |
 | Soglie della concordanza dei modelli | `AGREE` in `js/app.js` |
 | Giorni mostrati in "Prossimi giorni" | `DAILY_DAYS` in `js/app.js` |
-| Ensemble usati per la probabilità | `ENSEMBLE_MODELS` in `js/api.js` |
-| Frequenza dei download | `CACHE_TTL_MS`, `RETRY_TTL_MS`, `RUN_DELAY_MS` in `js/storage.js` |
+| Località per il server (coordinate) | `LAT`, `LON` in `server/config.py` |
+| Ensemble usati per la probabilità | `ENSEMBLE_MODELS` in `server/sources.py` |
+| Frequenza degli aggiornamenti del server | `deploy/crontab` e `*_MAX_AGE_S` / `ENSEMBLE_EVERY_S` in `server/config.py` |
+| Ogni quanto il browser ricontrolla il server | `CACHE_TTL_MS` in `js/storage.js` |
 
 Se si cambiano soglie o regole, va aggiornata anche la pagina `info.html`, che le riporta in chiaro.
 
-La centralina è specifica di Faenza: cambiando località va sostituita o rimossa (`js/station.js`).
+La centralina è specifica di Faenza: cambiando località va sostituita o rimossa (`server/sources.py` e `js/station.js`).
 
 ## Struttura
 
@@ -90,14 +131,21 @@ css/style.css          stile (tema chiaro e scuro)
 js/theme.js            applica il tema scelto prima che la pagina compaia
 js/app.js              logica e rendering
 js/settings.js         pagina Impostazioni
-js/api.js              previsioni, ensemble e metadati dei modelli (Open-Meteo)
-js/station.js          misure della centralina
+js/api.js              accesso all'API del server (previsioni, centralina, medie)
+js/station.js          misure della centralina (dall'API)
 js/storage.js          salvataggio nel browser (localStorage)
 js/chart.js            grafico SVG
 js/weather.js          icone meteo e formattazione
 sw.js                  service worker (funzionamento offline)
 manifest.webmanifest   metadati PWA
 icons/                 icone dell'app
+server/config.py       configurazione (località, database, frequenze)
+server/sources.py      download e normalizzazione delle fonti esterne
+server/jobs.py         job di aggiornamento (lanciati da cron)
+server/api.py          API JSON (e file statici in locale)
+server/db.py           database SQLite
+tests/                 test del server
+deploy/                nginx, systemd, crontab
 ```
 
 ## Fonti dei dati
@@ -107,8 +155,8 @@ icons/                 icone dell'app
 - ICON-2I © [ItaliaMeteo-ARPAE](https://www.arpae.it/); ICON-EU, ICON-EU-EPS e ICON-D2-EPS © [Deutscher Wetterdienst](https://www.dwd.de/).
 - Misure: Osservatorio Meteorologico "E. Torricelli", [meteofaenza.it](https://www.meteofaenza.it/).
 
-Nota tecnica sulla centralina: il suo file dati non consente la lettura da altri siti (CORS), quindi l'app lo carica come script. In questo modo il contenuto del file viene eseguito nella pagina; oggi contiene solo valori, ma dipende da un sito esterno.
+Nota tecnica sulla centralina: il suo file dati è un piccolo file JavaScript con le variabili delle misure. Lo legge il server, che ne estrae i valori senza eseguirlo; il browser non lo carica più.
 
 ## Privacy
 
-L'app non ha un backend e non raccoglie dati. Previsioni (al massimo di un giorno prima), ultime letture della centralina, preferenze di visualizzazione, tema, modelli mostrati e intervalli monitorati sono salvati solo nel `localStorage` del browser.
+L'app non ha login e non raccoglie dati personali: il server conserva solo i dati meteo (previsioni, misure della centralina, medie). Preferenze di visualizzazione, tema, modelli mostrati e intervalli monitorati restano solo nel `localStorage` del browser, insieme a una copia delle previsioni (al massimo di un giorno prima) per l'uso offline. Come ogni server web, nginx registra nei suoi log gli indirizzi IP delle richieste.

@@ -1,0 +1,28 @@
+# Meteo Faenza – API (systemd). Copiare in /etc/systemd/system/, poi:
+#   systemctl daemon-reload && systemctl enable --now meteo-api
+# Log: journalctl -u meteo-api
+
+[Unit]
+Description=Meteo Faenza - API JSON
+After=network.target
+
+[Service]
+User=meteo
+Group=meteo
+WorkingDirectory=/opt/meteo
+Environment=METEO_DB=/var/lib/meteo/meteo.db
+Environment=METEO_HOST=127.0.0.1
+Environment=METEO_PORT=8085
+ExecStart=/usr/bin/python3 -m server.api
+Restart=on-failure
+RestartSec=5
+
+# Protezioni: può scrivere solo nella cartella del database.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/meteo
+
+[Install]
+WantedBy=multi-user.target
