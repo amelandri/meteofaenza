@@ -3,9 +3,10 @@
 // Opzionale una seconda scala a destra (`y2`, es. probabilità 0–100%): le serie con
 // `axis: 'y2'` sono disegnate come area + linea dietro le altre.
 // Opzionale `daylight` ([{ rise, set }] in ora locale "YYYY-MM-DDTHH:MM", un elemento per
-// giorno): barra giorno/notte sotto l'area del grafico, al posto delle tacche delle ore.
+// giorno): barra giorno/notte sopra l'area del grafico, sotto i nomi dei giorni, con un
+// pallino (e tooltip) per ogni alba e tramonto.
 
-import { parts, dayShort, fmt } from './weather.js';
+import { parts, dayShort, fmt, sunEventIcon } from './weather.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 
@@ -30,7 +31,7 @@ export function renderChart(el, opts) {
 
   const W = Math.max(280, el.clientWidth);
   const H = W < 520 ? 220 : 270;
-  const pad = { l: 40, r: right ? 36 : 10, t: 24, b: dayBar ? 36 : 26 }; // spazio per la barra giorno/notte
+  const pad = { l: 40, r: right ? 36 : 10, t: dayBar ? 36 : 24, b: 26 }; // in alto spazio per la barra giorno/notte
   const plotW = W - pad.l - pad.r;
   const plotH = H - pad.t - pad.b;
   const step = plotW / n;
@@ -69,13 +70,16 @@ export function renderChart(el, opts) {
   let html = '';
 
   // --- Fasce giornaliere ---------------------------------------------------------
+  // Il cambio di giorno è alla mezzanotte, cioè sul punto delle 00:00 (x(i), centro della
+  // colonna di quell'ora), non sul bordo sinistro della colonna (che sarebbe le 23:30).
   const hours = times.map((t) => parts(t).hh);
+  const edge = (i) => (i <= 0 ? pad.l : i >= n ? pad.l + plotW : x(i));
   let start = 0, band = 0;
   for (let i = 1; i <= n; i++) {
     if (i === n || hours[i] === 0) {
-      const bx = pad.l + step * start, bw = step * (i - start);
+      const bx = edge(start), bw = edge(i) - bx;
       if (band % 2) html += `<rect class="band" x="${bx}" y="${pad.t}" width="${bw}" height="${plotH}"/>`;
-      if (bw > 44) html += `<text class="day-label" x="${bx + bw / 2}" y="${pad.t - 9}" text-anchor="middle">${dayShort(times[start])}</text>`;
+      if (bw > 44) html += `<text class="day-label" x="${bx + bw / 2}" y="${pad.t - (dayBar ? 17 : 9)}" text-anchor="middle">${dayShort(times[start])}</text>`;
       start = i; band++;
     }
   }
@@ -129,15 +133,22 @@ export function renderChart(el, opts) {
     const gx1 = pts[0][0], gx2 = pts[pts.length - 1][0];
     const stops = pts.map(([xx, c]) => `<stop offset="${((xx - gx1) / (gx2 - gx1 || 1)).toFixed(4)}" style="stop-color: var(--day-${c})"/>`).join('');
     html += `<defs><linearGradient id="day-night" gradientUnits="userSpaceOnUse" x1="${gx1.toFixed(1)}" x2="${gx2.toFixed(1)}" y1="0" y2="0">${stops}</linearGradient></defs>`;
-    const barY = pad.t + plotH + 2;
+    const barY = pad.t - 9; // sopra l'area del grafico, sotto i nomi dei giorni
     html += `<rect class="day-bar" x="${pad.l}" y="${barY}" width="${plotW}" height="5" rx="2.5" fill="url(#day-night)"/>`;
     // Marker di alba e tramonto: un pallino grigio sulla barra, con bordo dello sfondo per
-    // staccarlo dai colori della barra.
+    // staccarlo dai colori della barra. Al passaggio del mouse o al tocco compare sotto il
+    // pallino la pillola di alba/tramonto con la punta a fumetto (come nella card di oggi,
+    // vedi "Tooltip di alba e tramonto" più sotto); il cerchio trasparente più grande allarga
+    // l'area sensibile. La barra è fuori dall'area attiva del grafico (.hit), quindi il
+    // puntatore qui non mostra i dati delle ore.
     const marker = (iso, kind) => {
       const cx = xm(iso);
       if (cx < pad.l || cx > W - pad.r) return '';
-      // Nessun tooltip: il puntatore sul grafico mostra già i dati dell'ora.
-      return `<circle class="sun-mark ${kind}" cx="${cx.toFixed(1)}" cy="${barY + 2.5}" r="3.5"/>`;
+      const cy = barY + 2.5;
+      const label = `${kind === 'rise' ? 'Alba' : 'Tramonto'} ${iso.slice(11, 16)}`;
+      return `<g class="sun-mark-g" data-kind="${kind}" data-time="${iso.slice(11, 16)}" data-x="${cx.toFixed(1)}" data-y="${cy}" aria-label="${label}">`
+        + `<circle class="sun-hit" cx="${cx.toFixed(1)}" cy="${cy}" r="9"/>`
+        + `<circle class="sun-mark ${kind}" cx="${cx.toFixed(1)}" cy="${cy}" r="3.5"/></g>`;
     };
     for (const { rise, set } of daylight) html += marker(rise, 'rise') + marker(set, 'set');
   }
@@ -146,7 +157,7 @@ export function renderChart(el, opts) {
   const every = [1, 2, 3, 6, 12, 24].find((k) => step * k >= 34) || 24;
   for (let i = 0; i < n; i++) {
     if (hours[i] % every === 0) {
-      if (!dayBar) html += `<line class="xtick" x1="${x(i)}" x2="${x(i)}" y1="${pad.t + plotH}" y2="${pad.t + plotH + 4}"/>`;
+      html += `<line class="xtick" x1="${x(i)}" x2="${x(i)}" y1="${pad.t + plotH}" y2="${pad.t + plotH + 4}"/>`;
       html += `<text class="tick" x="${x(i)}" y="${H - 8}" text-anchor="middle">${String(hours[i]).padStart(2, '0')}</text>`;
     }
   }
@@ -185,7 +196,9 @@ export function renderChart(el, opts) {
   }
 
   html += `<g class="cursor" visibility="hidden"><line class="cursor-line" y1="${pad.t}" y2="${pad.t + plotH}"/></g>`;
-  html += `<rect class="hit" x="${pad.l}" y="0" width="${plotW}" height="${H}"/>`;
+  // Area attiva (puntatore e tooltip dei dati): solo l'area del grafico, non le etichette
+  // né la barra giorno/notte sopra.
+  html += `<rect class="hit" x="${pad.l}" y="${pad.t}" width="${plotW}" height="${plotH}"/>`;
   svg.innerHTML = html;
   el.appendChild(svg);
 
@@ -238,6 +251,43 @@ export function renderChart(el, opts) {
   hit.addEventListener('pointerdown', show);
   hit.addEventListener('pointerleave', hide);
   hit.addEventListener('pointercancel', hide);
+
+  // --- Tooltip di alba e tramonto ---------------------------------------------------
+  // La pillola della card di oggi (icona + orario, punta a fumetto verso l'alto) sotto il
+  // pallino. Mouse: compare al passaggio e sparisce uscendo. Tocco: compare al tocco e si
+  // chiude da sola dopo qualche secondo o con un secondo tocco sullo stesso pallino.
+  const sunTip = document.createElement('span');
+  sunTip.className = 'sun-pill tip-up chart-sun-tip';
+  sunTip.hidden = true;
+  el.appendChild(sunTip);
+  let sunTimer, sunFor = null;
+  const hideSun = () => { clearTimeout(sunTimer); sunTip.hidden = true; sunFor = null; };
+  const showSun = (g) => {
+    const scale = svg.getBoundingClientRect().width / W;
+    const { kind, time } = g.dataset;
+    sunTip.className = `sun-pill tip-up chart-sun-tip ${kind}`;
+    sunTip.innerHTML = `${sunEventIcon(kind, 15)}${time}`;
+    sunTip.hidden = false;
+    // Sotto il pallino, centrata; la punta resta sul pallino anche se la pillola è spinta
+    // dentro i bordi del grafico (--tip-dx).
+    const cx = Number(g.dataset.x) * scale, w = sunTip.offsetWidth;
+    const left = Math.min(Math.max(cx, w / 2 + 2), el.clientWidth - w / 2 - 2);
+    sunTip.style.left = `${left}px`;
+    sunTip.style.top = `${(Number(g.dataset.y) + 9) * scale + 6}px`;
+    sunTip.style.setProperty('--tip-dx', `${cx - left}px`);
+    sunFor = g;
+  };
+  for (const g of svg.querySelectorAll('.sun-mark-g')) {
+    g.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') showSun(g); });
+    g.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') hideSun(); });
+    g.addEventListener('click', (e) => {
+      if (e.pointerType === 'mouse' || (e.detail && matchMedia('(hover: hover)').matches)) return;
+      if (sunFor === g && !sunTip.hidden) { hideSun(); return; }
+      showSun(g);
+      clearTimeout(sunTimer);
+      sunTimer = setTimeout(hideSun, 4000);
+    });
+  }
 }
 
 // Testo di supporto per i valori nel tooltip.

@@ -356,15 +356,24 @@ button { font: inherit; color: inherit; }
 /* punta a fumetto in alto, rivolta al punto della linea (colore della pillola al centro della
    sua sfumatura). Con alba e tramonto alle nostre latitudini la pillola non tocca mai i bordi,
    quindi la punta al centro coincide con l'orario. */
-.sun.day24 .sun-pill::before {
+.sun.day24 .sun-pill::before, .sun-pill.tip-up::before {
   /* forma morbida: cima arrotondata e lati concavi che si raccordano alla pillola; sovrapposta
      di 1 px al bordo superiore, così non resta una fessura tra punta e pillola */
   content: ""; position: absolute; left: 50%; top: -6px; width: 16px; height: 7px;
-  transform: translateX(-50%); background: var(--pill-tip);
+  transform: translateX(calc(-50% + var(--tip-dx, 0px))); background: var(--pill-tip);
   clip-path: path('M0 7 C4.5 7 5.6 1.2 7.2 .4 Q8 0 8.8 .4 C10.4 1.2 11.5 7 16 7 Z');
 }
-.sun.day24 .sun-pill.rise { --pill-tip: color-mix(in srgb, var(--dawn-a), var(--dawn-b)); }
-.sun.day24 .sun-pill.set { --pill-tip: color-mix(in srgb, var(--dusk-a), var(--dusk-b)); }
+.sun-pill.rise { --pill-tip: color-mix(in srgb, var(--dawn-a), var(--dawn-b)); }
+.sun-pill.set { --pill-tip: color-mix(in srgb, var(--dusk-a), var(--dusk-b)); }
+/* Tooltip di alba e tramonto del grafico (chart.js): la stessa pillola compatta della card di
+   oggi, con la punta a fumetto verso il pallino, sopra l'area del grafico */
+.chart-sun-tip {
+  position: absolute; z-index: 3; pointer-events: none; transform: translateX(-50%);
+  gap: 3px; padding: 1px 7px 1px 4px; font-size: .74rem; font-variant-numeric: tabular-nums;
+  box-shadow: 0 2px 8px rgb(16 24 40 / .14);
+}
+.chart-sun-tip[hidden] { display: none; }
+.chart-sun-tip .sun-ev { width: 15px; height: 15px; }
 .sun-track { position: absolute; left: 0; right: 0; top: 0; height: 20px; } /* centro a 10 px, come le icone da 20 px */
 /* linea: notte grigia, giorno alba → mezzogiorno → tramonto; sbiadita rispetto all'indicatore.
    Notte e giorno si fondono in circa un'ora (4% della giornata) prima dell'alba e dopo il
@@ -584,9 +593,11 @@ button { font: inherit; color: inherit; }
 .chart-svg .day-label { fill: var(--text); font-size: 11px; font-weight: 600; }
 .chart-svg .line { fill: none; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
 .chart-svg .line.dash { stroke-dasharray: 4 3; stroke-width: 1.5; opacity: .85; }
-.chart-svg .day-bar { opacity: .55; } /* barra giorno/notte sotto il grafico (chart.js) */
+.chart-svg .day-bar { opacity: .55; } /* barra giorno/notte sopra il grafico (chart.js) */
 /* marker di alba e tramonto sulla barra: pallino grigio, uguale per entrambi, con bordo dello sfondo */
 .chart-svg .sun-mark { fill: var(--muted); stroke: var(--surface); stroke-width: 1.5; }
+.chart-svg .sun-mark-g { cursor: pointer; }
+.chart-svg .sun-hit { fill: transparent; } /* area sensibile più grande del pallino (tooltip) */
 .chart-svg .s-i2i { stroke: var(--i2i); }
 .chart-svg .s-eu { stroke: var(--eu); }
 .chart-svg .bar.s-i2i { fill: var(--i2i); stroke: none; }
