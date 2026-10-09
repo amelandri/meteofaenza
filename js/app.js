@@ -4,7 +4,7 @@ import * as store from './storage.js';
 import { renderChart, tipValue } from './chart.js';
 import {
   icon, describe, fmt, fmtSigned, windDir, windArrow, hourLabel, dayShort, dayRelative,
-  localNowIso, localDateTime, fmtAgo, esc, sunEventIcon, dayTitle,
+  localNowIso, localDateTime, fmtAgo, esc, sunEventIcon, dayTitle, parts,
 } from './weather.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -911,8 +911,12 @@ function applyRainNow(x, rn, nowMin) {
 }
 
 function renderBike(commute, day, hourIdx, today, nowMin) {
+  // Solo gli intervalli attivi in questo giorno della settimana (w.days, 0 = domenica).
+  const wd = parts(day).wd;
+  const windows = commute.windows.filter((w) => w.days.includes(wd));
+  if (!windows.length) return '';
   const rn = day === today ? stationRainNow() : null;
-  const items = commute.windows.map((w) => applyRainNow(bikeWindow(day, w, hourIdx), rn, nowMin));
+  const items = windows.map((w) => applyRainNow(bikeWindow(day, w, hourIdx), rn, nowMin));
   if (items.every((x) => x.status === 'na' && x.pop == null)) return '';
   const chips = items.map((x) => {
     const st = BIKE_STATUS[x.status];
@@ -1056,7 +1060,10 @@ function fitBikes() {
   daily.classList.remove('bikes-measure');
   if (!width) return; // sezione non visibile: niente da misurare
   daily.style.setProperty('--bike-chip-w', `${width}px`);
-  daily.style.setProperty('--bike-max', String(Math.max(...BIKE_COMMUTES.map((c) => c.windows.length)))); // layout mobile
+  // Colonne della riga dei blocchi su mobile: il massimo di blocchi in un giorno (gli
+  // intervalli possono valere solo in alcuni giorni della settimana).
+  const perRow = [...daily.querySelectorAll('.bike-chips')].map((r) => r.children.length);
+  daily.style.setProperty('--bike-max', String(Math.max(1, ...perRow))); // layout mobile
   daily.classList.add('bikes-sized');
 
   // Desktop: i tragitti stanno nelle colonne dei modelli solo se ci entrano; altrimenti
@@ -1068,9 +1075,11 @@ function fitBikes() {
   if (colWidth <= 560) return;
   const col = daily.querySelector('.dm')?.getBoundingClientRect().width || 0;
   const gap = 6;
-  const chipsWidth = (c) => c.windows.length * width + (c.windows.length - 1) * gap;
+  // Blocchi del tragitto i-esimo nel giorno che ne ha di più
+  const countOf = (i) => Math.max(0, ...[...daily.querySelectorAll(`.bikes > .bike:nth-child(${i + 1}) .bike-chips`)].map((r) => r.children.length));
+  const chipsWidth = (c, i) => countOf(i) * width + Math.max(0, countOf(i) - 1) * gap;
   const labelOf = (i) => daily.querySelectorAll('.bikes')[0]?.children[i]?.querySelector('.bike-label')?.getBoundingClientRect().width || 0;
-  const fits = BIKE_COMMUTES.every((c, i) => (i === 0 ? chipsWidth(c) : labelOf(i) + 12 + chipsWidth(c)) <= col);
+  const fits = BIKE_COMMUTES.every((c, i) => (i === 0 ? chipsWidth(c, i) : labelOf(i) + 12 + chipsWidth(c, i)) <= col);
   if (colWidth <= 720 || !fits) daily.classList.add('bikes-flow');
 }
 

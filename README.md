@@ -15,7 +15,7 @@ Web app (PWA) che mette a confronto le previsioni di due modelli meteorologici p
   - riepilogo del giorno e suddivisione in quattro fasce (notte, mattina, pomeriggio, sera);
   - alba e tramonto; per ogni fascia anche la probabilità di pioggia;
   - un giudizio sulla **concordanza dei modelli** (concordi / lievi differenze / discordi), con il motivo;
-  - **Bike**: per ogni intervallo del tragitto in bici (nome e fino a 3 "intervalli monitorati" configurabili nella pagina Impostazioni; predefiniti 06:45–08:00, 12:30–15:00, 17:00–18:30), se pioverà (Asciutto, Rischio, Incerto, Pioggia) e con quale probabilità.
+  - **Bike**: per ogni intervallo del tragitto in bici (nome e fino a 6 "intervalli monitorati" configurabili nella pagina Impostazioni, ognuno con i giorni della settimana in cui vale, al massimo 3 nello stesso giorno; predefiniti 06:45–08:00, 12:30–15:00, 17:00–18:30, tutti i giorni), se pioverà (Asciutto, Rischio, Incerto, Pioggia) e con quale probabilità.
 - **Andamento orario**: grafico che sovrappone i due modelli per precipitazioni (con la probabilità di pioggia ora per ora), temperatura, vento, nuvolosità, umidità e pressione. Nella temperatura due linee tratteggiate mostrano le previsioni corrette con la misura della centralina per le ore successive.
 - **Dettaglio orario** (chiuso di default): tabella ora per ora con entrambi i modelli e la probabilità di pioggia.
 

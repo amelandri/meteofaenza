@@ -56,34 +56,47 @@ export const saveSettings = (patch) => write(KEYS.settings, { ...getSettings(), 
 
 // --- Intervalli monitorati (pagina Impostazioni) ---------------------------------
 // Gruppo di intervalli orari in cui l'app valuta se pioverà (oggi mostrati come tragitti
-// in bici). Salvato in settings.watch come { label, windows: [{ from, to }] } (ora locale, HH:MM).
+// in bici). Salvato in settings.watch come { label, windows: [{ from, to, days }] }: orari
+// in ora locale (HH:MM), days = giorni della settimana in cui l'intervallo vale (0 = domenica …
+// 6 = sabato, come parts().wd di weather.js). Così si possono anche definire orari diversi
+// giorno per giorno (intervalli distinti su giorni diversi).
 
-export const MAX_WATCH_WINDOWS = 3;
+export const MAX_WATCH_WINDOWS = 6; // in tutto…
+export const MAX_WATCH_PER_DAY = 3; // …e al massimo 3 nello stesso giorno (una riga di blocchi)
 export const MAX_WATCH_LABEL = 24;
+export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 export const DEFAULT_WATCH = {
   label: 'Bike',
   windows: [
-    { from: '06:45', to: '08:00' },
-    { from: '12:30', to: '15:00' },
-    { from: '17:00', to: '18:30' },
+    { from: '06:45', to: '08:00', days: [...ALL_DAYS] },
+    { from: '12:30', to: '15:00', days: [...ALL_DAYS] },
+    { from: '17:00', to: '18:30', days: [...ALL_DAYS] },
   ],
 };
+
+// Giorni validi, senza doppioni e ordinati; assenti (dati salvati prima dei giorni) o vuoti →
+// tutti i giorni.
+function normalizeDays(days) {
+  const ok = Array.isArray(days) ? [...new Set(days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort() : [];
+  return ok.length ? ok : [...ALL_DAYS];
+}
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // Normalizza gli intervalli monitorati (letti dallo storage o dal modulo): etichetta non vuota,
-// intervalli validi con inizio < fine, ordinati, al massimo MAX_WATCH_WINDOWS.
+// intervalli validi con inizio < fine e giorni (normalizeDays), ordinati per orario, al
+// massimo MAX_WATCH_WINDOWS. Sovrapposizioni e limite per giorno li controlla il modulo.
 // Ciò che non è valido torna al valore predefinito.
 export function normalizeWatch(watch) {
   const label = typeof watch?.label === 'string' ? watch.label.trim().slice(0, MAX_WATCH_LABEL) : '';
   const windows = (Array.isArray(watch?.windows) ? watch.windows : [])
     .filter((w) => HHMM.test(w?.from) && HHMM.test(w?.to) && w.from < w.to)
-    .map((w) => ({ from: w.from, to: w.to }))
+    .map((w) => ({ from: w.from, to: w.to, days: normalizeDays(w.days) }))
     .sort((a, b) => a.from.localeCompare(b.from))
     .slice(0, MAX_WATCH_WINDOWS);
   return {
     label: label || DEFAULT_WATCH.label,
-    windows: windows.length ? windows : DEFAULT_WATCH.windows.map((w) => ({ ...w })),
+    windows: windows.length ? windows : DEFAULT_WATCH.windows.map((w) => ({ ...w, days: [...w.days] })),
   };
 }
 
