@@ -236,13 +236,17 @@ button { font: inherit; color: inherit; }
 /* "Centralina" è il link al sito dell'osservatorio, con l'aspetto della semplice etichetta. */
 .obs-tag { font-weight: 700; color: var(--obs); letter-spacing: .01em; text-decoration: none; }
 .obs-body { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
-.obs-main { display: flex; align-items: center; justify-content: space-between; gap: 4px 14px; flex-wrap: wrap; }
-.obs-main .now-temp { font-size: 2.6rem; }
-/* Massima e minima di oggi, una sopra l'altra, a destra della temperatura */
-.obs-mm { display: grid; grid-template-columns: auto auto auto 3.4em; align-items: baseline; gap: 2px 6px; font-size: .9rem; font-variant-numeric: tabular-nums; }
+/* --now-t = altezza della temperatura corrente (line-height 1): le due righe di massima e
+   minima occupano in tutto la stessa altezza. Una linea del colore della card, da bordo a bordo del box (margini negativi = padding di
+   .obs-card), separa le temperature dagli altri dati come lo spazio tra fasce e probabilità. */
+.obs-main { --now-t: 2.6rem; display: flex; align-items: center; justify-content: space-between; gap: 4px 14px; flex-wrap: wrap; margin: 0 -14px; padding: 0 14px 10px; border-bottom: 1px solid var(--surface); }
+.obs-main .now-temp { font-size: var(--now-t); }
+/* Massima e minima di oggi, una sopra l'altra, a destra della temperatura e allineate al bordo destro */
+.obs-mm { display: grid; grid-template-columns: repeat(4, auto); align-content: space-between; align-items: baseline; height: var(--now-t); column-gap: 6px; margin-left: auto; font-size: .9rem; line-height: 1; font-variant-numeric: tabular-nums; }
 .obs-mm .mm-k { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
 .obs-mm .mm-v { font-weight: 650; text-align: right; }
 .obs-mm .mm-t { color: var(--muted); font-size: .78rem; }
+.obs-mm .mm-a { text-align: right; }
 .obs-mm .anom { font-size: .72rem; }
 .obs-stats { grid-template-columns: 1fr 1fr; }
 .obs-stale { color: var(--mid); font-weight: 650; }
@@ -253,7 +257,8 @@ button { font: inherit; color: inherit; }
   .obs-body { flex-direction: row; align-items: center; gap: 24px; }
   /* i dati a destra alla loro larghezza naturale, la temperatura nello spazio che resta: se
      manca spazio minima e massima vanno sotto la temperatura invece di spingere fuori i dati */
-  .obs-main { flex: 1 1 0; min-width: 0; }
+  .obs-main { flex: 1 1 0; min-width: 0; margin: 0; padding: 0; border-bottom: 0; } /* qui separa la linea a sinistra dei dati */
+  .obs-mm { margin-left: 0; height: auto; row-gap: 6px; } /* qui di solito va sotto la temperatura */
   .obs-stats { flex: 0 1 auto; grid-template-columns: repeat(2, auto); column-gap: 20px; padding-left: 20px; border-left: 1px solid var(--slot-sep); }
 }
 .stale { margin: 0; color: var(--mid); font-weight: 600; }
@@ -953,7 +958,7 @@ body.loading #forecast { opacity: .5; }
   .card { padding: 14px 12px; }
   .now-hour { font-size: 1.15rem; }
   .now-temp { font-size: 1.8rem; }
-  .obs-main .now-temp { font-size: 2.2rem; }
+  .obs-main { --now-t: 2.2rem; }
   .now-stats { grid-template-columns: 1fr; gap: 4px; }
   .now-stats dd { font-size: .86rem; }
   .day-models { gap: 1px; } /* colonne: vedi più sotto (una sola) */
