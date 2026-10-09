@@ -584,6 +584,9 @@ button { font: inherit; color: inherit; }
 .chart-svg .day-label { fill: var(--text); font-size: 11px; font-weight: 600; }
 .chart-svg .line { fill: none; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
 .chart-svg .line.dash { stroke-dasharray: 4 3; stroke-width: 1.5; opacity: .85; }
+.chart-svg .day-bar { opacity: .55; } /* barra giorno/notte sotto il grafico (chart.js) */
+/* marker di alba e tramonto sulla barra: pallino grigio, uguale per entrambi, con bordo dello sfondo */
+.chart-svg .sun-mark { fill: var(--muted); stroke: var(--surface); stroke-width: 1.5; }
 .chart-svg .s-i2i { stroke: var(--i2i); }
 .chart-svg .s-eu { stroke: var(--eu); }
 .chart-svg .bar.s-i2i { fill: var(--i2i); stroke: none; }

@@ -1138,6 +1138,10 @@ function renderChartSection() {
     times, series, unit: cfg.unit, decimals: cfg.decimals, yFloor: cfg.yFloor, yCeil: cfg.yCeil,
     y2: cfg.pop ? { max: 100, ticks: [0, 25, 50, 75, 100], unit: '%' } : null,
     minSpan: cfg.minSpan, nowIso: localNowIso(state.data.utcOffset),
+    // alba e tramonto di ogni giorno: barra giorno/notte sotto il grafico
+    daylight: state.data.daily.time
+      .map((_, d) => ({ rise: state.data.daily.sunrise?.[d], set: state.data.daily.sunset?.[d] }))
+      .filter((x) => x.rise && x.set),
     ariaLabel: shown.length > 1 ? `${cfg.label}: confronto ICON-2I e ICON-EU` : `${cfg.label}: ${shown[0].name}`,
     tooltip: (i) => {
       const rows = series.map((s) => (s.axis === 'y2'

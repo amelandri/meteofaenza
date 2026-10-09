@@ -2,6 +2,8 @@
 // con fasce giornaliere, linea "adesso" e tooltip al passaggio del puntatore/dito.
 // Opzionale una seconda scala a destra (`y2`, es. probabilità 0–100%): le serie con
 // `axis: 'y2'` sono disegnate come area + linea dietro le altre.
+// Opzionale `daylight` ([{ rise, set }] in ora locale "YYYY-MM-DDTHH:MM", un elemento per
+// giorno): barra giorno/notte sotto l'area del grafico, al posto delle tacche delle ore.
 
 import { parts, dayShort, fmt } from './weather.js';
 
@@ -18,8 +20,9 @@ function niceStep(range, targetTicks) {
 export function renderChart(el, opts) {
   const {
     times, series, unit = '', nowIso = null,
-    yFloor = null, yCeil = null, minSpan = 4, tooltip, y2: right = null,
+    yFloor = null, yCeil = null, minSpan = 4, tooltip, y2: right = null, daylight = null,
   } = opts;
+  const dayBar = !!daylight?.length;
 
   el.innerHTML = '';
   const n = times.length;
@@ -27,7 +30,7 @@ export function renderChart(el, opts) {
 
   const W = Math.max(280, el.clientWidth);
   const H = W < 520 ? 220 : 270;
-  const pad = { l: 40, r: right ? 36 : 10, t: 24, b: 26 };
+  const pad = { l: 40, r: right ? 36 : 10, t: 24, b: dayBar ? 36 : 26 }; // spazio per la barra giorno/notte
   const plotW = W - pad.l - pad.r;
   const plotH = H - pad.t - pad.b;
   const step = plotW / n;
@@ -112,11 +115,38 @@ export function renderChart(el, opts) {
     flush();
   }
 
+  // --- Barra giorno/notte ---------------------------------------------------------
+  // Stessi colori della linea del tempo di oggi (--day-* in style.css): notte grigia, giorno
+  // alba → mezzogiorno → tramonto, con passaggi sfumati in un'ora (= step px). Il gradiente è
+  // definito su tutti i giorni (anche fuori dal grafico), così ai bordi il colore è giusto.
+  if (dayBar) {
+    const m0 = Date.parse(`${times[0]}:00Z`) / 60000;
+    const xm = (iso) => pad.l + step * ((Date.parse(`${iso}:00Z`) / 60000 - m0) / 60 + 0.5);
+    const pts = daylight.flatMap(({ rise, set }) => {
+      const xr = xm(rise), xs = xm(set);
+      return [[xr - step, 'night'], [xr, 'dawn'], [(xr + xs) / 2, 'noon'], [xs, 'dusk'], [xs + step, 'night']];
+    });
+    const gx1 = pts[0][0], gx2 = pts[pts.length - 1][0];
+    const stops = pts.map(([xx, c]) => `<stop offset="${((xx - gx1) / (gx2 - gx1 || 1)).toFixed(4)}" style="stop-color: var(--day-${c})"/>`).join('');
+    html += `<defs><linearGradient id="day-night" gradientUnits="userSpaceOnUse" x1="${gx1.toFixed(1)}" x2="${gx2.toFixed(1)}" y1="0" y2="0">${stops}</linearGradient></defs>`;
+    const barY = pad.t + plotH + 2;
+    html += `<rect class="day-bar" x="${pad.l}" y="${barY}" width="${plotW}" height="5" rx="2.5" fill="url(#day-night)"/>`;
+    // Marker di alba e tramonto: un pallino grigio sulla barra, con bordo dello sfondo per
+    // staccarlo dai colori della barra.
+    const marker = (iso, kind) => {
+      const cx = xm(iso);
+      if (cx < pad.l || cx > W - pad.r) return '';
+      // Nessun tooltip: il puntatore sul grafico mostra già i dati dell'ora.
+      return `<circle class="sun-mark ${kind}" cx="${cx.toFixed(1)}" cy="${barY + 2.5}" r="3.5"/>`;
+    };
+    for (const { rise, set } of daylight) html += marker(rise, 'rise') + marker(set, 'set');
+  }
+
   // --- Etichette orarie ----------------------------------------------------------
   const every = [1, 2, 3, 6, 12, 24].find((k) => step * k >= 34) || 24;
   for (let i = 0; i < n; i++) {
     if (hours[i] % every === 0) {
-      html += `<line class="xtick" x1="${x(i)}" x2="${x(i)}" y1="${pad.t + plotH}" y2="${pad.t + plotH + 4}"/>`;
+      if (!dayBar) html += `<line class="xtick" x1="${x(i)}" x2="${x(i)}" y1="${pad.t + plotH}" y2="${pad.t + plotH + 4}"/>`;
       html += `<text class="tick" x="${x(i)}" y="${H - 8}" text-anchor="middle">${String(hours[i]).padStart(2, '0')}</text>`;
     }
   }
