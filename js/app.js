@@ -49,6 +49,15 @@ const LOCATION = {
   elevation: 35,
 };
 
+// Modelli di cui mostrare le previsioni (preferenza settings.models dalla pagina Impostazioni:
+// "both", "i2i" o "eu"). Vale per box dei giorni, verdetto dei tragitti, grafico, tabella oraria
+// e run nel piè di pagina; le probabilità di pioggia (ensemble) restano sempre visibili e il
+// download comprende sempre entrambi i modelli.
+function shownModels() {
+  const only = MODELS.find((m) => m.key === state.settings.models);
+  return only ? [only] : MODELS;
+}
+
 const state = {
   loc: LOCATION,
   data: null,
@@ -188,7 +197,7 @@ function renderHeader() {
     const ms = (r.available + r.interval) * 1000;
     return ms > Date.now() ? ` · prossimo ~${at(ms)}` : ' · nuovo run in arrivo';
   };
-  const runs = MODELS.map((m) => {
+  const runs = shownModels().map((m) => {
     const r = data.runs?.[m.key];
     return `<span class="run"><i class="dot-${m.key}"></i>${m.name}: run delle ${r ? at(r.init * 1000) : 'n.d.'}${nextRun(r)}</span>`;
   }).join('');
@@ -755,7 +764,7 @@ function chanceText(x, where) {
 //   Asciutto = nessuno + prob < 20%
 //   Rischio  = nessun modello, ma prob ≥ 20%  ·  Incerto = gli altri casi
 // Senza probabilità si giudica solo sui modelli (tutti → Pioggia, alcuni → Incerto).
-function bikeVerdict(wet, total, pop) {
+function bikeVerdict(wet, total, pop, single = "l'unico modello disponibile") {
   const all = wet === total, some = wet > 0;
   if (pop == null) {
     if (all) return { status: 'wet', why: 'tutti i modelli vedono pioggia (probabilità non disponibile)' };
@@ -764,7 +773,7 @@ function bikeVerdict(wet, total, pop) {
   }
   const p = `probabilità ${pop}%`;
   let models;
-  if (total === 1) models = some ? "l'unico modello disponibile vede pioggia" : "l'unico modello disponibile non vede pioggia";
+  if (total === 1) models = some ? `${single} vede pioggia` : `${single} non vede pioggia`;
   else models = all ? 'entrambi i modelli vedono pioggia' : some ? 'un solo modello vede pioggia' : 'nessun modello vede pioggia';
   if (all && total > 1 && pop >= BIKE_POP_BOTH) return { status: 'wet', why: `${models} e ${p} (≥ ${BIKE_POP_BOTH}%)` };
   if (some && pop >= BIKE_POP_ONE) return { status: 'wet', why: `${models} e ${p} (≥ ${BIKE_POP_ONE}%)` };
@@ -777,7 +786,8 @@ function bikeVerdict(wet, total, pop) {
 function bikeWindow(day, w, hourIdx) {
   const { hourly } = state.data;
   const hrs = windowHours(day, w).map((x) => ({ ...x, i: hourIdx.get(x.stamp) }));
-  const models = MODELS.map((m) => {
+  const shown = shownModels();
+  const models = shown.map((m) => {
     const p = hourly.models[m.key].precipitation;
     if (hrs.some((x) => x.i == null || p[x.i] == null)) return { m, mm: null };
     return { m, mm: hrs.reduce((sum, x) => sum + p[x.i] * x.weight, 0) };
@@ -785,10 +795,13 @@ function bikeWindow(day, w, hourIdx) {
   const avail = models.filter((x) => x.mm != null);
   const chance = windowRainChance(hrs);
   const { pop } = chance;
-  if (!avail.length) return { w, status: 'na', models, avail, ...chance };
+  // Nessun modello mostrato copre il tragitto: niente verdetto, resta la probabilità.
+  if (!avail.length) return { w, status: 'na', why: `${shown.map((m) => m.name).join(' e ')} oltre l'orizzonte`, models, avail, ...chance };
 
   const wet = avail.filter((x) => x.mm >= BIKE_WET_MM).length;
-  const { status, why } = bikeVerdict(wet, avail.length, pop);
+  // Con un solo modello mostrato si nomina quello; con entrambi mostrati ma uno solo
+  // disponibile (fine orizzonte) "l'unico modello disponibile".
+  const { status, why } = bikeVerdict(wet, avail.length, pop, shown.length === 1 ? shown[0].name : undefined);
   const mms = avail.map((x) => x.mm);
   return { w, status, why, wet, models, avail, ...chance, mean: mms.reduce((a, b) => a + b, 0) / mms.length, min: Math.min(...mms), max: Math.max(...mms) };
 }
@@ -820,7 +833,7 @@ function applyRainNow(x, rn, nowMin) {
 function renderBike(commute, day, hourIdx, today, nowMin) {
   const rn = day === today ? stationRainNow() : null;
   const items = commute.windows.map((w) => applyRainNow(bikeWindow(day, w, hourIdx), rn, nowMin));
-  if (items.every((x) => x.status === 'na')) return '';
+  if (items.every((x) => x.status === 'na' && x.pop == null)) return '';
   const chips = items.map((x) => {
     const st = BIKE_STATUS[x.status];
     const past = day === today && toMinutes(x.w.to) <= nowMin ? ' past' : '';
@@ -833,11 +846,13 @@ function renderBike(commute, day, hourIdx, today, nowMin) {
     if (x.rainNow) mm = '';
     else if (x.status === 'wet') mm = x.wet === x.avail.length ? `${fmt(x.mean, 1)} mm` : mmRange;
     else if (x.status === 'mixed') mm = mmRange;
-    const only = x.avail.length === 1 ? `<span class="bike-only">solo ${x.avail[0].m.short}</span>` : '';
+    // "solo EU": uno dei modelli mostrati non copre il tragitto (non se se ne mostra uno solo).
+    const partial = x.avail.length === 1 && x.models.length > 1;
+    const only = partial ? `<span class="bike-only">solo ${x.avail[0].m.short}</span>` : '';
     const detail = x.models.map((y) => `${y.m.name}: ${y.mm == null ? 'n.d.' : `${fmt(y.mm, 1)} mm`}`).join(' · ');
     const popTxt = chanceText(x, 'nel tragitto');
     // Dettaglio: tooltip su desktop, avviso al tocco su mobile (dove mm e "solo EU" sono nascosti).
-    const tip = `Tragitto ${x.w.from}–${x.w.to}: ${st.label}${mm ? ` (${mm})` : ''}${x.why ? `\nPerché: ${x.why}` : ''}\n${detail}${x.avail.length === 1 ? ` (solo ${x.avail[0].m.name})` : ''}\n${popTxt}`;
+    const tip = `Tragitto ${x.w.from}–${x.w.to}: ${st.label}${mm ? ` (${mm})` : ''}${x.why ? `\nPerché: ${x.why}` : ''}\n${detail}${partial ? ` (solo ${x.avail[0].m.name})` : ''}\n${popTxt}`;
     return `<button type="button" class="bike-chip st-${x.status}${past}" title="${esc(tip)}" data-tip="${esc(tip)}">
       <span class="bike-time">${range}</span>
       <span class="bike-info">
@@ -854,7 +869,7 @@ function renderBike(commute, day, hourIdx, today, nowMin) {
 }
 
 // Legenda delle fonti (pallino colorato + nome), ordine = colonne dei box.
-const SOURCES_LEGEND = `<div class="sources">${MODELS.map((m) => `<span><i class="dot-${m.key}"></i>${m.name}</span>`).join('')}</div>`;
+const sourcesLegend = (models) => `<div class="sources">${models.map((m) => `<span><i class="dot-${m.key}"></i>${m.name}</span>`).join('')}</div>`;
 
 function renderDaily() {
   const { daily, hourly, utcOffset } = state.data;
@@ -863,6 +878,7 @@ function renderDaily() {
   const nowHour = Number(nowIso.slice(11, 13));
   const hourIdx = new Map(hourly.time.map((t, i) => [t, i]));
   const nowMin = toMinutes(localDateTime(Date.now(), state.data.timezone, utcOffset).time);
+  const shown = shownModels();
 
   const rows = daily.time
     .map((day, d) => ({ day, d }))
@@ -883,11 +899,14 @@ function renderDaily() {
       }];
     }));
     const hasSlots = (v) => v.slots.some(Boolean);
+    // Giorno senza dati di alcun modello (anche non mostrato): niente card. Se manca solo il
+    // modello mostrato, la card resta con il box "oltre l'orizzonte" e la probabilità.
     if (MODELS.every((m) => vals[m.key].tmax == null && !hasSlots(vals[m.key]))) return '';
 
-    const ag = agreement(vals.i2i, vals.eu);
+    // La concordanza ha senso solo con entrambi i modelli mostrati.
+    const ag = shown.length > 1 ? agreement(vals.i2i, vals.eu) : null;
     const pops = slotChances(day, hourIdx);
-    const cells = MODELS.map((m) => {
+    const cells = shown.map((m) => {
       const v = vals[m.key];
       // Il modello è indicato dal pallino colorato nel box e dalla legenda nel titolo.
       if (v.tmax == null && !hasSlots(v)) return `<div class="dm dm-empty m-${m.key}"><span class="muted small">${m.name} oltre l’orizzonte</span></div>`;
@@ -922,11 +941,11 @@ function renderDaily() {
     return `<section class="card day-card">
       <div class="card-head">
         <h2>${t.title} <span class="day-date">${t.date}</span></h2>
-        ${SOURCES_LEGEND}
+        ${sourcesLegend(shown)}
       </div>
       <div class="day">
         <div class="day-name">${sunTimes(daily, d)}</div>
-        <div class="day-models">${cells}${renderPopRow(pops, pastUntil)}</div>
+        <div class="day-models${shown.length === 1 ? ' single' : ''}">${cells}${renderPopRow(pops, pastUntil)}</div>
         ${delta}
         ${bikeArea(BIKE_COMMUTES.map((c) => renderBike(c, day, hourIdx, today, nowMin)).join(''))}
       </div>
@@ -996,9 +1015,10 @@ function renderChartSection() {
   const end = Math.min(hourly.time.length, start + len);
   const times = hourly.time.slice(start, end);
 
+  const shown = shownModels();
   const series = [];
   for (const s of cfg.series) {
-    for (const m of MODELS) {
+    for (const m of shown) {
       series.push({
         cls: `s-${m.key}`, dash: s.dash, type: cfg.type, model: m, varLabel: s.label,
         values: hourly.models[m.key][s.v].slice(start, end),
@@ -1008,7 +1028,7 @@ function renderChartSection() {
 
   // Temperatura corretta con la centralina (dopo le serie dei modelli: il Δ del tooltip usa
   // le prime due).
-  const fixes = cfg.fix ? MODELS.map((m) => ({ m, fix: tempFix(m.key) })).filter((x) => x.fix) : [];
+  const fixes = cfg.fix ? shown.map((m) => ({ m, fix: tempFix(m.key) })).filter((x) => x.fix) : [];
   for (const { m, fix } of fixes) {
     series.push({
       cls: `s-${m.key}`, dash: true, model: m, varLabel: 'corretta',
@@ -1028,12 +1048,13 @@ function renderChartSection() {
     times, series, unit: cfg.unit, decimals: cfg.decimals, yFloor: cfg.yFloor, yCeil: cfg.yCeil,
     y2: cfg.pop ? { max: 100, ticks: [0, 25, 50, 75, 100], unit: '%' } : null,
     minSpan: cfg.minSpan, nowIso: localNowIso(state.data.utcOffset),
-    ariaLabel: `${cfg.label}: confronto ICON-2I e ICON-EU`,
+    ariaLabel: shown.length > 1 ? `${cfg.label}: confronto ICON-2I e ICON-EU` : `${cfg.label}: ${shown[0].name}`,
     tooltip: (i) => {
       const rows = series.map((s) => (s.axis === 'y2'
         ? `<div class="tip-row"><i class="sw ${s.cls}"></i>${s.label}<b>${tipValue(s.values[i], 0, s.unitLabel)}</b></div>`
         : `<div class="tip-row"><i class="sw ${s.cls}${s.dash ? ' dash' : ''}"></i>${s.model.name}${s.varLabel ? ` <span class="muted">${s.varLabel}</span>` : ''}<b>${tipValue(s.values[i], cfg.decimals, cfg.unit)}</b></div>`)).join('');
-      const a = series[0].values[i], b = series[1].values[i];
+      // Δ solo con entrambi i modelli (le prime due serie sono ICON-2I e ICON-EU).
+      const a = series[0].values[i], b = shown.length > 1 ? series[1].values[i] : null;
       const diff = a != null && b != null ? `<div class="tip-diff muted">Δ 2I − EU: ${fmtSigned(a - b, cfg.decimals)} ${cfg.unit}</div>` : '';
       return `<div class="tip-head">${dayShort(times[i])} · ${hourLabel(times[i])}</div>${rows}${diff}`;
     },
@@ -1045,8 +1066,8 @@ function renderChartSection() {
     const diffs = fixes.map(({ m, fix }) => `${m.name} ${fmtSigned(fix.bias, 1)}°`).join(', ');
     legend = `Tratteggio: previsione corretta con la centralina (alle ${fixes[0].fix.time} misurato − previsto: ${diffs}), correzione dimezzata ogni ${TEMP_FIX_HALF_H} ore. `;
   }
-  if (cfg.pop) legend = `Barre: pioggia in mm (ICON-2I, ICON-EU) · area azzurra: probabilità di pioggia (scenari ${state.data.ensemble?.groups.map((g) => g.model).join(' e ') || 'ensemble'} con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm, scala a destra). `;
-  for (const m of MODELS) {
+  if (cfg.pop) legend = `Barre: pioggia in mm (${shown.map((m) => m.name).join(', ')}) · area azzurra: probabilità di pioggia (scenari ${state.data.ensemble?.groups.map((g) => g.model).join(' e ') || 'ensemble'} con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm, scala a destra). `;
+  for (const m of shown) {
     if (!inModelDomain(m, state.loc.lat, state.loc.lon)) note.push(`${m.name} non copre questa località.`);
     else {
       const last = availability(m.key);
@@ -1085,6 +1106,8 @@ function renderHourlyTable() {
   const start = Math.max(0, nowIndex());
   const limit = state.settings.showAllHours ? hourly.time.length : Math.min(hourly.time.length, start + 48);
   const H = (k) => hourly.models[k];
+  const shown = shownModels();
+  const span = shown.length; // colonne per variabile
 
   let body = '';
   let prevDay = '';
@@ -1092,10 +1115,10 @@ function renderHourlyTable() {
     const t = hourly.time[i];
     const day = t.slice(0, 10);
     if (day !== prevDay) {
-      body += `<tr class="day-sep"><th colspan="10">${dayRelative(t, localNowIso(state.data.utcOffset).slice(0, 10))}</th></tr>`;
+      body += `<tr class="day-sep"><th colspan="${2 + 4 * span}">${dayRelative(t, localNowIso(state.data.utcOffset).slice(0, 10))}</th></tr>`;
       prevDay = day;
     }
-    const pair = (render, cls = '') => MODELS.map((m, j) => {
+    const pair = (render, cls = '') => shown.map((m, j) => {
       const h = H(m.key);
       const classes = [j === 0 ? 'first' : '', cls, `m-${m.key}`].filter(Boolean).join(' ');
       return h.temperature_2m[i] == null ? `<td class="${classes} na">—</td>` : `<td class="${classes}">${render(h)}</td>`;
@@ -1112,8 +1135,8 @@ function renderHourlyTable() {
 
   $('#hourly-table').innerHTML = `
     <thead>
-      <tr class="group"><th rowspan="2" scope="col">Ora</th><th colspan="2" scope="colgroup">Cielo</th><th colspan="2" scope="colgroup">Temp. °C</th><th colspan="2" scope="colgroup">Pioggia mm</th><th rowspan="2" scope="col" class="first" title="Probabilità di pioggia nell'ora: scenari ICON-EU-EPS con almeno 0,2 mm (dato comune, non di un singolo modello). Tocca una cella per il dettaglio."><span class="lg">Prob.</span><span class="sm" aria-label="Probabilità">%</span></th><th colspan="2" scope="colgroup">Vento km/h</th></tr>
-      <tr class="models">${'<th class="first c-i2i">2I</th><th class="c-eu">EU</th>'.repeat(4)}</tr>
+      <tr class="group"><th rowspan="2" scope="col">Ora</th><th colspan="${span}" scope="colgroup">Cielo</th><th colspan="${span}" scope="colgroup">Temp. °C</th><th colspan="${span}" scope="colgroup">Pioggia mm</th><th rowspan="2" scope="col" class="first" title="Probabilità di pioggia nell'ora: scenari degli ensemble con almeno 0,2 mm (dato comune, non di un singolo modello). Tocca una cella per il dettaglio."><span class="lg">Prob.</span><span class="sm" aria-label="Probabilità">%</span></th><th colspan="${span}" scope="colgroup">Vento km/h</th></tr>
+      <tr class="models">${shown.map((m, j) => `<th class="${j === 0 ? 'first ' : ''}c-${m.key}">${m.short}</th>`).join('').repeat(4)}</tr>
     </thead>
     <tbody>${body}</tbody>`;
 
@@ -1250,15 +1273,17 @@ DESKTOP.addEventListener('change', placeFooter);
 placeFooter();
 
 // Tornando dalla pagina Impostazioni la pagina può essere ripristinata dalla cache del
-// browser (bfcache) senza ricaricare i moduli: rilegge gli intervalli monitorati e ridisegna
-// se sono cambiati.
-function reloadWatch() {
+// browser (bfcache) senza ricaricare i moduli: rilegge le preferenze della pagina Impostazioni
+// (intervalli monitorati e modelli mostrati) e ridisegna se sono cambiate.
+function reloadSettings() {
   const watch = store.getWatch();
-  if (JSON.stringify(watch) === JSON.stringify(BIKE_COMMUTES[0])) return;
+  const models = store.getSettings().models;
+  if (JSON.stringify(watch) === JSON.stringify(BIKE_COMMUTES[0]) && models === state.settings.models) return;
   BIKE_COMMUTES = [watch];
+  state.settings.models = models;
   if (state.data) render();
 }
-window.addEventListener('pageshow', (e) => { if (e.persisted) reloadWatch(); });
-window.addEventListener('storage', (e) => { if (e.key === 'meteo:settings') reloadWatch(); });
+window.addEventListener('pageshow', (e) => { if (e.persisted) reloadSettings(); });
+window.addEventListener('storage', (e) => { if (e.key === 'meteo:settings') reloadSettings(); });
 
 init();

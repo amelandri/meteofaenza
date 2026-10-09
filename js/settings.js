@@ -1,5 +1,6 @@
 // Pagina Impostazioni: tema (automatico/chiaro/scuro, settings.theme, applicato da
-// js/theme.js) e intervalli monitorati (nome e al massimo 3 intervalli orari, settings.watch,
+// js/theme.js), modelli mostrati (entrambi / solo ICON-2I / solo ICON-EU, settings.models,
+// letti da app.js) e intervalli monitorati (nome e al massimo 3 intervalli orari, settings.watch,
 // letti da app.js). I valori sono salvati nel localStorage.
 
 import * as store from './storage.js';
@@ -126,3 +127,20 @@ themeSeg.addEventListener('click', (e) => {
 window.addEventListener('storage', (e) => { if (e.key === 'meteo:settings') syncTheme(); });
 
 syncTheme();
+
+// --- Modelli mostrati: si salvano subito, senza pulsante Salva ---
+const modelsSeg = $('#models-seg');
+
+function syncModels(current = store.getSettings().models) {
+  for (const b of modelsSeg.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.modelsChoice === current));
+}
+
+modelsSeg.addEventListener('click', (e) => {
+  const choice = e.target.closest('button')?.dataset.modelsChoice;
+  if (!store.MODEL_VIEWS.includes(choice)) return;
+  store.saveSettings({ models: choice });
+  syncModels(choice);
+});
+window.addEventListener('storage', (e) => { if (e.key === 'meteo:settings') syncModels(); });
+
+syncModels();

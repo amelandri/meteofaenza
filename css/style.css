@@ -298,6 +298,9 @@ button { font: inherit; color: inherit; }
    solo all'esterno (affiancati su desktop, uno sopra l'altro su mobile) */
 .day-models > .dm:first-child { border-radius: 10px 0 0 0; }
 .day-models > .dm:nth-child(2) { border-radius: 0 10px 0 0; }
+/* Un solo modello mostrato (preferenza "Modelli"): il box occupa tutta la riga */
+.day-models.single { grid-template-columns: minmax(0, 1fr); }
+.day-models.single > .dm:first-child { border-radius: 10px 10px 0 0; }
 
 /* Riga della probabilità di pioggia: terzo segmento della pillola, sotto i due box,
    condivisa dai modelli (una cella per fascia, barra + percentuale) */
@@ -719,7 +722,7 @@ button { font: inherit; color: inherit; }
 .form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 18px; }
 .form-saved { color: var(--good); font-weight: 650; font-size: .9rem; }
 .theme-seg { margin-top: 14px; }
-.theme-seg button { padding: 7px 14px; font-size: .9rem; }
+.theme-seg button { padding: 7px 14px; font-size: .9rem; white-space: nowrap; }
 
 /* --- Piè di pagina e notifiche --------------------------------------------------- */
 

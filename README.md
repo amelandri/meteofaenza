@@ -21,7 +21,7 @@ Web app (PWA) che mette a confronto le previsioni di due modelli meteorologici p
 
 Tutti gli orari sono nell'ora locale di Faenza.
 
-La pagina **Impostazioni** (icona a ingranaggio) permette di scegliere il tema (automatico, chiaro o scuro) e gli intervalli monitorati. La pagina **Come funziona** (icona "i") spiega modelli, ensemble, calcolo della probabilità e regole dei verdetti.
+La pagina **Impostazioni** (icona a ingranaggio) permette di scegliere il tema (automatico, chiaro o scuro), quali previsioni mostrare (entrambi i modelli, solo ICON-2I o solo ICON-EU; la probabilità di pioggia resta sempre visibile) e gli intervalli monitorati. La pagina **Come funziona** (icona "i") spiega modelli, ensemble, calcolo della probabilità e regole dei verdetti.
 
 Con l'app aperta le previsioni vengono riscaricate ogni 30 minuti e circa 10 minuti dopo l'uscita prevista di un nuovo run dei modelli.
 
@@ -60,7 +60,7 @@ L'app è una PWA: da Chrome o Edge si installa con l'icona nella barra degli ind
 
 ## Personalizzazione
 
-Tema e intervalli monitorati si scelgono dalla pagina Impostazioni. Il resto è nelle costanti del codice:
+Tema, modelli mostrati e intervalli monitorati si scelgono dalla pagina Impostazioni. Il resto è nelle costanti del codice:
 
 | Cosa | Dove |
 |---|---|
@@ -83,7 +83,7 @@ La centralina è specifica di Faenza: cambiando località va sostituita o rimoss
 ```
 index.html             pagina principale
 info.html              pagina "Come funziona" (modelli, ensemble, calcolo della probabilità)
-settings.html          pagina Impostazioni (tema, intervalli monitorati)
+settings.html          pagina Impostazioni (tema, modelli mostrati, intervalli monitorati)
 css/style.css          stile (tema chiaro e scuro)
 js/theme.js            applica il tema scelto prima che la pagina compaia
 js/app.js              logica e rendering
@@ -108,4 +108,4 @@ Nota tecnica sulla centralina: il suo file dati non consente la lettura da altri
 
 ## Privacy
 
-L'app non ha un backend e non raccoglie dati. Previsioni (al massimo di un giorno prima), ultime letture della centralina, preferenze di visualizzazione, tema e intervalli monitorati sono salvati solo nel `localStorage` del browser.
+L'app non ha un backend e non raccoglie dati. Previsioni (al massimo di un giorno prima), ultime letture della centralina, preferenze di visualizzazione, tema, modelli mostrati e intervalli monitorati sono salvati solo nel `localStorage` del browser.
