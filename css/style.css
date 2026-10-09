@@ -607,11 +607,21 @@ button { font: inherit; color: inherit; }
 
 .table-wrap { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
 .hourly { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: .9rem; }
+/* Layout fisso: la colonna dell'ora ha la sua larghezza, tutte le altre la stessa (la decide
+   la prima riga dell'intestazione, le celle a più colonne si dividono in parti uguali) */
+.hourly { table-layout: fixed; }
+.hourly .col-hour { width: 56px; }
 .hourly th, .hourly td { padding: 4px 6px; text-align: center; white-space: nowrap; }
-.hourly thead th { font-size: .74rem; font-weight: 650; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-.hourly thead .models th { padding-top: 0; font-size: .7rem; }
-.hourly thead .models .c-i2i { color: var(--i2i); }
-.hourly thead .models .c-eu { color: var(--eu); }
+.hourly thead th { font-size: .74rem; font-weight: 650; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; vertical-align: bottom; }
+/* Etichetta e, sotto, unità di misura (minuscola, più piccola e chiara) */
+.hourly .h-label, .hourly .h-unit { display: block; }
+.hourly .h-unit { font-size: .66rem; font-weight: 500; text-transform: none; letter-spacing: 0; color: color-mix(in srgb, var(--muted) 75%, transparent); }
+/* Riga dei modelli: barretta del colore del modello (currentColor da .c-i2i / .c-eu), con il
+   nome sopra dove c'è spazio */
+.hourly thead .models th, .hourly thead .models td { padding: 2px 4px 5px; font-size: .7rem; }
+.hourly thead .mk.c-i2i { color: var(--i2i); }
+.hourly thead .mk.c-eu { color: var(--eu); }
+.hourly thead .mk::after { content: ""; display: block; width: 70%; max-width: 28px; height: 3px; margin: 2px auto 0; border-radius: 2px; background: currentColor; }
 .hourly tbody th { font-weight: 600; text-align: left; color: var(--muted); }
 .hourly .first { border-left: 1px solid var(--border); }
 .hourly td.m-i2i { background: color-mix(in srgb, var(--i2i-soft) 55%, transparent); }
@@ -626,10 +636,9 @@ button { font: inherit; color: inherit; }
   letter-spacing: 0;
   border-bottom: 1px solid var(--border);
 }
-.hourly thead .sm { display: none; }
-.hourly td.pop-cell { color: var(--text); font-size: .85em; }
-.hourly td.pop-cell[data-tip] { cursor: pointer; } /* al tocco: dettaglio della probabilità */
-.hourly td.pop-cell small { color: var(--muted); margin-left: 1px; }
+.hourly td.prob { color: var(--text); font-size: .85em; }
+.hourly td.prob[data-tip] { cursor: pointer; } /* al tocco: dettaglio della probabilità */
+.hourly td.prob small { color: var(--muted); margin-left: 1px; }
 .hourly .wind { display: inline-flex; align-items: center; gap: 3px; }
 
 .wind-arrow { fill: currentColor; opacity: .75; flex: none; transition: none; }
@@ -849,11 +858,12 @@ body.loading #forecast { opacity: .5; }
   .tabs { margin-bottom: 10px; }
   .hourly { font-size: .82rem; }
   .hourly th, .hourly td { padding: 3px 2px; }
+  .hourly .col-hour { width: 26px; }
+  .hourly thead th { font-size: .66rem; letter-spacing: 0; }
+  .hourly thead .mk-name { display: none; } /* solo il colore del modello */
   .hourly td .wi { width: 20px; height: 20px; }
   .hourly .wind-arrow { width: 10px; height: 10px; }
-  .hourly tbody .mm, .hourly td.pop-cell small { display: none; }
-  .hourly thead .lg { display: none; }
-  .hourly thead .sm { display: inline; }
+  .hourly tbody .mm, .hourly td.prob small { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
