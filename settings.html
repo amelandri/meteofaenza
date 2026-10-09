@@ -7,6 +7,7 @@
   <meta name="description" content="Impostazioni di Meteo Faenza: intervalli orari monitorati">
   <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0c111b" media="(prefers-color-scheme: dark)">
+  <script src="js/theme.js"></script>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -34,6 +35,16 @@
   <main class="container info settings">
     <h1>Impostazioni</h1>
     <p class="info-lead">Le impostazioni sono salvate solo in questo browser.</p>
+
+    <section class="card">
+      <h2>Aspetto</h2>
+      <p class="info-note">"Automatico" segue l'impostazione chiara o scura del dispositivo.</p>
+      <div class="seg theme-seg" id="theme-seg" role="group" aria-label="Tema">
+        <button type="button" data-theme-choice="auto">Automatico</button>
+        <button type="button" data-theme-choice="light">Chiaro</button>
+        <button type="button" data-theme-choice="dark">Scuro</button>
+      </div>
+    </section>
 
     <form id="watch-form" class="card" novalidate>
       <h2>Intervalli monitorati</h2>

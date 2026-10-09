@@ -45,41 +45,41 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0c111b;
-    --surface: #141b28;
-    --surface-2: #1b2433;
-    --border: #263042;
-    --text: #e8ecf3;
-    --muted: #94a0b4;
-    --accent: #7ea2ff;
+/* Tema scuro: data-theme è impostato da js/theme.js (automatico secondo il sistema, oppure
+   scelto nelle Impostazioni). */
+:root[data-theme="dark"] {
+  --bg: #0c111b;
+  --surface: #141b28;
+  --surface-2: #1b2433;
+  --border: #263042;
+  --text: #e8ecf3;
+  --muted: #94a0b4;
+  --accent: #7ea2ff;
 
-    --i2i: #34c7b5;
-    --i2i-soft: #11312f;
-    --eu: #ff9346;
-    --eu-soft: #3a2414;
+  --i2i: #34c7b5;
+  --i2i-soft: #11312f;
+  --eu: #ff9346;
+  --eu-soft: #3a2414;
 
-    --good: #4ccf83;
-    --mid: #e7b43a;
-    --bad: #ff7369;
-    --rain: #6aa1ff;
-    --obs: #a98bff;
+  --good: #4ccf83;
+  --mid: #e7b43a;
+  --bad: #ff7369;
+  --rain: #6aa1ff;
+  --obs: #a98bff;
 
-    --sunset: #ff8a50;
-    --dawn-a: #3d2d10; --dawn-b: #40250f; --dawn-text: #ffd27a;
-    --dusk-a: #42200f; --dusk-b: #2e2346; --dusk-text: #ffb59a;
-    --cloud: #7c899d;
-    --cloud-dark: #56627a;
-    --moon: #ffd75e;
-    --cloud-box: #8e9bb0;
-    --cloud-box-line: #c3ccd9;
-    --cloud-box-dark: #66738a;
-    --moon-box: #ffd75e;
+  --sunset: #ff8a50;
+  --dawn-a: #3d2d10; --dawn-b: #40250f; --dawn-text: #ffd27a;
+  --dusk-a: #42200f; --dusk-b: #2e2346; --dusk-text: #ffb59a;
+  --cloud: #7c899d;
+  --cloud-dark: #56627a;
+  --moon: #ffd75e;
+  --cloud-box: #8e9bb0;
+  --cloud-box-line: #c3ccd9;
+  --cloud-box-dark: #66738a;
+  --moon-box: #ffd75e;
 
-    --shadow: none;
-    color-scheme: dark;
-  }
+  --shadow: none;
+  color-scheme: dark;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -235,7 +235,10 @@ button { font: inherit; color: inherit; }
 .obs-main { display: flex; align-items: baseline; gap: 4px 14px; flex-wrap: wrap; }
 .obs-stats { grid-template-columns: 1fr 1fr; }
 .obs-stale { color: var(--mid); font-weight: 650; }
-.obs-rain { color: var(--rain); font-weight: 650; white-space: nowrap; }
+/* "sta piovendo" prima dei mm: inline (non flex) così la linea di base della riga resta quella
+   del testo e l'etichetta a sinistra rimane allineata; l'icona scende sotto la linea di base. */
+.now-stats .obs-rain { display: inline-block; margin-right: 4px; color: var(--rain); font-weight: 650; white-space: nowrap; }
+.now-stats .obs-rain .wi { vertical-align: -4px; margin-right: 3px; }
 /* Box della centralina: 4 dati in griglia 2×2 a destra della temperatura */
 @container (min-width: 560px) {
   .obs-body { flex-direction: row; align-items: center; gap: 24px; }
@@ -715,6 +718,8 @@ button { font: inherit; color: inherit; }
 .form-error { margin: 14px 0 0 !important; color: var(--bad); font-size: .88rem; font-weight: 600; }
 .form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 18px; }
 .form-saved { color: var(--good); font-weight: 650; font-size: .9rem; }
+.theme-seg { margin-top: 14px; }
+.theme-seg button { padding: 7px 14px; font-size: .9rem; }
 
 /* --- Piè di pagina e notifiche --------------------------------------------------- */
 

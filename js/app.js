@@ -348,7 +348,11 @@ function renderObservation() {
     : '';
   const stat = (label, value) => (value ? `<div><dt>${label}</dt><dd>${value}</dd></div>` : '');
   const rn = stationRainNow();
-  const rainNow = rn?.raining ? ` <small class="obs-rain" title="${esc(`+${fmt(rn.mm, 1)} mm negli ultimi ${rn.minutes} minuti`)}">sta piovendo</small>` : '';
+  // Prima dei mm, così il valore resta allineato a destra come gli altri. Stessa icona
+  // "pioggia" delle previsioni (codice WMO 63), con lo stesso dettaglio del testo
+  // come titolo (altrimenti il suo tooltip "Pioggia moderata" coprirebbe quello del testo).
+  const rainTip = rn?.raining ? `+${fmt(rn.mm, 1)} mm negli ultimi ${rn.minutes} minuti` : '';
+  const rainNow = rn?.raining ? `<small class="obs-rain" title="${esc(rainTip)}">${icon(63, 1, 18, esc(rainTip))}sta piovendo</small>` : '';
   return `<div class="day obs-row">
     <div class="day-name"><b class="now-hour">${when}</b><span class="muted small">Misurato${stale ? ' · <span class="obs-stale">non aggiornato</span>' : ''}</span><span class="muted small">prossima lettura ${localDateTime(nextStationSlot() - STATION_SLOT_DELAY_MS, timezone, utcOffset).time}</span></div>
     <article class="obs-card">
@@ -361,7 +365,7 @@ function renderObservation() {
         <dl class="now-stats obs-stats">
           ${stat('Umidità', st.humidity != null ? `${fmt(st.humidity)}%` : '')}
           ${stat('Vento', st.windSpeed != null ? `${windArrow(st.windDirection)} ${fmt(st.windSpeed)} <small>${windDir(st.windDirection)}</small>` : '')}
-          ${stat('Pioggia oggi', st.rainToday != null && sameDay ? `${fmt(st.rainToday, 1)} mm${rainNow}` : '')}
+          ${stat('Pioggia oggi', st.rainToday != null && sameDay ? `${rainNow}${fmt(st.rainToday, 1)} mm` : '')}
           ${stat('Raffica max', st.windMax != null && sameDay ? `${fmt(st.windMax)} km/h${st.windMaxTime ? ` <small>${st.windMaxTime}</small>` : ''}` : '')}
         </dl>
       </div>

@@ -1,5 +1,6 @@
-// Pagina Impostazioni: intervalli monitorati (nome e al massimo 3 intervalli orari).
-// I valori sono salvati nel localStorage (settings.watch) e letti da app.js.
+// Pagina Impostazioni: tema (automatico/chiaro/scuro, settings.theme, applicato da
+// js/theme.js) e intervalli monitorati (nome e al massimo 3 intervalli orari, settings.watch,
+// letti da app.js). I valori sono salvati nel localStorage.
 
 import * as store from './storage.js';
 
@@ -106,3 +107,22 @@ $('#reset-watch').addEventListener('click', () => {
 });
 
 fill(store.getWatch());
+
+// --- Tema: si applica e si salva subito, senza pulsante Salva ---
+const themeSeg = $('#theme-seg');
+
+function syncTheme(current = window.meteoTheme?.saved() ?? 'auto') {
+  for (const b of themeSeg.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.themeChoice === current));
+}
+
+themeSeg.addEventListener('click', (e) => {
+  const choice = e.target.closest('button')?.dataset.themeChoice;
+  if (!store.THEMES.includes(choice)) return;
+  store.saveSettings({ theme: choice });
+  window.meteoTheme?.apply(choice); // vale per questa pagina anche se lo storage è bloccato
+  syncTheme(choice);
+});
+// Tema cambiato da un'altra scheda.
+window.addEventListener('storage', (e) => { if (e.key === 'meteo:settings') syncTheme(); });
+
+syncTheme();

@@ -45,7 +45,9 @@ export const locationId = (loc) => `${loc.lat.toFixed(3)},${loc.lon.toFixed(3)}`
 
 // --- Impostazioni ---------------------------------------------------------------
 
-const DEFAULT_SETTINGS = { variable: 'rain', range: '72', showAllHours: false, hourlyOpen: false };
+// theme: "auto" (segue il sistema), "light" o "dark"; applicato da js/theme.js.
+export const THEMES = ['auto', 'light', 'dark'];
+const DEFAULT_SETTINGS = { variable: 'rain', range: '72', showAllHours: false, hourlyOpen: false, theme: 'auto' };
 export const getSettings = () => ({ ...DEFAULT_SETTINGS, ...read(KEYS.settings, {}) });
 export const saveSettings = (patch) => write(KEYS.settings, { ...getSettings(), ...patch });
 
