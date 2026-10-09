@@ -100,8 +100,9 @@
       <p>Con soglie più basse conterebbero come "pioggia" anche poche gocce. 0,2 mm è la stessa soglia usata per dire che uno dei due modelli "vede pioggia", così modelli e probabilità parlano della stessa cosa.</p>
 
       <h3>Ora per ora e su un intervallo</h3>
-      <p>Nel <strong>dettaglio orario</strong> e nel <strong>grafico delle precipitazioni</strong> la probabilità è calcolata ora per ora. Per un <strong>intervallo</strong> (le fasce di 6 ore di Oggi, Domani e Dopodomani, o un tragitto in bici) l'app somma, per ogni scenario, la pioggia di tutto l'intervallo e poi conta gli scenari bagnati.</p>
+      <p>Nel <strong>dettaglio orario</strong> e nel <strong>grafico delle precipitazioni</strong> la probabilità è calcolata ora per ora. Per un <strong>intervallo</strong> (le fasce di 6 ore di Oggi, Domani e Dopodomani, o un tragitto in bici) l'app conta gli scenari bagnati: quelli che danno almeno 0,2 mm in almeno una delle ore dell'intervallo.</p>
       <p>Non si prende la probabilità più alta tra le singole ore, perché <strong>sottostimerebbe</strong> il rischio: scenari diversi possono far piovere in ore diverse dello stesso intervallo. Esempio reale: ore singole al 45% e al 23%, ma pioggia nell'intervallo nel 50% degli scenari.</p>
+      <p>Non basta invece che la pioggia arrivi a 0,2 mm sommando più ore: i dati sono arrotondati a 0,1 mm e due ore di pioviggine da 0,1 mm farebbero contare come "pioggia" uno scenario quasi asciutto. Per questo serve almeno un'ora con 0,2 mm. I millimetri indicati nel dettaglio sono invece il totale dell'intervallo.</p>
       <p>Per le ore incluse solo in parte (es. 12:30–13:00) la pioggia di quell'ora è conteggiata in proporzione, assumendo che sia distribuita in modo uniforme.</p>
 
       <h3>Quanta pioggia</h3>

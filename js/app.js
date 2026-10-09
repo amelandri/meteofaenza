@@ -717,10 +717,14 @@ function windowHours(day, w) {
   return out;
 }
 
-// Probabilità che piova durante il tragitto.
-// Metodo esatto: quota di scenari dell'ensemble con almeno ENSEMBLE_WET_MM nel tragitto
-// (ore parziali pesate come per i mm). La massima delle probabilità orarie invece
-// sottostima: scenari diversi possono vedere pioggia in ore diverse dello stesso tragitto.
+// Probabilità che piova durante un intervallo (tragitto o fascia).
+// Metodo: quota di scenari dell'ensemble con almeno ENSEMBLE_WET_MM in almeno una singola ora
+// dell'intervallo (per le ore parziali conta la parte nell'intervallo, come per i mm). Non
+// basta la somma delle ore: con dati arrotondati a 0,1 mm, due ore di pioviggine da 0,1 mm
+// farebbero contare come pioggia uno scenario quasi asciutto (verificato il 9/10: 45% della
+// fascia 12–18, di cui ~9 punti solo da scenari così, contro il 25% massimo delle ore).
+// La massima delle probabilità orarie invece sottostima: scenari diversi possono vedere
+// pioggia in ore diverse dello stesso intervallo, e qui ognuno conta una volta sola.
 // Se l'ensemble non copre il tragitto si ripiega sulla massima oraria (popExact = false).
 // Stessa soglia con cui un modello "vede pioggia" (BIKE_WET_MM): modelli e probabilità
 // parlano della stessa pioggia. (Con 0,1 mm contavano anche poche gocce.)
@@ -767,12 +771,14 @@ function windowRainChance(hrs) {
       const wetSums = []; // mm degli scenari bagnati di tutti gli ensemble
       let coarse = false;
       for (const g of ens.groups) {
-        const sums = g.members
-          .map((serie) => (idx.some((i) => serie[i] == null) ? null : idx.reduce((sum, i, k) => sum + serie[i] * hrs[k].weight, 0)))
-          .filter((v) => v != null);
-        if (!sums.length || sums.length < g.members.length / 2) continue;
-        const wet = sums.filter((v) => v >= ENSEMBLE_WET_MM - 1e-9);
-        parts.push({ model: g.model, wet: wet.length, total: sums.length });
+        // mm di ogni ora nell'intervallo (ore parziali pesate), per ogni scenario che lo copre
+        const hours = g.members
+          .map((serie) => (idx.some((i) => serie[i] == null) ? null : idx.map((i, k) => serie[i] * hrs[k].weight)))
+          .filter(Boolean);
+        if (!hours.length || hours.length < g.members.length / 2) continue;
+        // bagnato: almeno un'ora con ENSEMBLE_WET_MM; per la quantità si usa il totale
+        const wet = hours.filter((mm) => Math.max(...mm) >= ENSEMBLE_WET_MM - 1e-9).map((mm) => mm.reduce((a, b) => a + b, 0));
+        parts.push({ model: g.model, wet: wet.length, total: hours.length });
         wetSums.push(...wet);
         if (ensembleCoarse(g.members, idx)) coarse = true;
       }
@@ -800,7 +806,7 @@ function chanceText(x, where) {
   if (x.pop == null) return 'Probabilità n.d.';
   if (!x.popExact) return `Probabilità ~${x.pop}% (stima Open-Meteo: ensemble non disponibile)`;
   const scen = x.parts.map((p) => `${p.model} ${p.wet} su ${p.total}`).join(', ');
-  let txt = `Probabilità di pioggia ${where} ${x.pop}% (scenari con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm: ${scen}${x.parts.length > 1 ? '; media dei due ensemble' : ''})`;
+  let txt = `Probabilità di pioggia ${where} ${x.pop}% (scenari con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm in un'ora: ${scen}${x.parts.length > 1 ? '; media dei due ensemble' : ''})`;
   if (x.popMembers) {
     const amount = x.popMembers === 1 ? `${fmt(x.wetMax, 1)} mm` : `tipicamente ${fmt(x.wetTypical, 1)} mm, al massimo ${fmt(x.wetMax, 1)} mm`;
     txt += `\n${x.popMembers === 1 ? "Nell'unico scenario" : 'Negli scenari'} con pioggia: ${amount} (${rainWords(x.wetTypical)})`;
