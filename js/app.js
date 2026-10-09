@@ -394,9 +394,12 @@ function renderObservation() {
   const sameDay = lt.date === today;
   // Scarto di minima e massima misurate oggi dalla media del periodo.
   const nm = sameDay ? normalFor(lt.date) : null;
+  // Massima sopra la minima, a destra della temperatura; ogni riga: etichetta, valore,
+  // orario, scarto dalla media (colonne di una griglia, così i valori restano allineati).
+  const mmRow = (label, value, time, normal, what) =>
+    `<span class="mm-k">${label}</span><b class="mm-v">${fmt(value, 1)}°</b><span class="mm-t">${time || ''}</span><span class="mm-a">${anomaly(value, normal, what, 1)}</span>`;
   const minmax = sameDay && st.tMin != null && st.tMax != null
-    // Minima e massima in due blocchi che non si spezzano: se manca spazio vanno a capo tra i due.
-    ? `<span class="mm-part">min ${fmt(st.tMin, 1)}°${st.tMinTime ? ` (${st.tMinTime})` : ''}${anomaly(st.tMin, nm?.tmin, 'Minima di oggi', 1)} ·</span> <span class="mm-part">max ${fmt(st.tMax, 1)}°${st.tMaxTime ? ` (${st.tMaxTime})` : ''}${anomaly(st.tMax, nm?.tmax, 'Massima di oggi', 1)}</span>`
+    ? mmRow('max', st.tMax, st.tMaxTime, nm?.tmax, 'Massima di oggi') + mmRow('min', st.tMin, st.tMinTime, nm?.tmin, 'Minima di oggi')
     : '';
   const stat = (label, value) => (value ? `<div><dt>${label}</dt><dd>${value}</dd></div>` : '');
   const rn = stationRainNow();
@@ -412,7 +415,7 @@ function renderObservation() {
       <div class="obs-body">
         <div class="obs-main">
           <div class="now-temp">${fmt(st.temperature, 1)}<span>°C</span></div>
-          ${minmax ? `<div class="now-desc">${minmax}</div>` : ''}
+          ${minmax ? `<div class="obs-mm">${minmax}</div>` : ''}
         </div>
         <dl class="now-stats obs-stats">
           ${stat('Umidità', st.humidity != null ? `${fmt(st.humidity)}%` : '')}

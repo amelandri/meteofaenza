@@ -214,7 +214,6 @@ button { font: inherit; color: inherit; }
 .now-hour { font-size: 1.6rem; font-weight: 650; letter-spacing: -.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .now-temp { font-size: 2.2rem; font-weight: 650; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums; }
 .now-temp span { font-size: 1rem; font-weight: 500; color: var(--muted); margin-left: 2px; }
-.now-desc { color: var(--muted); font-size: .9rem; margin-top: 4px; }
 /* Etichetta e valore sulla stessa riga */
 .now-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin: 0; }
 .now-stats div { min-width: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
@@ -237,7 +236,14 @@ button { font: inherit; color: inherit; }
 /* "Centralina" è il link al sito dell'osservatorio, con l'aspetto della semplice etichetta. */
 .obs-tag { font-weight: 700; color: var(--obs); letter-spacing: .01em; text-decoration: none; }
 .obs-body { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
-.obs-main { display: flex; align-items: baseline; gap: 4px 14px; flex-wrap: wrap; }
+.obs-main { display: flex; align-items: center; justify-content: space-between; gap: 4px 14px; flex-wrap: wrap; }
+.obs-main .now-temp { font-size: 2.6rem; }
+/* Massima e minima di oggi, una sopra l'altra, a destra della temperatura */
+.obs-mm { display: grid; grid-template-columns: auto auto auto 3.4em; align-items: baseline; gap: 2px 6px; font-size: .9rem; font-variant-numeric: tabular-nums; }
+.obs-mm .mm-k { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
+.obs-mm .mm-v { font-weight: 650; text-align: right; }
+.obs-mm .mm-t { color: var(--muted); font-size: .78rem; }
+.obs-mm .anom { font-size: .72rem; }
 .obs-stats { grid-template-columns: 1fr 1fr; }
 .obs-stale { color: var(--mid); font-weight: 650; }
 /* "Sta piovendo" nell'intestazione del box, a destra di "Centralina". */
@@ -246,8 +252,8 @@ button { font: inherit; color: inherit; }
 @container (min-width: 560px) {
   .obs-body { flex-direction: row; align-items: center; gap: 24px; }
   /* i dati a destra alla loro larghezza naturale, la temperatura nello spazio che resta: se
-     manca spazio minima e massima vanno a capo (.mm-part) invece di spingere fuori i dati */
-  .obs-main { flex-direction: column; align-items: flex-start; flex: 1 1 0; min-width: 0; }
+     manca spazio minima e massima vanno sotto la temperatura invece di spingere fuori i dati */
+  .obs-main { flex: 1 1 0; min-width: 0; }
   .obs-stats { flex: 0 1 auto; grid-template-columns: repeat(2, auto); column-gap: 20px; padding-left: 20px; border-left: 1px solid var(--slot-sep); }
 }
 .stale { margin: 0; color: var(--mid); font-weight: 600; }
@@ -443,8 +449,6 @@ button { font: inherit; color: inherit; }
 .anom.warm { color: var(--sunset); }
 .anom.cool { color: var(--rain); }
 .anom.even { color: var(--muted); font-weight: 600; }
-.now-desc .anom { margin-left: 3px; font-size: .7rem; }
-.now-desc .mm-part { white-space: nowrap; }
 .dm .prec { grid-area: prec; text-align: right; font-weight: 600; font-size: .9rem; }
 .dm .gust { grid-area: gust; text-align: right; font-size: .78rem; }
 .dm small { font-weight: 500; color: var(--muted); }
@@ -949,7 +953,7 @@ body.loading #forecast { opacity: .5; }
   .card { padding: 14px 12px; }
   .now-hour { font-size: 1.15rem; }
   .now-temp { font-size: 1.8rem; }
-  .now-desc { font-size: .8rem; }
+  .obs-main .now-temp { font-size: 2.2rem; }
   .now-stats { grid-template-columns: 1fr; gap: 4px; }
   .now-stats dd { font-size: .86rem; }
   .day-models { gap: 1px; } /* colonne: vedi più sotto (una sola) */
