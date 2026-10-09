@@ -107,6 +107,23 @@ export const resetWatch = () => {
   return write(KEYS.settings, rest);
 };
 
+// --- Medie del periodo (climatologia, fetchNormals() di api.js) --------------------
+// Salvate in meteo:normals come { schema, id, fetchedAt, tmax: [366], tmin: [366] }. Non
+// cambiano: si riscaricano solo se mancano, sono di un'altra località o forma, o hanno più
+// di un anno (NORMALS_MAX_AGE_MS).
+const NORMALS_KEY = `${PREFIX}normals`;
+const NORMALS_SCHEMA = 1;
+export const NORMALS_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000;
+
+export function getNormals(loc) {
+  const n = read(NORMALS_KEY, null);
+  const ok = n?.schema === NORMALS_SCHEMA && n.id === locationId(loc)
+    && Array.isArray(n.tmax) && n.tmax.length === 366 && Array.isArray(n.tmin) && n.tmin.length === 366;
+  return ok ? n : null;
+}
+export const setNormals = (loc, normals) => write(NORMALS_KEY, { schema: NORMALS_SCHEMA, id: locationId(loc), fetchedAt: Date.now(), ...normals });
+export const normalsDue = (n) => !n || Date.now() - n.fetchedAt > NORMALS_MAX_AGE_MS;
+
 // --- Ultima misura della centralina ---------------------------------------------
 
 export const getStation = () => read(KEYS.station, null);

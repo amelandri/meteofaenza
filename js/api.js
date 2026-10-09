@@ -7,6 +7,7 @@ import { localNowIso } from './weather.js';
 const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 const META_URL = 'https://api.open-meteo.com/data/{model}/static/meta.json';
 const ENSEMBLE_URL = 'https://ensemble-api.open-meteo.com/v1/ensemble';
+const ARCHIVE_URL = 'https://archive-api.open-meteo.com/v1/archive';
 // Ensemble usati per la probabilità di pioggia (tragitti, fasce, dettaglio orario), con
 // scenari orari: ICON-EU-EPS (40 scenari, ~5 giorni) e ICON-D2-EPS (20 scenari a 2,2 km,
 // ~2 giorni, più adatto a temporali e rilievi). Dove ci sono entrambi pesano uguale.
@@ -138,6 +139,52 @@ async function fetchEnsemble(loc) {
   } catch {
     return null; // senza ensemble l'app ripiega sulla probabilità oraria (approssimata)
   }
+}
+
+// --- Medie del periodo (climatologia) ----------------------------------------------
+// Temperature massime e minime medie per ogni giorno dell'anno nel trentennio di riferimento,
+// calcolate dall'archivio storico di Open-Meteo (reanalisi ERA5-Land, griglia ~9 km): per
+// ogni giorno la media degli anni 1991–2020 su una finestra di ±7 giorni, che toglie le
+// irregolarità dei singoli giorni. Sono medie di una cella della griglia, non della stazione.
+export const NORMALS = { model: 'era5_land', name: 'ERA5-Land', from: 1991, to: 2020, halfWindow: 7 };
+
+// Posizione di una data "MM-DD" nell'anno bisestile di riferimento (0 = 1 gennaio … 365).
+export const dayOfYear = (mmdd) => Math.round((Date.UTC(2000, Number(mmdd.slice(0, 2)) - 1, Number(mmdd.slice(3, 5))) - Date.UTC(2000, 0, 1)) / 864e5);
+
+// Restituisce { tmax: [366], tmin: [366] } (°C, un decimale), indicizzati con dayOfYear().
+export async function fetchNormals(loc) {
+  const params = new URLSearchParams({
+    latitude: loc.lat.toFixed(4),
+    longitude: loc.lon.toFixed(4),
+    start_date: `${NORMALS.from}-01-01`,
+    end_date: `${NORMALS.to}-12-31`,
+    daily: 'temperature_2m_max,temperature_2m_min',
+    models: NORMALS.model,
+    timezone: 'auto',
+  });
+  const d = (await getJSON(`${ARCHIVE_URL}?${params}`)).daily;
+  // Somme e conteggi per giorno dell'anno, poi media mobile circolare di ±halfWindow giorni
+  // (pesata con i conteggi: il 29 febbraio ha meno anni).
+  const acc = (key) => {
+    const sum = new Array(366).fill(0), cnt = new Array(366).fill(0);
+    d.time.forEach((t, i) => {
+      const v = d[key][i];
+      if (v == null) return;
+      const k = dayOfYear(t.slice(5, 10));
+      sum[k] += v; cnt[k]++;
+    });
+    return sum.map((_, k) => {
+      let s = 0, c = 0;
+      for (let j = -NORMALS.halfWindow; j <= NORMALS.halfWindow; j++) {
+        const h = (k + j + 366) % 366;
+        s += sum[h]; c += cnt[h];
+      }
+      return c ? Math.round((s / c) * 10) / 10 : null;
+    });
+  };
+  const tmax = acc('temperature_2m_max'), tmin = acc('temperature_2m_min');
+  if (!tmax.some((v) => v != null)) throw new ApiError('medie del periodo non disponibili');
+  return { tmax, tmin };
 }
 
 // Un ensemble scaricato in precedenza si riusa se l'aggiornamento fallisce, ma non oltre

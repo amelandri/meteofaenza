@@ -19,6 +19,8 @@ Web app (PWA) che mette a confronto le previsioni di due modelli meteorologici p
 - **Andamento orario**: grafico che sovrappone i due modelli per precipitazioni (con la probabilità di pioggia ora per ora), temperatura, vento, nuvolosità, umidità e pressione. Nella temperatura due linee tratteggiate mostrano le previsioni corrette con la misura della centralina per le ore successive.
 - **Dettaglio orario** (chiuso di default): tabella ora per ora con entrambi i modelli e la probabilità di pioggia.
 
+Massima e minima (previste e misurate) sono confrontate con le **medie del periodo** 1991–2020: lo scarto compare accanto ai valori nelle card dei giorni e nel box Adesso, e il grafico della temperatura ha due linee punteggiate con massima e minima medie. Le medie si scaricano una volta e si aggiornano una volta l'anno.
+
 Tutti gli orari sono nell'ora locale di Faenza.
 
 La pagina **Impostazioni** (icona a ingranaggio) permette di scegliere il tema (automatico, chiaro o scuro), quali previsioni mostrare (entrambi i modelli, solo ICON-2I o solo ICON-EU; la probabilità di pioggia resta sempre visibile) e gli intervalli monitorati. La pagina **Come funziona** (icona "i") spiega modelli, ensemble, calcolo della probabilità e regole dei verdetti.
@@ -101,6 +103,7 @@ icons/                 icone dell'app
 ## Fonti dei dati
 
 - Previsioni, ensemble e metadati dei modelli: [Open-Meteo](https://open-meteo.com/) (licenza CC BY 4.0).
+- Medie del periodo 1991–2020: reanalisi ERA5-Land (Copernicus Climate Change Service), dall'archivio storico di Open-Meteo.
 - ICON-2I © [ItaliaMeteo-ARPAE](https://www.arpae.it/); ICON-EU, ICON-EU-EPS e ICON-D2-EPS © [Deutscher Wetterdienst](https://www.dwd.de/).
 - Misure: Osservatorio Meteorologico "E. Torricelli", [meteofaenza.it](https://www.meteofaenza.it/).
 

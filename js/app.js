@@ -1,4 +1,4 @@
-import { MODELS, fetchForecast, inModelDomain } from './api.js';
+import { MODELS, fetchForecast, inModelDomain, fetchNormals, dayOfYear, NORMALS } from './api.js';
 import { fetchStation, STATION, STATION_STALE_MS } from './station.js';
 import * as store from './storage.js';
 import { renderChart, tipValue } from './chart.js';
@@ -20,6 +20,7 @@ const VARIABLES = {
     label: 'Temperatura', unit: '°C', decimals: 1, minSpan: 4,
     series: [{ v: 'temperature_2m' }],
     fix: true, // anche la temperatura corretta con la centralina (tratteggio, prossime ore)
+    normals: true, // anche massima e minima medie del periodo (puntini)
   },
   wind: {
     label: 'Vento', unit: 'km/h', decimals: 0, yFloor: 0, minSpan: 10,
@@ -64,6 +65,7 @@ const state = {
   settings: store.getSettings(),
   loading: false,
   station: store.getStation(), // ultima misura della centralina (anche da cache)
+  normals: store.getNormals(LOCATION), // medie del periodo 1991–2020 (anche da cache)
   stationLoading: false,
 };
 
@@ -80,7 +82,7 @@ function init() {
   registerServiceWorker();
   store.removeLegacyKeys(LOCATION);
 
-  window.addEventListener('online', () => { setBanner(null); if (!store.isFresh(state.data)) load(); if (stationDue()) loadStation(); });
+  window.addEventListener('online', () => { setBanner(null); if (!store.isFresh(state.data)) load(); if (stationDue()) loadStation(); loadNormals(); });
   window.addEventListener('offline', () => setBanner('Sei offline: vengono mostrate le ultime previsioni salvate.'));
   if (!navigator.onLine) setBanner('Sei offline: vengono mostrate le ultime previsioni salvate.');
 
@@ -99,8 +101,47 @@ function init() {
   });
 
   load();
+  loadNormals();
   if (stationDue()) loadStation();
   scheduleStation();
+}
+
+// --- Medie del periodo ---------------------------------------------------------------
+// A ogni apertura (e al ritorno online) si controlla che ci siano: se mancano o hanno più
+// di un anno si scaricano (in background, senza bloccare le previsioni). Se il download
+// fallisce restano quelle salvate, o niente scarti finché non si riesce.
+let normalsLoading = false;
+async function loadNormals() {
+  if (normalsLoading || !navigator.onLine || !store.normalsDue(state.normals)) return;
+  normalsLoading = true;
+  try {
+    const n = await fetchNormals(state.loc);
+    store.setNormals(state.loc, n);
+    state.normals = store.getNormals(state.loc) || { ...n, fetchedAt: Date.now() };
+    if (state.data && !$('#forecast').hidden) render();
+  } catch { /* riprova alla prossima apertura o al ritorno online */ } finally {
+    normalsLoading = false;
+  }
+}
+
+// Massima e minima medie del periodo per una data "YYYY-MM-DD" (o null).
+function normalFor(day) {
+  const n = state.normals;
+  if (!n) return null;
+  const k = dayOfYear(day.slice(5, 10));
+  return n.tmax[k] == null || n.tmin[k] == null ? null : { tmax: n.tmax[k], tmin: n.tmin[k] };
+}
+
+// Scarto dalla media: "+2°" (caldo, .warm), "−1°" (fresco, .cool), "±0°" (nella media).
+// `decimals` come il valore mostrato (0 nelle card dei giorni, 1 per la centralina).
+function anomaly(value, normal, what, decimals = 0) {
+  if (value == null || normal == null) return '';
+  const d = value - normal;
+  const shown = Number(fmt(Math.abs(d), decimals).replace(',', '.'));
+  const cls = shown === 0 ? 'even' : d > 0 ? 'warm' : 'cool';
+  const txt = shown === 0 ? '±0°' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), decimals)}°`;
+  const tip = `${what} ${fmt(value, decimals)}°: media del periodo ${fmt(normal, 1)}° (${NORMALS.from}–${NORMALS.to})`;
+  return `<small class="anom ${cls}" title="${esc(tip)}">${txt}</small>`;
 }
 
 // --- Caricamento dati ------------------------------------------------------------
@@ -352,8 +393,11 @@ function renderObservation() {
   const when = lt.date === today ? lt.time : `${lt.day} ${lt.time}`;
   const stale = !stationIsFresh();
   const sameDay = lt.date === today;
+  // Scarto di minima e massima misurate oggi dalla media del periodo.
+  const nm = sameDay ? normalFor(lt.date) : null;
   const minmax = sameDay && st.tMin != null && st.tMax != null
-    ? `min ${fmt(st.tMin, 1)}°${st.tMinTime ? ` (${st.tMinTime})` : ''} · max ${fmt(st.tMax, 1)}°${st.tMaxTime ? ` (${st.tMaxTime})` : ''}`
+    // Minima e massima in due blocchi che non si spezzano: se manca spazio vanno a capo tra i due.
+    ? `<span class="mm-part">min ${fmt(st.tMin, 1)}°${st.tMinTime ? ` (${st.tMinTime})` : ''}${anomaly(st.tMin, nm?.tmin, 'Minima di oggi', 1)} ·</span> <span class="mm-part">max ${fmt(st.tMax, 1)}°${st.tMaxTime ? ` (${st.tMaxTime})` : ''}${anomaly(st.tMax, nm?.tmax, 'Massima di oggi', 1)}</span>`
     : '';
   const stat = (label, value) => (value ? `<div><dt>${label}</dt><dd>${value}</dd></div>` : '');
   const rn = stationRainNow();
@@ -990,6 +1034,7 @@ function renderDaily() {
     // La concordanza ha senso solo con entrambi i modelli mostrati.
     const ag = shown.length > 1 ? agreement(vals.i2i, vals.eu) : null;
     const pops = slotChances(day, hourIdx);
+    const nm = normalFor(day); // medie del periodo per gli scarti di massima e minima
     const cells = shown.map((m) => {
       const v = vals[m.key];
       // Il modello è indicato dal pallino colorato nel box e dalla legenda nel titolo.
@@ -1003,7 +1048,7 @@ function renderDaily() {
       }
       return `<div class="dm m-${m.key}" title="${m.name}">
         ${icon(v.code, 1, 36)}
-        <span class="temps"><b>${fmt(v.tmax)}°</b><span class="muted">${fmt(v.tmin)}°</span></span>
+        <span class="temps"><span class="tv"><b>${fmt(v.tmax)}°</b>${anomaly(Math.round(v.tmax), nm?.tmax, `${m.name}: massima`)}</span><span class="tv muted">${fmt(v.tmin)}°${anomaly(Math.round(v.tmin), nm?.tmin, `${m.name}: minima`)}</span></span>
         <span class="prec ${v.prec >= 0.1 ? 'wet' : ''}">${fmt(v.prec, 1)}<small> mm</small></span>
         <span class="gust muted">${fmt(v.gust)}<small> km/h</small></span>
         ${renderSlots(m, v.slots, pastUntil)}
@@ -1126,6 +1171,15 @@ function renderChartSection() {
     });
   }
 
+  // Massima e minima medie del periodo (puntini grigi): un valore per giorno, uguale per tutte
+  // le ore del giorno. Dopo le serie dei modelli (il Δ del tooltip usa le prime due).
+  const normals = cfg.normals && state.normals
+    ? [['tmax', 'media max'], ['tmin', 'media min']].map(([k, label]) => ({
+      cls: 's-norm', label, values: times.map((t) => normalFor(t)?.[k] ?? null),
+    }))
+    : [];
+  series.push(...normals);
+
   // Probabilità di pioggia ora per ora (stesso calcolo della tabella oraria), scala a destra.
   if (cfg.pop) {
     series.push({
@@ -1146,7 +1200,7 @@ function renderChartSection() {
     tooltip: (i) => {
       const rows = series.map((s) => (s.axis === 'y2'
         ? `<div class="tip-row"><i class="sw ${s.cls}"></i>${s.label}<b>${tipValue(s.values[i], 0, s.unitLabel)}</b></div>`
-        : `<div class="tip-row"><i class="sw ${s.cls}${s.dash ? ' dash' : ''}"></i>${s.model.name}${s.varLabel ? ` <span class="muted">${s.varLabel}</span>` : ''}<b>${tipValue(s.values[i], cfg.decimals, cfg.unit)}</b></div>`)).join('');
+        : `<div class="tip-row"><i class="sw ${s.cls}${s.dash ? ' dash' : ''}"></i>${s.model ? s.model.name : s.label}${s.varLabel ? ` <span class="muted">${s.varLabel}</span>` : ''}<b>${tipValue(s.values[i], cfg.decimals, cfg.unit)}</b></div>`)).join('');
       // Δ solo con entrambi i modelli (le prime due serie sono ICON-2I e ICON-EU).
       const a = series[0].values[i], b = shown.length > 1 ? series[1].values[i] : null;
       const diff = a != null && b != null ? `<div class="tip-diff muted">Δ 2I − EU: ${fmtSigned(a - b, cfg.decimals)} ${cfg.unit}</div>` : '';
@@ -1160,6 +1214,7 @@ function renderChartSection() {
     const diffs = fixes.map(({ m, fix }) => `${m.name} ${fmtSigned(fix.bias, 1)}°`).join(', ');
     legend = `Tratteggio: previsione corretta con la centralina (alle ${fixes[0].fix.time} misurato − previsto: ${diffs}), correzione dimezzata ogni ${TEMP_FIX_HALF_H} ore. `;
   }
+  if (normals.length) legend += `Puntini grigi: massima e minima medie del periodo (${NORMALS.from}–${NORMALS.to}, ${NORMALS.name}). `;
   if (cfg.pop) legend = `Barre: pioggia in mm (${shown.map((m) => m.name).join(', ')}) · area azzurra: probabilità di pioggia (scenari ${state.data.ensemble?.groups.map((g) => g.model).join(' e ') || 'ensemble'} con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm, scala a destra). `;
   for (const m of shown) {
     if (!inModelDomain(m, state.loc.lat, state.loc.lon)) note.push(`${m.name} non copre questa località.`);

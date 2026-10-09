@@ -247,8 +247,10 @@ button { font: inherit; color: inherit; }
 /* Box della centralina: 4 dati in griglia 2×2 a destra della temperatura */
 @container (min-width: 560px) {
   .obs-body { flex-direction: row; align-items: center; gap: 24px; }
-  .obs-main { flex-direction: column; align-items: flex-start; flex: none; }
-  .obs-stats { flex: 1; grid-template-columns: repeat(2, 1fr); column-gap: 20px; padding-left: 20px; border-left: 1px solid var(--slot-sep); }
+  /* i dati a destra alla loro larghezza naturale, la temperatura nello spazio che resta: se
+     manca spazio minima e massima vanno a capo (.mm-part) invece di spingere fuori i dati */
+  .obs-main { flex-direction: column; align-items: flex-start; flex: 1 1 0; min-width: 0; }
+  .obs-stats { flex: 0 1 auto; grid-template-columns: repeat(2, auto); column-gap: 20px; padding-left: 20px; border-left: 1px solid var(--slot-sep); }
 }
 .stale { margin: 0; color: var(--mid); font-weight: 600; }
 .na { color: var(--muted); }
@@ -436,6 +438,15 @@ button { font: inherit; color: inherit; }
 }
 .dm .wi { grid-area: ico; }
 .dm .temps { grid-area: temps; display: flex; gap: 8px; align-items: baseline; font-size: 1.05rem; }
+/* Ogni temperatura con il suo scarto dalla media del periodo (.anom) */
+.dm .tv { display: inline-flex; align-items: baseline; gap: 3px; }
+/* Scarto dalla media del periodo (card dei giorni e centralina): caldo / fresco / nella media */
+.anom { font-size: .62rem; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: 0; white-space: nowrap; }
+.anom.warm { color: var(--sunset); }
+.anom.cool { color: var(--rain); }
+.anom.even { color: var(--muted); font-weight: 600; }
+.now-desc .anom { margin-left: 3px; font-size: .7rem; }
+.now-desc .mm-part { white-space: nowrap; }
 .dm .prec { grid-area: prec; text-align: right; font-weight: 600; font-size: .9rem; }
 .dm .gust { grid-area: gust; text-align: right; font-size: .78rem; }
 .dm small { font-weight: 500; color: var(--muted); }
@@ -593,6 +604,9 @@ button { font: inherit; color: inherit; }
 .chart-svg .day-label { fill: var(--text); font-size: 11px; font-weight: 600; }
 .chart-svg .line { fill: none; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
 .chart-svg .line.dash { stroke-dasharray: 4 3; stroke-width: 1.5; opacity: .85; }
+.chart-svg .line.s-norm { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 1 3.5; opacity: .75; } /* medie del periodo */
+.chart-svg .dot.s-norm { fill: var(--muted); }
+.sw.s-norm { background: var(--muted); opacity: .6; }
 .chart-svg .day-bar { opacity: .55; } /* barra giorno/notte sopra il grafico (chart.js) */
 /* marker di alba e tramonto sulla barra: pallino grigio, uguale per entrambi, con bordo dello sfondo */
 .chart-svg .sun-mark { fill: var(--muted); stroke: var(--surface); stroke-width: 1.5; }
@@ -916,6 +930,8 @@ body.loading #forecast { opacity: .5; }
   }
   .dm > .wi, .dm > .prec, .dm > .gust { display: none; }
   .dm .temps { flex-direction: column; align-items: center; gap: 0; min-width: 34px; font-size: 1rem; line-height: 1.2; }
+  .dm .tv { flex-direction: column; align-items: center; gap: 0; } /* scarto sotto la temperatura */
+  .dm .tv .anom { line-height: 1; margin-bottom: 2px; }
   .dm .slots { margin-top: 6px; }
   .dm.dm-empty { flex-direction: column; align-items: flex-start; gap: 4px; }
   .slot { font-size: .74rem; }

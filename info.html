@@ -43,6 +43,7 @@
       <a href="#giorni">Fasce orarie e concordanza</a>
       <a href="#icone">Le icone</a>
       <a href="#centralina">La centralina</a>
+      <a href="#medie">Le medie del periodo</a>
       <a href="#limiti">Limiti</a>
     </nav>
 
@@ -200,6 +201,19 @@
       <p>Nel grafico della temperatura le linee tratteggiate sono le previsioni dei due modelli corrette con la centralina: l'app calcola la differenza tra la temperatura misurata e quella prevista nello stesso momento e la applica alle ore successive, dimezzandola ogni 3 ore e azzerandola dopo 12. Differenze di oltre 5 °C non vengono usate (più probabile una misura anomala). I box dei giorni mostrano invece le previsioni originali, per non alterare il confronto tra i modelli.</p>
     </section>
 
+    <section class="card" id="medie">
+      <h2>Le medie del periodo</h2>
+      <p>Per capire se una giornata è più calda o più fresca del normale, l'app confronta le temperature con le <strong>medie del periodo</strong>: la massima e la minima medie di quel giorno dell'anno nel trentennio <strong>1991–2020</strong>.</p>
+      <ul>
+        <li>Nelle <strong>card dei giorni</strong>, accanto alla massima e alla minima di ogni modello c'è lo scarto dalla media (es. <span class="anom warm">+2°</span>).</li>
+        <li>Nel riquadro <strong>Adesso</strong>, lo scarto della minima e della massima misurate oggi dalla centralina (la massima è quella raggiunta finora).</li>
+        <li>Nel <strong>grafico della temperatura</strong>, due linee punteggiate grigie indicano la massima e la minima medie.</li>
+      </ul>
+      <p>Gli scarti sono <span class="anom warm">arancio</span> se si è sopra la media, <span class="anom cool">blu</span> se si è sotto, <span class="anom even">grigi</span> (±0°) se si è nella media. Passando il mouse su uno scarto si vede il valore medio.</p>
+      <p>Le medie vengono dall'archivio storico di Open-Meteo, che ricostruisce le temperature del passato con la reanalisi <strong>ERA5-Land</strong> (Copernicus, griglia di circa 9 km). Per ogni giorno è la media dei 30 anni su una finestra di ±7 giorni, così le irregolarità dei singoli giorni si compensano. L'app le scarica una volta e le conserva nel browser, aggiornandole una volta l'anno.</p>
+      <p class="info-note">Sono medie di una cella della griglia, non della centralina: possono scostarsi di qualche decimo o di circa un grado dalle medie misurate a Faenza.</p>
+    </section>
+
     <section class="card" id="limiti">
       <h2>Limiti</h2>
       <ul>
@@ -217,6 +231,7 @@
     <p>Dati: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0) ·
       ICON-2I © <a href="https://www.arpae.it/" target="_blank" rel="noopener">ItaliaMeteo-ARPAE</a> ·
       ICON-EU, ICON-EU-EPS e ICON-D2-EPS © <a href="https://www.dwd.de/" target="_blank" rel="noopener">Deutscher Wetterdienst</a>.</p>
+    <p>Medie del periodo 1991–2020: reanalisi <a href="https://cds.climate.copernicus.eu/" target="_blank" rel="noopener">ERA5-Land (Copernicus Climate Change Service)</a>, tramite Open-Meteo.</p>
     <p>Dati misurati: <a href="https://www.meteofaenza.it/" target="_blank" rel="noopener">Osservatorio Meteorologico "E. Torricelli" – meteofaenza.it</a>.</p>
   </footer>
   <script type="module">
