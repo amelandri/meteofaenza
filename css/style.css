@@ -25,6 +25,11 @@
 
   --sun: #f2a516;
   --sunset: #ec6a2c;
+  /* Colori della giornata sulla linea alba–tramonto di oggi (.sun-track): la linea è la
+     sfumatura alba → mezzogiorno → tramonto, il sole prende il colore del punto in cui si
+     trova (calcolato da updateSunNow() in app.js leggendo questi valori, in formato #rrggbb).
+     Uguali nei due temi. */
+  --day-dawn: #ff8a3d; --day-noon: #f7c21a; --day-dusk: #e5533a; --day-night: #8f9bb3;
   --dawn-a: #fff3cf; --dawn-b: #ffe1c4; --dawn-text: #8a4a00;
   --dusk-a: #ffdcc9; --dusk-b: #e7dcff; --dusk-text: #6a2f6e;
   --cloud: #c9d1dc;
@@ -326,20 +331,37 @@ button { font: inherit; color: inherit; }
 .pop-cell.high .pop-bar i { background: var(--rain); }
 .pop-val { flex: none; min-width: 2.4em; text-align: right; font-size: .7rem; font-variant-numeric: tabular-nums; color: var(--muted); }
 .pop-cell.high .pop-val { color: var(--text); font-weight: 600; }
-/* Alba e tramonto impilati, probabilità di pioggia sotto */
+/* Alba a sinistra, tramonto allineato a destra. Oggi in mezzo la linea alba–tramonto con il
+   sole all'ora attuale (.sun-track). Nella colonna dei nomi del layout largo (giorno a due
+   colonne, oltre 720 px) la linea va su una riga a sé sotto le due pillole. */
 .sun {
-  display: grid;
-  grid-template-columns: auto;
-  grid-template-areas: "rise" "set";
-  justify-content: start;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px 10px;
+  gap: 6px;
+  width: 100%;
   margin-top: 6px;
   font-variant-numeric: tabular-nums;
 }
-.sun-pill.rise { grid-area: rise; }
-.sun-pill.set { grid-area: set; }
-.sun .sun-pill { justify-self: start; } /* larghezza naturale, non quella della colonna */
+.sun-pill.set { margin-left: auto; }
+/* pillole compatte, così alba e tramonto stanno affiancati anche nella colonna dei nomi (150 px) */
+.sun .sun-pill { gap: 3px; padding: 1px 7px 1px 4px; font-size: .74rem; }
+.sun .sun-pill .sun-ev { width: 15px; height: 15px; }
+.sun-track { order: 3; flex: 1 0 100%; position: relative; height: 16px; min-width: 28px; }
+/* linea: alba → mezzogiorno → tramonto, sbiadita rispetto al sole; di notte grigia */
+.sun-track::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px;
+  border-radius: 1px; background: linear-gradient(90deg, var(--day-dawn), var(--day-noon), var(--day-dusk)); opacity: .35;
+}
+.sun-track.night::before { background: var(--day-night); }
+/* sole: --sun-f da 0 (alba) a 1 (tramonto), con 8 px di margine alle estremità */
+.sun-now {
+  position: absolute; top: 50%; left: calc(8px + (100% - 16px) * var(--sun-f, 0));
+  transform: translate(-50%, -50%); overflow: visible;
+}
+/* colore del sole: --sun-c, impostato da updateSunNow() secondo l'ora (grigio-azzurro di notte) */
+.sun-now circle { fill: var(--sun-c, var(--sun)); stroke: var(--surface); stroke-width: 1.2; paint-order: stroke; }
+.sun-now path { stroke: var(--sun-c, var(--sun)); stroke-width: 1.5; stroke-linecap: round; }
 .sun-pill {
   display: inline-flex;
   align-items: center;
@@ -789,6 +811,9 @@ body.loading #forecast { opacity: .5; }
   .day.obs-row { grid-template-areas: "name" "models"; }
   #daily.bikes-flow .bike:first-child .bike-label { width: auto; } /* giorno su una colonna: niente colonna dei nomi */
   .day-name { flex-direction: row; justify-content: flex-start; align-items: baseline; gap: 8px; }
+  /* giorno su una colonna: alba, linea e tramonto sulla stessa riga, a tutta larghezza */
+  .sun { flex: 1 0 auto; flex-wrap: nowrap; }
+  .sun-track { order: 0; flex: 1 1 auto; }
 }
 
 @container side (max-width: 560px) {
