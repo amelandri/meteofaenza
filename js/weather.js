@@ -52,7 +52,7 @@ const MOON = (dx = 0, dy = 0, s = 1) =>
 const CLOUD = (dy = 0, cls = 'wi-cloud') =>
   `<path class="${cls}" transform="translate(0 ${dy})" d="M9.5 25h13.3a5.2 5.2 0 0 0 .5-10.4 7.2 7.2 0 0 0-13.8 1.7A4.4 4.4 0 0 0 9.5 25z"/>`;
 const DROPS = (n, heavy = false) => {
-  const xs = n === 2 ? [12.5, 19.5] : [10.5, 16, 21.5];
+  const xs = n === 1 ? [16] : n === 2 ? [12.5, 19.5] : [10.5, 16, 21.5];
   return xs.map((x) => `<line class="wi-drop${heavy ? ' heavy' : ''}" x1="${x}" y1="24" x2="${x - 1.6}" y2="${heavy ? 30 : 28.5}"/>`).join('');
 };
 const FLAKES = () => [10.5, 16, 21.5].map((x, i) => `<circle class="wi-flake" cx="${x}" cy="${i % 2 ? 29 : 26.5}" r="1.4"/>`).join('');
@@ -65,8 +65,9 @@ function iconBody(kind, day) {
     case 'mostly-clear': return (day ? SUN(13.5, 13.5, 5.2) : MOON(-2, -2, 1)) + `<path class="wi-cloud" transform="translate(6 7) scale(.62)" d="M9.5 25h13.3a5.2 5.2 0 0 0 .5-10.4 7.2 7.2 0 0 0-13.8 1.7A4.4 4.4 0 0 0 9.5 25z"/>`;
     case 'partly': return celestial + CLOUD(1);
     case 'overcast': return `<path class="wi-cloud back" transform="translate(4 -5) scale(.8)" d="M9.5 25h13.3a5.2 5.2 0 0 0 .5-10.4 7.2 7.2 0 0 0-13.8 1.7A4.4 4.4 0 0 0 9.5 25z"/>` + CLOUD(1);
-    case 'fog': return CLOUD(-4) + '<g class="wi-fog"><line x1="7" y1="25" x2="25" y2="25"/><line x1="9" y1="29" x2="23" y2="29"/></g>';
-    case 'drizzle': return CLOUD(-4) + DROPS(2);
+    // nebbia: solo banchi orizzontali sfalsati, senza nuvola
+    case 'fog': return '<g class="wi-fog"><line x1="8" y1="9" x2="22" y2="9"/><line x1="5" y1="14.3" x2="27" y2="14.3"/><line x1="10" y1="19.6" x2="26" y2="19.6"/><line x1="6" y1="24.9" x2="20" y2="24.9"/></g>';
+    case 'drizzle': return CLOUD(-4) + DROPS(1); // pioviggine / qualche goccia
     case 'rain-light': return CLOUD(-4) + DROPS(2);
     case 'rain': return CLOUD(-4) + DROPS(3);
     case 'rain-heavy': return CLOUD(-4, 'wi-cloud dark') + DROPS(3, true);

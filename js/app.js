@@ -494,8 +494,10 @@ const slotRange = (s) => `${s.from}–${s.from + SLOT_HOURS}`;
 // Codice WMO che rappresenta una fascia, pesato su tutta la fascia:
 // - temporale (codice ≥ 95) anche in una sola ora: vince sempre (pericoloso);
 // - precipitazioni (codici ≥ 51) solo se rilevanti per la fascia: almeno
-//   SLOT_WET_HOURS ore con pioggia oppure almeno SLOT_WET_MM mm in totale; allora vince
-//   il codice di pioggia più severo;
+//   SLOT_WET_HOURS ore con pioggia oppure almeno SLOT_WET_MM mm in totale. Per la pioggia
+//   (pioviggine 51–55 e pioggia 61–65) l'intensità dell'icona dipende dai mm del modello
+//   nella fascia (SLOT_RAIN_LEVELS); rovesci, neve e pioggia/neve gelata mantengono il
+//   codice più severo del modello;
 // - altrimenti il tempo prevalente (più ore) tra i gruppi sereno (0–1), nuvoloso (2–3)
 //   e nebbia (45–48), ignorando le ore di pioggerella; a parità prevale il gruppo peggiore,
 //   nel gruppo il codice più frequente (a parità il più alto). I mm restano visibili sotto
@@ -505,20 +507,37 @@ const SLOT_THUNDER_CODE = 95;
 const SLOT_WET_HOURS = 2; // ore con pioggia (su 6) perché la fascia sia "di pioggia"…
 const SLOT_WET_MM = 1; // …oppure mm totali nella fascia
 const codeGroup = (c) => (c <= 1 ? 0 : c <= 3 ? 1 : 2);
+// Intensità della pioggia di una fascia dai mm del modello nella fascia, con la stessa scala
+// di rainWords(): codice WMO per l'icona (pioviggine = 1 goccia, debole = 2, moderata = 3,
+// forte = nuvola scura) e descrizione. La stessa tabella è illustrata in info.html.
+const SLOT_RAIN_LEVELS = [
+  { below: 0.5, code: 51, desc: 'Qualche goccia' },
+  { below: 2, code: 61, desc: 'Pioggia debole' },
+  { below: 5, code: 63, desc: 'Pioggia moderata' },
+  { below: Infinity, code: 65, desc: 'Pioggia forte' },
+];
+const isPlainRain = (c) => (c >= 51 && c <= 55) || (c >= 61 && c <= 65);
 
+// Restituisce { code, desc }: codice WMO dell'icona e descrizione per il tooltip.
 function slotCode(codes, precs = []) {
+  const pick = (code) => ({ code, desc: describe(code) });
   const thunder = codes.filter((c) => c >= SLOT_THUNDER_CODE);
-  if (thunder.length) return Math.max(...thunder);
+  if (thunder.length) return pick(Math.max(...thunder));
   const wet = codes.filter((c) => c >= SLOT_WET_CODE);
   const mm = precs.reduce((a, p) => a + (p ?? 0), 0);
-  if (wet.length && (wet.length >= SLOT_WET_HOURS || mm >= SLOT_WET_MM)) return Math.max(...wet);
+  if (wet.length && (wet.length >= SLOT_WET_HOURS || mm >= SLOT_WET_MM)) {
+    // Solo pioggia: icona secondo i mm; rovesci, neve o gelo: il codice più severo.
+    if (!wet.every(isPlainRain)) return pick(Math.max(...wet));
+    const { code, desc } = SLOT_RAIN_LEVELS.find((l) => mm < l.below);
+    return { code, desc };
+  }
   const dry = codes.filter((c) => c < SLOT_WET_CODE);
   // Tutte le ore con pioggerella trascurabile: si mostra comunque la più lieve.
-  if (!dry.length) return Math.min(...codes);
+  if (!dry.length) return pick(Math.min(...codes));
   const count = (list, key) => list.reduce((m, c) => m.set(key(c), (m.get(key(c)) || 0) + 1), new Map());
   const pickMax = (m) => [...m].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0][0];
   const group = pickMax(count(dry, codeGroup));
-  return pickMax(count(dry.filter((c) => codeGroup(c) === group), (c) => c));
+  return pick(pickMax(count(dry.filter((c) => codeGroup(c) === group), (c) => c)));
 }
 
 // Indici orari di una fascia. In Open-Meteo pioggia e codice meteo del timestamp T si
@@ -553,7 +572,7 @@ function slotSummary(h, indices, nowIso = null) {
   const ahead = nowIso ? idx.filter((i) => state.data.hourly.time[i] > nowIso) : [];
   const codeIdx = ahead.length ? ahead : idx;
   return {
-    code: slotCode(codeIdx.map((i) => h.weather_code[i] ?? 0), codeIdx.map((i) => h.precipitation[i])),
+    ...slotCode(codeIdx.map((i) => h.weather_code[i] ?? 0), codeIdx.map((i) => h.precipitation[i])), // code, desc
     isDay: h.is_day[codeIdx[Math.floor(codeIdx.length / 2)]],
     temp: temps.reduce((a, b) => a + b, 0) / temps.length,
     tmin: Math.min(...temps),
@@ -569,9 +588,9 @@ function renderSlots(m, slots, pastUntil) {
     const past = k < pastUntil ? ' past' : '';
     const label = `${SLOTS[k].name} (${slotRange(SLOTS[k])})`;
     if (!sl) return `<div class="slot na${past}" title="${m.name} · ${label}: dati non disponibili">—</div>`;
-    const tip = `${m.name} · ${label}: ${describe(sl.code)}, ${fmt(sl.tmin)}–${fmt(sl.tmax)} °C, ${fmt(sl.prec, 1)} mm`;
+    const tip = `${m.name} · ${label}: ${sl.desc}, ${fmt(sl.tmin)}–${fmt(sl.tmax)} °C, ${fmt(sl.prec, 1)} mm`;
     return `<div class="slot${past}" title="${esc(tip)}">
-      ${icon(sl.code, sl.isDay, 24, describe(sl.code))}
+      ${icon(sl.code, sl.isDay, 24, sl.desc)}
       <b>${fmt(sl.temp)}<span class="deg">°</span></b>
       <span class="slot-rain"><span class="slot-mm ${sl.prec >= 0.1 ? 'wet' : 'dry'}">${sl.prec >= 0.1 ? fmt(sl.prec, 1) : '\u00a0'}</span></span>
     </div>`;

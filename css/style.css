@@ -76,11 +76,11 @@
   --dawn-a: #3d2d10; --dawn-b: #40250f; --dawn-text: #ffd27a;
   --dusk-a: #42200f; --dusk-b: #2e2346; --dusk-text: #ffb59a;
   --cloud: #7c899d;
-  --cloud-dark: #56627a;
+  --cloud-dark: #465166; /* nuvola della pioggia forte e del temporale: ben più scura della normale */
   --moon: #ffd75e;
   --cloud-box: #8e9bb0;
   --cloud-box-line: #c3ccd9;
-  --cloud-box-dark: #66738a;
+  --cloud-box-dark: #4a5569;
   --moon-box: #ffd75e;
 
   --shadow: none;
@@ -707,7 +707,7 @@ button { font: inherit; color: inherit; }
 .wi-drop.heavy { stroke-width: 2.4; }
 .wi-flake { fill: var(--rain); opacity: .8; }
 .wi-bolt { fill: var(--sun); }
-.wi-fog line { stroke: var(--cloud-dark); stroke-width: 2; stroke-linecap: round; }
+.wi-fog line { stroke: color-mix(in srgb, var(--muted) 70%, transparent); stroke-width: 2.6; stroke-linecap: round; } /* senza nuvola: grigio leggibile in entrambi i temi */
 
 /* Nelle schede dei modelli lo sfondo è grigio: nuvole più scure e con contorno,
    così non si confondono con il box. */
@@ -746,6 +746,20 @@ button { font: inherit; color: inherit; }
 .info-table th, .info-table td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .info-table th { font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 .info-table td:first-child { white-space: nowrap; }
+/* Tabella delle icone delle fasce: icone su sfondo grigio come nei box dei modelli */
+.info-icon-table td { vertical-align: middle; }
+/* giorno e notte affiancati anche su mobile (doppia classe: batte .info-table td:first-child,
+   che su mobile riattiva l'a capo) */
+.info-table.info-icon-table td.info-icons { width: 1%; white-space: nowrap; }
+.info-ico { display: inline-flex; padding: 3px 5px; background: var(--surface-2); }
+.info-ico:first-child { border-radius: 8px 0 0 8px; margin-right: 1px; }
+.info-ico:last-child { border-radius: 0 8px 8px 0; }
+.info-ico .wi-cloud { fill: var(--cloud-box); stroke: var(--cloud-box-line); stroke-width: 1; }
+.info-ico .wi-cloud.dark { fill: var(--cloud-box-dark); }
+.info-ico .wi-cloud.back { opacity: .85; }
+.info-ico .wi-moon { fill: var(--moon-box); }
+.info-ico .wi-fog line { stroke: var(--cloud-box-line); }
+.info-table tr.info-group th { padding-top: 14px; text-transform: none; letter-spacing: 0; font-size: .8rem; color: var(--text); }
 .info-st { --st: var(--muted); display: inline-block; padding: 1px 8px; border-radius: 6px; font-weight: 650; font-size: .8rem; color: var(--st); background: color-mix(in srgb, var(--st) 13%, transparent); }
 .info-st.st-dry { --st: var(--good); }
 .info-st.st-wet { --st: var(--rain); }

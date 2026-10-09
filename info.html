@@ -41,6 +41,7 @@
       <a href="#probabilita">La probabilità di pioggia</a>
       <a href="#tragitti">I tragitti in bici</a>
       <a href="#giorni">Fasce orarie e concordanza</a>
+      <a href="#icone">Le icone</a>
       <a href="#centralina">La centralina</a>
       <a href="#limiti">Limiti</a>
     </nav>
@@ -145,10 +146,33 @@
       <p>Ogni giornata è divisa in notte (0–6), mattina (6–12), pomeriggio (12–18) e sera (18–24). Per ogni fascia: temperatura media, pioggia totale e un'icona.</p>
       <ul>
         <li>Se c'è un <strong>temporale</strong>, anche di un'ora sola, l'icona è il temporale.</li>
-        <li>La <strong>pioggia</strong> compare solo se è rilevante per la fascia: almeno 2 ore di pioggia oppure almeno 1 mm in totale. Altrimenti l'icona mostra il tempo <strong>prevalente</strong> (sereno, nuvoloso o nebbia) e i millimetri restano scritti sotto la temperatura.</li>
+        <li>La <strong>pioggia</strong> compare solo se è rilevante per la fascia: almeno 2 ore di pioggia oppure almeno 1 mm in totale. Allora l'icona ne indica l'<strong>intensità</strong> in base ai millimetri previsti nella fascia (vedi le icone qui sotto). Altrimenti l'icona mostra il tempo <strong>prevalente</strong> (sereno, nuvoloso o nebbia) e i millimetri restano scritti sotto la temperatura.</li>
         <li>Per la fascia in corso l'icona considera solo le ore che devono ancora arrivare.</li>
         <li>Sotto i due box, la riga con la goccia indica la probabilità di pioggia di ogni fascia, calcolata con l'ensemble (vedi sopra).</li>
       </ul>
+      <h3 id="icone">Le icone delle fasce</h3>
+      <p>Ogni icona è mostrata di giorno e di notte. Le soglie della pioggia sono le stesse usate per descrivere la quantità nel dettaglio della probabilità.</p>
+      <table class="info-table info-icon-table">
+        <thead><tr><th>Icona</th><th>Significato</th></tr></thead>
+        <tbody>
+          <tr class="info-group"><th colspan="2">Pioggia: l'intensità dipende dai millimetri previsti dal modello nella fascia</th></tr>
+          <tr><td class="info-icons"><span class="info-ico" data-code="51" data-day="1"></span><span class="info-ico" data-code="51" data-day="0"></span></td><td><strong>Qualche goccia</strong>: meno di 0,5 mm</td></tr>
+          <tr><td class="info-icons"><span class="info-ico" data-code="61" data-day="1"></span><span class="info-ico" data-code="61" data-day="0"></span></td><td><strong>Pioggia debole</strong>: da 0,5 a 2 mm</td></tr>
+          <tr><td class="info-icons"><span class="info-ico" data-code="63" data-day="1"></span><span class="info-ico" data-code="63" data-day="0"></span></td><td><strong>Pioggia moderata</strong>: da 2 a 5 mm</td></tr>
+          <tr><td class="info-icons"><span class="info-ico" data-code="65" data-day="1"></span><span class="info-ico" data-code="65" data-day="0"></span></td><td><strong>Pioggia forte</strong>: oltre 5 mm (nuvola scura)</td></tr>
+          <tr class="info-group"><th colspan="2">Altre precipitazioni: come le indica il modello</th></tr>
+          <tr><td class="info-icons"><span class="info-ico" data-code="80" data-day="1"></span><span class="info-ico" data-code="80" data-day="0"></span></td><td><strong>Rovesci</strong>: pioggia a tratti, alternata a schiarite</td></tr>
+          <tr><td class="info-icons"><span class="info-ico" data-code="95" data-day="1"></span><span class="info-ico" data-code="95" data-day="0"></span></td><td><strong>Temporale</strong>: ha sempre la precedenza, anche se dura un'ora sola</td></tr>
+          <tr><td class="info-icons"><span class="info-ico" data-code="71" data-day="1"></span><span class="info-ico" data-code="71" data-day="0"></span></td><td><strong>Neve</strong></td></tr>
+          <tr><td class="info-icons"><span class="info-ico" data-code="66" data-day="1"></span><span class="info-ico" data-code="66" data-day="0"></span></td><td><strong>Pioggia o neve gelata</strong></td></tr>
+          <tr class="info-group"><th colspan="2">Senza pioggia rilevante: il tempo prevalente nella fascia</th></tr>
+          <tr><td class="info-icons"><span class="info-ico" data-code="0" data-day="1"></span><span class="info-ico" data-code="0" data-day="0"></span></td><td><strong>Sereno</strong> (di notte la luna)</td></tr>
+          <tr><td class="info-icons"><span class="info-ico" data-code="1" data-day="1"></span><span class="info-ico" data-code="1" data-day="0"></span></td><td><strong>Poco nuvoloso</strong></td></tr>
+          <tr><td class="info-icons"><span class="info-ico" data-code="2" data-day="1"></span><span class="info-ico" data-code="2" data-day="0"></span></td><td><strong>Parzialmente nuvoloso</strong></td></tr>
+          <tr><td class="info-icons"><span class="info-ico" data-code="3" data-day="1"></span><span class="info-ico" data-code="3" data-day="0"></span></td><td><strong>Coperto</strong></td></tr>
+          <tr><td class="info-icons"><span class="info-ico" data-code="45" data-day="1"></span><span class="info-ico" data-code="45" data-day="0"></span></td><td><strong>Nebbia</strong></td></tr>
+        </tbody>
+      </table>
       <p class="info-note">I dati di pioggia di un'ora si riferiscono all'ora precedente: il valore delle 7:00 descrive la pioggia caduta tra le 6 e le 7. L'app ne tiene conto, quindi la fascia 6–12 contiene davvero la pioggia tra le 6 e le 12.</p>
 
       <h3>Concordanza dei modelli</h3>
@@ -195,5 +219,13 @@
       ICON-EU, ICON-EU-EPS e ICON-D2-EPS © <a href="https://www.dwd.de/" target="_blank" rel="noopener">Deutscher Wetterdienst</a>.</p>
     <p>Dati misurati: <a href="https://www.meteofaenza.it/" target="_blank" rel="noopener">Osservatorio Meteorologico "E. Torricelli" – meteofaenza.it</a>.</p>
   </footer>
+  <script type="module">
+    // Icone della tabella "Le icone delle fasce": disegnate dalla stessa funzione dell'app.
+    import { icon, describe } from './js/weather.js';
+    for (const el of document.querySelectorAll('.info-ico')) {
+      const code = Number(el.dataset.code), day = el.dataset.day === '1';
+      el.innerHTML = icon(code, day ? 1 : 0, 30, `${describe(code)} (${day ? 'giorno' : 'notte'})`);
+    }
+  </script>
 </body>
 </html>
