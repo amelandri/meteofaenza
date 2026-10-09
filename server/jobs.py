@@ -13,7 +13,7 @@ import argparse
 import fcntl
 import sys
 
-from . import config, db, sources
+from . import config, db, sources, verify
 
 
 def _locked(name):
@@ -62,9 +62,13 @@ def job_forecast(conn, force=False):
                 break
     if reason:
         try:
-            db.put_snapshot(conn, 'forecast', sources.fetch_forecast())
-            db.log(conn, 'forecast', True, f'scaricata ({reason})')
-            notes.append(f'previsioni scaricate ({reason})')
+            fc = sources.fetch_forecast()
+            issued = db.now_ms()
+            db.put_snapshot(conn, 'forecast', fc, issued)
+            # Archivio per la verifica: i run nuovi di ciascun modello (ore future).
+            added = verify.archive_forecast(conn, fc, merged, issued)
+            db.log(conn, 'forecast', True, f'scaricata ({reason}); archiviate {added} ore')
+            notes.append(f'previsioni scaricate ({reason}), {added} ore in archivio')
         except sources.SourceError as err:
             db.log(conn, 'forecast', False, str(err))
             notes.append(f'previsioni non scaricate: {err}')
@@ -74,9 +78,13 @@ def job_forecast(conn, force=False):
     ens_at = db.snapshot_time(conn, 'ensemble')
     if force or not ens_at or db.now_ms() - ens_at > config.ENSEMBLE_EVERY_S * 1000 - 60_000:
         try:
-            db.put_snapshot(conn, 'ensemble', sources.fetch_ensemble())
-            db.log(conn, 'ensemble', True, 'scaricato')
-            notes.append('ensemble scaricato')
+            ens = sources.fetch_ensemble()
+            issued = db.now_ms()
+            db.put_snapshot(conn, 'ensemble', ens, issued)
+            utc_offset = ((db.get_snapshot(conn, 'forecast') or {}).get('data') or {}).get('utcOffset', 0)
+            added = verify.archive_ensemble(conn, ens, utc_offset, issued)
+            db.log(conn, 'ensemble', True, f'scaricato; archiviate {added} righe')
+            notes.append(f'ensemble scaricato, {added} righe in archivio')
         except sources.SourceError as err:
             db.log(conn, 'ensemble', False, str(err))
             notes.append(f'ensemble non scaricato: {err}')

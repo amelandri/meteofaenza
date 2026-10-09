@@ -18,6 +18,7 @@ Web app (PWA) che mette a confronto le previsioni di due modelli meteorologici p
   - **Bike**: per ogni intervallo del tragitto in bici (nome e fino a 6 "intervalli monitorati" configurabili nella pagina Impostazioni, ognuno con i giorni della settimana in cui vale, al massimo 3 nello stesso giorno; predefiniti 06:45–08:00, 12:30–15:00, 17:00–18:30, tutti i giorni), se pioverà (Asciutto, Rischio, Incerto, Pioggia) e con quale probabilità.
 - **Andamento orario**: grafico che sovrappone i due modelli per precipitazioni (con la probabilità di pioggia ora per ora), temperatura, vento, nuvolosità, umidità e pressione. Nella temperatura due linee tratteggiate mostrano le previsioni corrette con la misura della centralina per le ore successive.
 - **Dettaglio orario** (chiuso di default): tabella ora per ora con entrambi i modelli e la probabilità di pioggia.
+- **Verifica** (icona con il grafico e la spunta, pagina `verify.html`): per i giorni passati, pioggia e temperature previste la sera prima (o due giorni prima) confrontate con quelle misurate dalla centralina, fascia per fascia e negli intervalli monitorati, con un riepilogo per modello (fasce previste correttamente, falsi allarmi, errori medi) e l'affidabilità della probabilità di pioggia.
 
 Massima e minima (previste e misurate) sono confrontate con le **medie del periodo** 1991–2020: lo scarto compare accanto ai valori nelle card dei giorni e nel box Adesso, e il grafico della temperatura ha due linee punteggiate con massima e minima medie. Il server le scarica una volta e le aggiorna una volta l'anno.
 
@@ -65,6 +66,9 @@ API (tutte in sola lettura, con `ETag`: il browser riscarica solo se i dati sono
 | `api/station` | ultima misura della centralina e letture delle ultime 2 ore |
 | `api/normals` | medie del periodo |
 | `api/status` | stato dei job (ultimo aggiornamento, errori) |
+| `api/verify?days=30&lead=1` | verifica dei giorni passati: misure orarie della centralina e previsioni disponibili la sera prima (`lead=1`) o due giorni prima (`lead=2`) |
+
+Per la verifica il server archivia ogni run dei modelli (pioggia, temperatura e codice meteo di ogni ora futura) e, per ogni download dell'ensemble, quali scenari danno pioggia in ogni ora; letture e archivi si conservano per circa 400 giorni. La verifica si riempie da quando il server è attivo.
 
 ## Avvio in locale
 
@@ -142,10 +146,12 @@ La centralina è specifica di Faenza: cambiando località va sostituita o rimoss
 index.html             pagina principale
 info.html              pagina "Come funziona" (modelli, ensemble, calcolo della probabilità)
 settings.html          pagina Impostazioni (tema, modelli mostrati, intervalli monitorati)
+verify.html            pagina Verifica (previsioni confrontate con le misure)
 css/style.css          stile (tema chiaro e scuro)
 js/theme.js            applica il tema scelto prima che la pagina compaia
 js/app.js              logica e rendering
 js/settings.js         pagina Impostazioni
+js/verify.js           pagina Verifica
 js/api.js              accesso all'API del server (previsioni, centralina, medie)
 js/station.js          misure della centralina (dall'API)
 js/storage.js          salvataggio nel browser (localStorage)
@@ -159,6 +165,7 @@ server/sources.py      download e normalizzazione delle fonti esterne
 server/jobs.py         job di aggiornamento (lanciati da cron)
 server/api.py          API JSON (e file statici in locale)
 server/db.py           database SQLite
+server/verify.py       archivio delle previsioni e verifica con le misure
 tests/                 test del server
 swiftbar/              plugin SwiftBar per la barra dei menu del Mac
 deploy/                nginx, systemd, crontab

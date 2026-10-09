@@ -798,6 +798,54 @@ button { font: inherit; color: inherit; }
   .info-table td:first-child { white-space: normal; }
 }
 
+/* --- Pagina Verifica (verify.html, js/verify.js) ----------------------------------- */
+
+.verify .card { max-width: 760px; }
+.verify-controls { display: grid; gap: 10px; }
+.vc-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.vc-row .field-label { margin: 0; min-width: 76px; }
+.verify-controls .theme-seg { margin-top: 0; }
+.verify-status { color: var(--muted); }
+.vs-table th small, .vs-table td small { display: block; color: var(--muted); font-size: .72rem; font-weight: 500; text-transform: none; letter-spacing: 0; }
+.vs-table td small { display: inline; }
+.vs-table td { font-variant-numeric: tabular-nums; }
+.vs-table thead th { white-space: nowrap; }
+.vt thead .sm { display: none; }
+.vs-table i[class^="dot-"], .vt i[class^="dot-"], .vd-list i[class^="dot-"] { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+.verify-day .card-head { display: flex; align-items: baseline; gap: 10px; }
+.vd-badge { font-size: .72rem; font-weight: 650; color: var(--mid); background: color-mix(in srgb, var(--mid) 13%, transparent); padding: 1px 7px; border-radius: 6px; }
+.vd-obs { margin: 6px 0 10px; font-size: .88rem; }
+/* Tabella del giorno: fasce in colonna, misurata / modelli / probabilità in riga */
+.vt { width: 100%; border-collapse: separate; border-spacing: 2px; table-layout: fixed; font-size: .85rem; font-variant-numeric: tabular-nums; }
+.vt th, .vt td { text-align: center; padding: 5px 2px; border-radius: 6px; white-space: nowrap; }
+.vt thead th { font-size: .7rem; font-weight: 650; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.vt thead th small { display: block; text-transform: none; font-weight: 500; }
+.vt tbody th { text-align: left; font-size: .78rem; color: var(--muted); font-weight: 650; width: 74px; }
+.vt tr.obs td { background: var(--surface-2); font-weight: 650; }
+.vt tr.pop td { color: var(--rain); font-size: .78rem; }
+.vt td.na { color: var(--muted); font-size: .75rem; }
+.o-mark { margin-left: 3px; font-weight: 700; }
+.vt .o-good { background: color-mix(in srgb, var(--good) 14%, transparent); }
+.vt .o-mid { background: color-mix(in srgb, var(--mid) 18%, transparent); }
+.vt .o-bad { background: color-mix(in srgb, var(--bad) 16%, transparent); }
+.o-good .o-mark, .vd-list .o-good { color: var(--good); }
+.o-mid .o-mark, .vd-list .o-mid { color: var(--mid); }
+.o-bad .o-mark, .vd-list .o-bad { color: var(--bad); }
+.o-bad-t { color: var(--bad); }
+.vd-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; font-size: .86rem; }
+.verify-day h3 { margin: 12px 0 0; font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.vd-src { margin: 10px 0 0; font-size: .74rem; color: var(--muted); }
+.vd-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .8rem; color: var(--muted); margin: 18px 0 6px; }
+@media (max-width: 560px) {
+  .vt { font-size: .76rem; }
+  .vt tbody th { width: 48px; font-size: .7rem; }
+  .vt thead th { font-size: .62rem; letter-spacing: 0; }
+  .vt thead .lg { display: none; }
+  .vt thead .sm { display: inline; }
+  .vs-table { font-size: .8rem; }
+  .vs-table th, .vs-table td { padding: 6px 4px; }
+}
+
 /* --- Pagina Impostazioni (settings.html) ------------------------------------------- */
 
 .settings .card { max-width: 560px; }

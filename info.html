@@ -44,6 +44,7 @@
       <a href="#icone">Le icone</a>
       <a href="#centralina">La centralina</a>
       <a href="#medie">Le medie del periodo</a>
+      <a href="#verifica">La verifica</a>
       <a href="#limiti">Limiti</a>
     </nav>
 
@@ -212,6 +213,18 @@
       <p>Gli scarti sono <span class="anom warm">arancio</span> se si è sopra la media, <span class="anom cool">blu</span> se si è sotto, <span class="anom even">grigi</span> (±0°) se si è nella media. Passando il mouse su uno scarto si vede il valore medio.</p>
       <p>Le medie vengono dall'archivio storico di Open-Meteo, che ricostruisce le temperature del passato con la reanalisi <strong>ERA5-Land</strong> (Copernicus, griglia di circa 9 km). Per ogni giorno è la media dei 30 anni su una finestra di ±7 giorni, così le irregolarità dei singoli giorni si compensano. Il server dell'app le scarica una volta e le aggiorna una volta l'anno.</p>
       <p class="info-note">Sono medie di una cella della griglia, non della centralina: possono scostarsi di qualche decimo o di circa un grado dalle medie misurate a Faenza.</p>
+    </section>
+
+    <section class="card" id="verifica">
+      <h2>La verifica delle previsioni</h2>
+      <p>La pagina <a href="verify.html">Verifica</a> confronta, per i giorni passati, le previsioni con quello che è successo davvero secondo la centralina. Il server conserva ogni previsione scaricata e le letture della centralina ogni 10 minuti, da cui ricava la pioggia caduta ora per ora.</p>
+      <ul>
+        <li>Si verifica la previsione disponibile <strong>la sera prima</strong> (l'ultima scaricata prima della mezzanotte del giorno) oppure quella di <strong>due giorni prima</strong>.</li>
+        <li>Per ogni fascia di 6 ore e per ogni intervallo monitorato: pioggia misurata, pioggia prevista da ciascun modello e probabilità. Una previsione è <strong>corretta</strong> se prevede pioggia (almeno 0,2 mm) quando piove o niente pioggia quando non piove; altrimenti è un <strong>falso allarme</strong> o una <strong>pioggia non prevista</strong>.</li>
+        <li>Minima e massima previste (dalle ore) confrontate con quelle misurate.</li>
+        <li>Il riepilogo del periodo mostra, per modello, la quota di fasce previste correttamente e gli errori medi, e per la probabilità quante volte ha piovuto quando era bassa, media o alta: una probabilità affidabile del 30% vede pioggia circa 3 volte su 10.</li>
+      </ul>
+      <p class="info-note">Il giorno di oggi è mostrato come "in corso": le fasce già trascorse si possono già giudicare, il totale del giorno e le temperature no. La verifica è disponibile dai giorni in cui il server era attivo.</p>
     </section>
 
     <section class="card" id="limiti">

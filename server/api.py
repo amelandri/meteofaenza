@@ -4,6 +4,9 @@
   GET api/station   ultima misura della centralina + letture delle ultime 2 ore (rainLog)
   GET api/normals   medie del periodo 1991–2020
   GET api/status    stato dei job (ultimo aggiornamento, errori)
+  GET api/verify?days=30&lead=1
+                    verifica dei giorni passati: misure della centralina e previsioni
+                    disponibili la sera prima (lead=1) o due giorni prima (lead=2)
 
 Le risposte hanno un ETag: il browser rivalida (Cache-Control: no-cache) e riceve 304
 finché i dati non cambiano. Le richieste non toccano mai le fonti esterne.
@@ -21,7 +24,9 @@ from datetime import datetime, timedelta, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from zoneinfo import ZoneInfo
 
-from . import config, db, sources
+from urllib.parse import parse_qs, urlsplit
+
+from . import config, db, sources, verify
 
 _cache = {}  # chiave → (corpo, etag): JSON già composto delle previsioni
 _cache_lock = threading.Lock()
@@ -156,9 +161,16 @@ class Handler(SimpleHTTPRequestHandler):
         else:
             self.end_headers()
 
-    def _api(self, name):
+    def _api(self, name, query=None):
         conn = db.connect()
         try:
+            if name == 'verify':
+                q = query or {}
+                try:
+                    days, lead = int(q.get('days', ['30'])[0]), int(q.get('lead', ['1'])[0])
+                except ValueError:
+                    return self._json(400, {'error': 'parametri non validi'})
+                return self._json(200, verify.compose_verify(conn, days, lead))
             if name == 'forecast':
                 res = compose_forecast(conn, db.now_ms())
                 if res:
@@ -176,9 +188,10 @@ class Handler(SimpleHTTPRequestHandler):
             conn.close()
 
     def do_GET(self):
-        path = self.path.split('?')[0]
+        parts = urlsplit(self.path)
+        path = parts.path
         if '/api/' in path:
-            return self._api(path.rstrip('/').split('/api/')[-1])
+            return self._api(path.rstrip('/').split('/api/')[-1], parse_qs(parts.query))
         if self.serve_static:
             return super().do_GET()
         return self._json(404, {'error': 'non trovato'})

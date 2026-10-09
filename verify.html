@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Verifica – Meteo Faenza</title>
+  <meta name="description" content="Verifica delle previsioni di Meteo Faenza: pioggia e temperature previste confrontate con le misure della centralina">
+  <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0c111b" media="(prefers-color-scheme: dark)">
+  <script src="js/theme.js"></script>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/verify.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand brand-link" href="./" aria-label="Torna alle previsioni">
+        <img src="icons/icon.svg" alt="" width="32" height="32">
+        <div class="brand-text">
+          <p class="brand-name">Meteo Faenza</p>
+          <p class="brand-sub">Verifica delle previsioni</p>
+        </div>
+      </a>
+      <div class="topbar-actions">
+        <a class="icon-btn" href="./" title="Torna alle previsioni" aria-label="Torna alle previsioni">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container info verify">
+    <h1>Verifica delle previsioni</h1>
+    <p class="info-lead">Com'è andata davvero? Per ogni giorno la pioggia e le temperature previste dai modelli sono confrontate con quelle misurate dalla centralina di Faenza.</p>
+
+    <section class="card verify-controls">
+      <div class="vc-row">
+        <span class="field-label">Previsione</span>
+        <div class="seg theme-seg" id="lead-seg" role="group" aria-label="Quale previsione verificare">
+          <button type="button" data-lead="1">La sera prima</button>
+          <button type="button" data-lead="2">Due giorni prima</button>
+        </div>
+      </div>
+      <div class="vc-row">
+        <span class="field-label">Periodo</span>
+        <div class="seg theme-seg" id="days-seg" role="group" aria-label="Periodo">
+          <button type="button" data-days="7">7 giorni</button>
+          <button type="button" data-days="30">30 giorni</button>
+        </div>
+      </div>
+      <p class="info-note" id="verify-note"></p>
+    </section>
+
+    <p id="verify-status" class="verify-status" role="status">Caricamento…</p>
+
+    <section class="card" id="verify-summary" hidden></section>
+    <div id="verify-days"></div>
+
+    <p class="info-back"><a class="btn btn-ghost" href="./">Torna alle previsioni</a></p>
+  </main>
+</body>
+</html>

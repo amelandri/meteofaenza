@@ -103,3 +103,67 @@ class TrimTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class VerifyTest(unittest.TestCase):
+    """Archivio delle previsioni e confronto con le misure (server/verify.py)."""
+
+    DAY = '2026-10-01'
+
+    @classmethod
+    def setUpClass(cls):
+        from datetime import datetime, timedelta
+        from zoneinfo import ZoneInfo
+        from server import verify
+        cls.verify = verify
+        cls.conn = db.connect()
+        start = datetime(2026, 10, 1, tzinfo=ZoneInfo('Europe/Rome'))
+        # Una lettura ogni 10 minuti; piove 0,5 mm tra le 6 e le 7 e 1,0 mm tra le 14 e le 16.
+        mm = 0.0
+        for k in range(144):
+            t = start + timedelta(minutes=10 * k, seconds=20)
+            if 6 * 6 < k <= 7 * 6:
+                mm += 0.5 / 6
+            if 14 * 6 < k <= 16 * 6:
+                mm += 1.0 / 12
+            r = sources.parse_station(STATION_JS, fetched_at=1)
+            r.update(time=int(t.timestamp() * 1000), rainToday=round(mm, 2), temperature=10 + k / 10,
+                     tMin=10.0, tMax=24.3)
+            db.put_station(cls.conn, r)
+
+    def test_observed_hourly_rain(self):
+        obs = self.verify.observed_day(self.conn, self.DAY)
+        # indice h = pioggia nell'ora (h, h+1]
+        self.assertAlmostEqual(obs['rain'][6], 0.5, places=1)   # 6–7
+        self.assertAlmostEqual(obs['rain'][14] + obs['rain'][15], 1.0, places=1)  # 14–16
+        self.assertEqual(obs['rain'][10], 0.0)
+        self.assertAlmostEqual(obs['total'], 1.5, places=1)
+        self.assertTrue(obs['complete'])
+        self.assertIsNone(self.verify.observed_day(self.conn, '2026-09-01'))
+
+    def test_masks(self):
+        mask, n = self.verify.ensemble_masks([[0.0], [0.3], [None], [0.2]], 0)
+        self.assertEqual((mask, n), (0b1010, 3))
+
+    def test_archive_and_lead(self):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        times = [f'2026-09-30T{h:02d}:00' for h in range(24)] + [f'2026-10-01T{h:02d}:00' for h in range(24)] + ['2026-10-02T00:00']
+        fc = _forecast(times, ['2026-09-30', '2026-10-01'])
+        fc['hourly']['models']['eu']['precipitation'] = [0.4] * len(times)
+        issued = int(datetime(2026, 9, 30, 9, tzinfo=ZoneInfo('Europe/Rome')).timestamp() * 1000)
+        runs = {'i2i': {'init': 100}, 'eu': {'init': 200}}
+        n1 = self.verify.archive_forecast(self.conn, fc, runs, issued)
+        n2 = self.verify.archive_forecast(self.conn, fc, runs, issued + 60_000)  # stesso run: niente
+        self.assertGreater(n1, 0)
+        self.assertEqual(n2, 0)
+        f = self.verify.forecast_day(self.conn, self.DAY, 1)
+        self.assertEqual(f['eu']['runInit'], 200)
+        self.assertEqual(f['eu']['rain'][6], 0.4)
+        # Due giorni prima: il limite è la mezzanotte del 30, la previsione del 30 alle 9 non vale.
+        self.assertIsNone(self.verify.forecast_day(self.conn, self.DAY, 2)['eu'])
+
+    def test_compose(self):
+        res = self.verify.compose_verify(self.conn, 120, 1)
+        self.assertEqual(res['lead'], 1)
+        self.assertIn(self.DAY, [d['day'] for d in res['days']])

@@ -29,6 +29,32 @@ CREATE TABLE IF NOT EXISTS fetch_log (
   detail  TEXT
 );
 CREATE INDEX IF NOT EXISTS fetch_log_job ON fetch_log (job, at);
+-- Archivio delle previsioni per la verifica (server/verify.py): una riga per modello, run
+-- e ora prevista (solo ore future rispetto al download). issued_at = quando la previsione
+-- era disponibile (download del server), run_init = inizio del run (s).
+CREATE TABLE IF NOT EXISTS forecast_archive (
+  model      TEXT NOT NULL,        -- 'i2i' | 'eu'
+  run_init   INTEGER NOT NULL,
+  issued_at  INTEGER NOT NULL,     -- ms
+  target     TEXT NOT NULL,        -- ora locale 'YYYY-MM-DDTHH:00' (pioggia dell'ora precedente)
+  precip     REAL,
+  temp       REAL,
+  code       INTEGER,
+  PRIMARY KEY (model, run_init, target)
+);
+CREATE INDEX IF NOT EXISTS forecast_archive_target ON forecast_archive (model, target, issued_at);
+-- Archivio degli ensemble: per ogni download, ora e gruppo la maschera di bit degli scenari
+-- con almeno 0,2 mm in quell'ora (bit i = scenario i) e quanti scenari hanno il dato: così
+-- si ricalcola la probabilità di qualunque intervallo (OR delle maschere).
+CREATE TABLE IF NOT EXISTS ensemble_archive (
+  issued_at  INTEGER NOT NULL,     -- ms
+  target     TEXT NOT NULL,
+  grp        TEXT NOT NULL,        -- 'ICON-EU-EPS' | 'ICON-D2-EPS'
+  mask       INTEGER NOT NULL,
+  n          INTEGER NOT NULL,
+  PRIMARY KEY (issued_at, target, grp)
+);
+CREATE INDEX IF NOT EXISTS ensemble_archive_target ON ensemble_archive (target, issued_at);
 """
 
 
@@ -88,9 +114,12 @@ def station_since(conn, since_ms):
 
 
 def prune(conn):
-    """Toglie le letture troppo vecchie e il registro oltre i 30 giorni."""
+    """Toglie letture e archivi oltre STATION_KEEP_DAYS e il registro oltre i 30 giorni."""
     conn.execute('DELETE FROM station_readings WHERE time < ?', (now_ms() - config.STATION_KEEP_DAYS * 86400000,))
     conn.execute('DELETE FROM fetch_log WHERE at < ?', (now_ms() - 30 * 86400000,))
+    old = now_ms() - config.STATION_KEEP_DAYS * 86400000  # stesso storico delle letture
+    conn.execute('DELETE FROM forecast_archive WHERE issued_at < ?', (old,))
+    conn.execute('DELETE FROM ensemble_archive WHERE issued_at < ?', (old,))
     conn.commit()
 
 
