@@ -1309,6 +1309,15 @@ function popCell(i) {
   return `<td class="first num prob" style="${tint}" title="${esc(tip)}" data-tip="${esc(tip)}">${val}</td>`;
 }
 
+// Porta una scheda in cima allo schermo, sotto la barra in alto (fissa: con scrollIntoView
+// il titolo finirebbe nascosto dietro di essa). L'altezza della barra cambia con il telefono
+// (area sicura in alto), quindi si misura.
+function scrollToCard(el) {
+  const bar = document.querySelector('.topbar')?.getBoundingClientRect().height || 0;
+  const top = el.getBoundingClientRect().top + window.scrollY - bar - 12;
+  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+}
+
 // Sezione "Radar" collassabile (chiusa di default, stato ricordato): le immagini si
 // chiedono al server solo quando è aperta.
 function syncRadarCollapse() {
@@ -1473,7 +1482,7 @@ function bindControls() {
   $('#now').addEventListener('click', (e) => {
     if (!e.target.closest('[data-open-radar]')) return;
     if (!state.settings.radarOpen) setRadarOpen(true);
-    $('#radar-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollToCard($('#radar-card'));
   });
 
   $('#hourly-toggle').addEventListener('click', () => {
