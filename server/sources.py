@@ -28,11 +28,22 @@ MODELS = [
     {'key': 'i2i', 'id': 'italia_meteo_arpae_icon_2i', 'meta': 'italia_meteo_arpae_icon_2i'},
     {'key': 'eu', 'id': 'icon_eu', 'meta': 'dwd_icon_eu'},
 ]
-# Ensemble per la probabilità di pioggia: ICON-EU-EPS (40 scenari, ~5 giorni) e
-# ICON-D2-EPS (20 scenari a 2,2 km, ~2 giorni).
+# Modelli "di supporto": non mostrati come colonne, votano nel verdetto dei tragitti. Ad alta
+# risoluzione e aggiornati ogni 3 ore (ICON-2I ogni 12), coprono le prime ~48 ore. Si scarica
+# solo la pioggia (al frontend) più temperatura e codice per l'archivio della verifica.
+SUPPORT_MODELS = [
+    {'key': 'd2', 'id': 'icon_d2', 'meta': 'dwd_icon_d2'},
+    {'key': 'arome', 'id': 'meteofrance_arome_france_hd', 'meta': 'meteofrance_arome_france_hd'},
+]
+SUPPORT_VARS = ['precipitation', 'temperature_2m', 'weather_code']
+ALL_MODELS = MODELS + SUPPORT_MODELS
+# Ensemble per la probabilità di pioggia: ICON-EU-EPS (40 scenari, ~5 giorni, ogni 3 ore oltre
+# le ~48 ore), ICON-D2-EPS (20 scenari a 2,2 km, ~2 giorni) ed ECMWF ENS (51 scenari, 6 giorni,
+# dati ogni 3 ore). `suffix`: suffisso delle chiavi nella risposta, se diverso dall'id.
 ENSEMBLE_MODELS = [
     {'id': 'icon_eu_eps', 'name': 'ICON-EU-EPS'},
     {'id': 'icon_d2_eps', 'name': 'ICON-D2-EPS'},
+    {'id': 'ecmwf_ifs025', 'suffix': 'ecmwf_ifs025_ensemble', 'name': 'ECMWF ENS'},
 ]
 HOURLY_VARS = [
     'temperature_2m', 'apparent_temperature', 'relative_humidity_2m', 'precipitation',
@@ -92,7 +103,7 @@ def _coords():
 def fetch_runs():
     """{chiave modello: {init, available, interval} | None} (secondi Unix)."""
     runs = {}
-    for m in MODELS:
+    for m in ALL_MODELS:
         try:
             meta = get_json(META_URL.format(model=m['meta']))
             runs[m['key']] = {
@@ -108,8 +119,9 @@ def fetch_runs():
 # --- Previsioni deterministiche ---------------------------------------------------
 
 def fetch_forecast():
-    """Previsioni dei due modelli, normalizzate in
-    {timezone, tzAbbr, utcOffset, gridElevation, hourly: {time, models: {i2i: {var: []}, eu},
+    """Previsioni dei due modelli (e dei modelli di supporto, solo SUPPORT_VARS orari),
+    normalizzate in
+    {timezone, tzAbbr, utcOffset, gridElevation, hourly: {time, models: {i2i: {var: []}, eu, d2, arome},
     precipitation_probability}, daily: {time, models, sunrise, sunset}}.
     Comprende il giorno prima (past_days=1): il taglio a "da ieri alle 23" si fa quando i
     dati vengono serviti (api.trim_forecast), così resta giusto anche dopo mezzanotte."""
@@ -117,16 +129,17 @@ def fetch_forecast():
         **_coords(),
         'hourly': ','.join(HOURLY_VARS + COMMON_HOURLY),
         'daily': ','.join(DAILY_VARS + COMMON_DAILY),
-        'models': ','.join(m['id'] for m in MODELS),
+        'models': ','.join(m['id'] for m in ALL_MODELS),
         'forecast_days': 6,
         'past_days': 1,
         'timezone': 'auto',
         'wind_speed_unit': 'kmh',
     })
 
-    def pick(block, names):
+    def pick(block, names, support=()):
         return {'time': block['time'], 'models': {
-            m['key']: {v: block.get(f"{v}_{m['id']}") or [] for v in names} for m in MODELS
+            **{m['key']: {v: block.get(f"{v}_{m['id']}") or [] for v in names} for m in MODELS},
+            **{m['key']: {v: block.get(f"{v}_{m['id']}") or [] for v in SUPPORT_VARS} for m in support},
         }}
 
     def common(block, v):
@@ -136,14 +149,14 @@ def fetch_forecast():
                 return arr
         return []
 
-    hourly = pick(data['hourly'], HOURLY_VARS)
+    hourly = pick(data['hourly'], HOURLY_VARS, SUPPORT_MODELS)
     daily = pick(data['daily'], DAILY_VARS)
     for v in COMMON_HOURLY:
         hourly[v] = common(data['hourly'], v)
     for v in COMMON_DAILY:
         daily[v] = common(data['daily'], v)
 
-    # Taglia la coda oraria in cui nessun modello ha dati.
+    # Taglia la coda oraria in cui nessun modello principale ha dati.
     last = -1
     for m in MODELS:
         t = hourly['models'][m['key']]['temperature_2m']
@@ -152,7 +165,7 @@ def fetch_forecast():
                 last = i
                 break
     if last >= 0:
-        slice_block(hourly, HOURLY_VARS, COMMON_HOURLY, 0, last + 1)
+        slice_block(hourly, COMMON_HOURLY, 0, last + 1)
 
     return {
         'timezone': data.get('timezone'),
@@ -164,14 +177,14 @@ def fetch_forecast():
     }
 
 
-def slice_block(block, names, common, start, end=None):
+def slice_block(block, common, start, end=None):
     """Taglia le serie di un blocco (orario o giornaliero) all'intervallo [start, end)."""
     block['time'] = block['time'][start:end]
     for v in common:
         block[v] = block[v][start:end]
-    for m in MODELS:
-        for v in names:
-            block['models'][m['key']][v] = block['models'][m['key']][v][start:end]
+    for series in block['models'].values():
+        for v in series:
+            series[v] = series[v][start:end]
 
 
 # --- Ensemble ------------------------------------------------------------------------
@@ -191,7 +204,7 @@ def fetch_ensemble():
     h = data['hourly']
     groups = []
     for m in ENSEMBLE_MODELS:
-        key = re.compile(rf"^precipitation(_member\d+)?_{m['id']}$")
+        key = re.compile(rf"^precipitation(_member\d+)?_{m.get('suffix', m['id'])}$")
         members = [h[k] for k in h if key.match(k)]
         if any(v is not None for s in members for v in s):
             groups.append({'model': m['name'], 'members': members})

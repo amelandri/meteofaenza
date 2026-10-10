@@ -30,6 +30,14 @@ export const MODELS = [
   },
 ];
 
+// Modelli "di supporto" (server/sources.py SUPPORT_MODELS): non mostrati come colonne,
+// votano nel verdetto dei tragitti nelle prime ~48 ore e compaiono nel suo dettaglio. Dal
+// server arriva solo la pioggia oraria (hourly.models.<key>.precipitation).
+export const SUPPORT_MODELS = [
+  { key: 'd2', name: 'ICON-D2', short: 'D2', provider: 'DWD', resolution: '2,2 km' },
+  { key: 'arome', name: 'AROME', short: 'AR', provider: 'Météo-France', resolution: '1,3 km' },
+];
+
 export function inModelDomain(model, lat, lon) {
   const [la0, lo0, la1, lo1] = model.bbox;
   return lat >= la0 && lat <= la1 && lon >= lo0 && lon <= lo1;

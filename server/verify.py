@@ -42,12 +42,14 @@ def archive_forecast(conn, fc, runs, issued_at):
     now_hour = _current_hour(fc.get('utcOffset'), issued_at)
     times = fc['hourly']['time']
     added = 0
-    for m in sources.MODELS:
+    for m in sources.ALL_MODELS:
         key = m['key']
         run_init = (runs.get(key) or {}).get('init') or issued_at // 1000
         if conn.execute('SELECT 1 FROM forecast_archive WHERE model = ? AND run_init = ? LIMIT 1', (key, run_init)).fetchone():
             continue
-        h = fc['hourly']['models'][key]
+        h = fc['hourly']['models'].get(key)
+        if not h or not h.get('temperature_2m'):
+            continue
         rows = [
             (key, run_init, issued_at, t, h['precipitation'][i], h['temperature_2m'][i], h['weather_code'][i])
             for i, t in enumerate(times)
@@ -59,14 +61,36 @@ def archive_forecast(conn, fc, runs, issued_at):
     return added
 
 
-def ensemble_masks(members, i):
-    """(maschera degli scenari con almeno WET_MM all'indice i, scenari con il dato)."""
+def coarse_block(members, times, i, utc_offset):
+    """Indice d'inizio del blocco di 3 ore che contiene l'ora i se lì l'ensemble ha dati ogni
+    3 ore (ECMWF ENS sempre, ICON-EU-EPS oltre le ~48 ore), altrimenti None. Open-Meteo divide
+    la pioggia delle 3 ore in parti uguali: tutti gli scenari hanno lo stesso valore nelle tre
+    ore. I blocchi finiscono alle ore UTC multiple di 3 (timestamp UTC 01, 02, 03 = 00–03).
+    Come blockStart() in js/app.js."""
+    utc_h = (int(times[i][11:13]) - (utc_offset or 0) // 3600) % 24
+    start = i - (utc_h - 1) % 3
+    if start < 0 or start + 2 >= len(times):
+        return None
+    for s in members:
+        a = s[start:start + 3]
+        if len(a) < 3 or a[0] is None or a[0] != a[1] or a[1] != a[2]:
+            return None
+    return start
+
+
+def ensemble_masks(members, i, times=None, utc_offset=0):
+    """(maschera degli scenari con almeno WET_MM all'indice i, scenari con il dato). Con dati
+    ogni 3 ore (`times` dato) conta il totale del blocco: con la pioggia divisa in tre parti
+    uguali servirebbero 0,6 mm per superare la soglia in un'ora."""
+    start = coarse_block(members, times, i, utc_offset) if times else None
     mask = n = 0
     for b, s in enumerate(members):
         v = s[i] if i < len(s) else None
         if v is None:
             continue
         n += 1
+        if start is not None:
+            v = sum(s[start:start + 3])
         if v >= WET_MM - 1e-9:
             mask |= 1 << b
     return mask, n
@@ -79,7 +103,7 @@ def archive_ensemble(conn, ens, utc_offset, issued_at):
         if t <= now_hour:
             continue
         for g in ens['groups']:
-            mask, n = ensemble_masks(g['members'], i)
+            mask, n = ensemble_masks(g['members'], i, ens['time'], utc_offset)
             if n:
                 rows.append((issued_at, t, g['model'], mask, n))
     conn.executemany('INSERT OR IGNORE INTO ensemble_archive VALUES (?, ?, ?, ?, ?)', rows)
@@ -236,7 +260,7 @@ def forecast_day(conn, day, lead):
     cutoff = _cutoff_ms(day, lead)
     targets = _day_targets(day)
     out = {}
-    for m in sources.MODELS:
+    for m in sources.ALL_MODELS:
         key = m['key']
         row = conn.execute(
             'SELECT run_init, issued_at FROM forecast_archive WHERE model = ? AND target = ? AND issued_at < ? '

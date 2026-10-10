@@ -30,11 +30,11 @@ Il server controlla ogni 15 minuti se è uscito un nuovo run dei modelli e solo 
 
 ### Come leggere i tragitti in bici
 
-Per ogni intervallo l'app controlla se ciascun modello prevede almeno 0,2 mm di pioggia, e qual è la probabilità: la quota di scenari con almeno 0,2 mm nei due ensemble del DWD, ICON-EU-EPS (40 scenari, circa 5 giorni) e ICON-D2-EPS (20 scenari a 2,2 km, circa 2 giorni). Dove ci sono entrambi la probabilità è la media delle due.
+Per ogni intervallo l'app controlla se ciascun modello prevede almeno 0,2 mm di pioggia, e qual è la probabilità. I modelli sono i due mostrati più, nelle prime ~48 ore, due **modelli di supporto** ad alta risoluzione aggiornati ogni 3 ore: ICON-D2 (DWD, 2,2 km) e AROME (Météo-France, 1,3 km). Non sono mostrati come colonne, ma compaiono nel dettaglio del tragitto e nella pagina Verifica. La probabilità è la quota di scenari con almeno 0,2 mm, come media di tre ensemble: ICON-EU-EPS (40 scenari, circa 5 giorni), ICON-D2-EPS (20 scenari a 2,2 km, circa 2 giorni) ed ECMWF ENS (51 scenari, 6 giorni, sistema indipendente dal DWD). Dove un ensemble ha dati ogni 3 ore, uno scenario conta come bagnato se ha almeno 0,2 mm nelle 3 ore.
 
 | Verdetto | Quando |
 |---|---|
-| ☂ Pioggia | entrambi i modelli vedono pioggia e probabilità ≥ 30%, oppure uno solo e ≥ 60%, oppure probabilità ≥ 80%; oppure Sta piovendo adesso secondo la centralina e il tragitto è in corso o inizia entro 30 minuti |
+| ☂ Pioggia | la maggioranza dei modelli vede pioggia (entrambi su due, almeno 3 su 4) e probabilità ≥ 30%, oppure almeno un modello e ≥ 60%, oppure probabilità ≥ 80%; oppure Sta piovendo adesso secondo la centralina e il tragitto è in corso o inizia entro 30 minuti |
 | ☀ Asciutto | nessun modello vede pioggia e probabilità < 20% |
 | ☁ Rischio | nessun modello vede pioggia, ma probabilità ≥ 20% |
 | ☁💧 Incerto | tutti gli altri casi |
@@ -51,12 +51,12 @@ fonti esterne ──(cron)──▶ server/jobs.py ──▶ SQLite ◀── se
 | Dato | Fonte | Aggiornamento sul server |
 |---|---|---|
 | Centralina | meteofaenza.it | ogni 10 minuti (20 s dopo lo scoccare) |
-| Previsioni ICON-2I / ICON-EU | Open-Meteo | controllo dei metadati ogni 15 minuti; download solo se c'è un nuovo run (ICON-2I ogni 12 h, ICON-EU ogni 3 h) o se hanno più di 6 ore |
-| Ensemble ICON-EU-EPS / ICON-D2-EPS | Open-Meteo | ogni 3 ore (i loro metadati non sono affidabili) |
+| Previsioni ICON-2I / ICON-EU (+ ICON-D2 / AROME di supporto) | Open-Meteo | controllo dei metadati ogni 15 minuti; download (tutti i modelli in una richiesta) solo se c'è un nuovo run (ICON-2I ogni 12 h, gli altri ogni 3 h) o se hanno più di 6 ore |
+| Ensemble ICON-EU-EPS / ICON-D2-EPS / ECMWF ENS | Open-Meteo | ogni 3 ore (i loro metadati non sono affidabili) |
 | Metadati dei run | Open-Meteo | ogni 15 minuti (pochi byte) |
 | Medie del periodo 1991–2020 | archivio Open-Meteo (ERA5-Land) | controllo giornaliero, download solo se mancano o hanno più di un anno |
 
-In una giornata il server fa così circa 10 download di previsioni, 8 di ensemble e 144 letture della centralina, qualunque sia il numero di utenti. Prima ogni browser aperto scaricava previsioni ed ensemble ogni 30 minuti.
+In una giornata il server fa così circa 20 download di previsioni, 8 di ensemble e 144 letture della centralina, qualunque sia il numero di utenti. Prima ogni browser aperto scaricava previsioni ed ensemble ogni 30 minuti.
 
 API (tutte in sola lettura, con `ETag`: il browser riscarica solo se i dati sono cambiati):
 
@@ -126,7 +126,7 @@ Tema, modelli mostrati e intervalli monitorati si scelgono dalla pagina Impostaz
 |---|---|
 | Località (nome, coordinate, quota) | `LOCATION` in `js/app.js` |
 | Intervalli monitorati predefiniti | `DEFAULT_WATCH` in `js/storage.js` |
-| Soglie del verdetto dei tragitti | `BIKE_WET_MM`, `BIKE_POP_BOTH`, `BIKE_POP_ONE`, `BIKE_POP_ANY`, `BIKE_POP_DRY` in `js/app.js` |
+| Soglie del verdetto dei tragitti | `BIKE_WET_MM`, `BIKE_POP_MOST`, `BIKE_POP_ONE`, `BIKE_POP_ANY`, `BIKE_POP_DRY` in `js/app.js` |
 | Pioggia in corso dalla centralina | `RAIN_NOW_*` in `js/app.js` |
 | Correzione della temperatura con la centralina | `TEMP_FIX_*` in `js/app.js` |
 | Soglie della concordanza dei modelli | `AGREE` in `js/app.js` |
@@ -175,7 +175,7 @@ deploy/                nginx, systemd, crontab
 
 - Previsioni, ensemble e metadati dei modelli: [Open-Meteo](https://open-meteo.com/) (licenza CC BY 4.0).
 - Medie del periodo 1991–2020: reanalisi ERA5-Land (Copernicus Climate Change Service), dall'archivio storico di Open-Meteo.
-- ICON-2I © [ItaliaMeteo-ARPAE](https://www.arpae.it/); ICON-EU, ICON-EU-EPS e ICON-D2-EPS © [Deutscher Wetterdienst](https://www.dwd.de/).
+- ICON-2I © [ItaliaMeteo-ARPAE](https://www.arpae.it/); ICON-EU, ICON-D2, ICON-EU-EPS e ICON-D2-EPS © [Deutscher Wetterdienst](https://www.dwd.de/); AROME © [Météo-France](https://meteofrance.com/); ECMWF ENS © [ECMWF](https://www.ecmwf.int/) (CC BY 4.0).
 - Misure: Osservatorio Meteorologico "E. Torricelli", [meteofaenza.it](https://www.meteofaenza.it/).
 
 Nota tecnica sulla centralina: il suo file dati è un piccolo file JavaScript con le variabili delle misure. Lo legge il server, che ne estrae i valori senza eseguirlo; il browser non lo carica più.

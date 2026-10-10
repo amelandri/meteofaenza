@@ -1,4 +1,4 @@
-import { MODELS, fetchForecast, inModelDomain, fetchNormals, dayOfYear, NORMALS } from './api.js';
+import { MODELS, SUPPORT_MODELS, fetchForecast, inModelDomain, fetchNormals, dayOfYear, NORMALS } from './api.js';
 import { fetchStation, STATION, STATION_STALE_MS } from './station.js';
 import * as store from './storage.js';
 import { renderChart, tipValue } from './chart.js';
@@ -752,9 +752,10 @@ const DROP = '<svg class="drop" viewBox="0 0 16 16" width="13" height="13" aria-
 // intervalli) scelti nella pagina Impostazioni (settings.html, salvati in settings.watch).
 let BIKE_COMMUTES = [store.getWatch()];
 const BIKE_WET_MM = 0.2; // mm nel tragitto oltre cui un modello "vede" pioggia
-// Soglie del verdetto, che combina i due modelli con la probabilità dell'ensemble:
-const BIKE_POP_BOTH = 30; // Pioggia se entrambi i modelli vedono pioggia e prob. ≥ 30%…
-const BIKE_POP_ONE = 60; // …oppure se la vede un solo modello e prob. ≥ 60%…
+// Soglie del verdetto, che combina i modelli (quelli mostrati più i modelli di supporto
+// ICON-D2 e AROME, dove arrivano) con la probabilità dell'ensemble:
+const BIKE_POP_MOST = 30; // Pioggia se la maggioranza dei modelli vede pioggia e prob. ≥ 30%…
+const BIKE_POP_ONE = 60; // …oppure se la vede almeno un modello e prob. ≥ 60%…
 const BIKE_POP_ANY = 80; // …oppure, comunque, con prob. ≥ 80%
 const BIKE_POP_DRY = 20; // Asciutto se nessun modello vede pioggia e prob. < 20%
 
@@ -795,6 +796,9 @@ function windowHours(day, w) {
 // parlano della stessa pioggia. (Con 0,1 mm contavano anche poche gocce.)
 const ENSEMBLE_WET_MM = BIKE_WET_MM;
 
+// Elenco in italiano: "A", "A e B", "A, B e C".
+const listIt = (a) => (a.length > 1 ? `${a.slice(0, -1).join(', ')} e ${a[a.length - 1]}` : a.join(''));
+
 // Descrizione a parole dei mm nel tragitto (valore tipico degli scenari con pioggia).
 function rainWords(mm) {
   if (mm < 0.5) return 'qualche goccia';
@@ -803,14 +807,23 @@ function rainWords(mm) {
   return 'pioggia forte';
 }
 
-// Vero se nelle ore del tragitto l'ensemble ha dati ogni 3 ore (oltre ~2 giorni): i valori
-// orari sono allora uguali a gruppi di tre e il momento esatto della pioggia non è noto.
-function ensembleCoarse(members, idx) {
-  return idx.some((i) => {
-    const rainy = members.filter((s) => (s[i] ?? 0) > 0);
-    if (rainy.length < 3) return false; // senza pioggia non si può dire (e non serve)
-    return rainy.every((s) => s[i] === s[i - 1] || s[i] === s[i + 1]);
-  });
+// Dati ogni 3 ore (ECMWF ENS sempre, ICON-EU-EPS oltre ~2 giorni): Open-Meteo divide la
+// pioggia delle 3 ore in parti uguali, quindi tutti gli scenari hanno lo stesso valore nelle
+// tre ore e il momento esatto della pioggia non è noto. blockStart() restituisce l'indice
+// d'inizio del blocco che contiene l'ora i (blocchi che finiscono alle ore UTC multiple di 3),
+// o null se lì i dati sono orari. Come coarse_block() di server/verify.py.
+const blockCache = new WeakMap(); // serie degli scenari → Map(indice → inizio | null)
+function blockStart(members, i) {
+  let cache = blockCache.get(members);
+  if (!cache) blockCache.set(members, cache = new Map());
+  if (cache.has(i)) return cache.get(i);
+  const { time } = state.data.ensemble;
+  const utcH = (((Number(time[i].slice(11, 13)) - Math.floor((state.data.utcOffset || 0) / 3600)) % 24) + 24) % 24;
+  const start = i - ((((utcH - 1) % 3) + 3) % 3);
+  const coarse = start >= 0 && start + 2 < time.length
+    && members.every((s) => s[start] != null && s[start] === s[start + 1] && s[start + 1] === s[start + 2]);
+  cache.set(i, coarse ? start : null);
+  return coarse ? start : null;
 }
 
 // Indice timestamp → posizione nelle serie dell'ensemble, costruito una volta per ensemble
@@ -822,10 +835,12 @@ function ensembleStamps(ens) {
   return map;
 }
 
-// Con più ensemble (ICON-EU-EPS e, nei primi ~2 giorni, ICON-D2-EPS) la probabilità è la
-// media delle quote di ciascuno: ogni ensemble pesa uguale, altrimenti i 40 scenari di
-// ICON-EU-EPS prevarrebbero sui 20 di ICON-D2-EPS. Un ensemble conta solo se copre l'intervallo
-// con almeno metà dei suoi scenari.
+// Con più ensemble (ICON-EU-EPS, ECMWF ENS e, nei primi ~2 giorni, ICON-D2-EPS) la
+// probabilità è la media delle quote di ciascuno: ogni ensemble pesa uguale, altrimenti i 51
+// scenari di ECMWF ENS prevarrebbero sui 20 di ICON-D2-EPS. Un ensemble conta solo se copre
+// l'intervallo con almeno metà dei suoi scenari. Dove i dati sono ogni 3 ore uno scenario è
+// bagnato se ha almeno ENSEMBLE_WET_MM nel blocco di 3 ore che tocca l'intervallo (diviso in
+// tre parti uguali, nell'ora singola servirebbero 0,6 mm).
 function windowRainChance(hrs) {
   const ens = state.data.ensemble;
   if (ens?.groups?.length) {
@@ -834,18 +849,22 @@ function windowRainChance(hrs) {
     if (idx.every((i) => i >= 0)) {
       const parts = []; // { model, wet, total } per ensemble
       const wetSums = []; // mm degli scenari bagnati di tutti gli ensemble
-      let coarse = false;
+      const coarse = []; // ensemble con dati ogni 3 ore (e pioggia) nell'intervallo
       for (const g of ens.groups) {
-        // mm di ogni ora nell'intervallo (ore parziali pesate), per ogni scenario che lo copre
-        const hours = g.members
-          .map((serie) => (idx.some((i) => serie[i] == null) ? null : idx.map((i, k) => serie[i] * hrs[k].weight)))
-          .filter(Boolean);
-        if (!hours.length || hours.length < g.members.length / 2) continue;
-        // bagnato: almeno un'ora con ENSEMBLE_WET_MM; per la quantità si usa il totale
-        const wet = hours.filter((mm) => Math.max(...mm) >= ENSEMBLE_WET_MM - 1e-9).map((mm) => mm.reduce((a, b) => a + b, 0));
-        parts.push({ model: g.model, wet: wet.length, total: hours.length });
+        const covering = g.members.filter((serie) => idx.every((i) => serie[i] != null));
+        if (!covering.length || covering.length < g.members.length / 2) continue;
+        const starts = idx.map((i) => blockStart(g.members, i)); // null = dato orario
+        // bagnato: almeno un'ora (o un blocco di 3 ore) con ENSEMBLE_WET_MM; per la quantità
+        // si usa il totale dell'intervallo (ore parziali pesate)
+        const isWet = (serie) => idx.some((i, k) => {
+          const st = starts[k];
+          const mm = st == null ? serie[i] * hrs[k].weight : serie[st] + serie[st + 1] + serie[st + 2];
+          return mm >= ENSEMBLE_WET_MM - 1e-9;
+        });
+        const wet = covering.filter(isWet).map((serie) => idx.reduce((sum, i, k) => sum + serie[i] * hrs[k].weight, 0));
+        parts.push({ model: g.model, wet: wet.length, total: covering.length });
         wetSums.push(...wet);
-        if (ensembleCoarse(g.members, idx)) coarse = true;
+        if (starts.some((st) => st != null && g.members.some((serie) => serie[st] > 0))) coarse.push(g.model);
       }
       if (parts.length) {
         wetSums.sort((a, b) => a - b);
@@ -871,12 +890,12 @@ function chanceText(x, where) {
   if (x.pop == null) return 'Probabilità n.d.';
   if (!x.popExact) return `Probabilità ~${x.pop}% (stima Open-Meteo: ensemble non disponibile)`;
   const scen = x.parts.map((p) => `${p.model} ${p.wet} su ${p.total}`).join(', ');
-  let txt = `Probabilità di pioggia ${where} ${x.pop}% (scenari con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm in un'ora: ${scen}${x.parts.length > 1 ? '; media dei due ensemble' : ''})`;
+  let txt = `Probabilità di pioggia ${where} ${x.pop}% (scenari con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm in un'ora: ${scen}${x.parts.length > 1 ? `; media dei ${x.parts.length} ensemble` : ''})`;
   if (x.popMembers) {
     const amount = x.popMembers === 1 ? `${fmt(x.wetMax, 1)} mm` : `tipicamente ${fmt(x.wetTypical, 1)} mm, al massimo ${fmt(x.wetMax, 1)} mm`;
     txt += `\n${x.popMembers === 1 ? "Nell'unico scenario" : 'Negli scenari'} con pioggia: ${amount} (${rainWords(x.wetTypical)})`;
   }
-  if (x.coarse) txt += "\nOrario approssimato: a questa distanza l'ensemble ha dati ogni 3 ore";
+  if (x.coarse.length) txt += `\nOrario approssimato: ${listIt(x.coarse)} ${x.coarse.length > 1 ? 'hanno' : 'ha'} qui dati ogni 3 ore (conta la pioggia delle 3 ore)`;
   // Il server riscarica l'ensemble ogni 3 ore: oltre 6 vuol dire che gli ultimi
   // aggiornamenti non sono riusciti (oltre 12 non lo serve più).
   const ens = state.data.ensemble;
@@ -887,22 +906,24 @@ function chanceText(x, where) {
 // Verdetto per una finestra: combina quanti modelli "vedono pioggia" (≥ BIKE_WET_MM) con
 // la probabilità dell'ensemble. Non si fa una media dei mm tra i modelli (2 e 0 mm
 // darebbero "1 mm" nascondendo il disaccordo).
-//   Pioggia  = entrambi + prob ≥ 30% · uno solo + prob ≥ 60% · qualunque + prob ≥ 80%
+//   Pioggia  = maggioranza (più di metà) + prob ≥ 30% · almeno uno + prob ≥ 60% · qualunque + prob ≥ 80%
 //   Asciutto = nessuno + prob < 20%
 //   Rischio  = nessun modello, ma prob ≥ 20%  ·  Incerto = gli altri casi
+// Con due modelli la maggioranza è "entrambi"; con quattro (2I, EU, D2, AROME) almeno tre.
 // Senza probabilità si giudica solo sui modelli (tutti → Pioggia, alcuni → Incerto).
 function bikeVerdict(wet, total, pop, single = "l'unico modello disponibile") {
-  const all = wet === total, some = wet > 0;
-  if (pop == null) {
-    if (all) return { status: 'wet', why: 'tutti i modelli vedono pioggia (probabilità non disponibile)' };
-    if (some) return { status: 'mixed', why: 'un solo modello vede pioggia (probabilità non disponibile)' };
-    return { status: 'dry', why: 'nessun modello vede pioggia (probabilità non disponibile)' };
-  }
-  const p = `probabilità ${pop}%`;
+  const all = wet === total, some = wet > 0, most = total > 1 && wet > total / 2;
   let models;
   if (total === 1) models = some ? `${single} vede pioggia` : `${single} non vede pioggia`;
-  else models = all ? 'entrambi i modelli vedono pioggia' : some ? 'un solo modello vede pioggia' : 'nessun modello vede pioggia';
-  if (all && total > 1 && pop >= BIKE_POP_BOTH) return { status: 'wet', why: `${models} e ${p} (≥ ${BIKE_POP_BOTH}%)` };
+  else if (total === 2) models = all ? 'entrambi i modelli vedono pioggia' : some ? 'un solo modello vede pioggia' : 'nessun modello vede pioggia';
+  else models = all ? `tutti e ${total} i modelli vedono pioggia` : some ? `${wet} modell${wet === 1 ? 'o' : 'i'} su ${total} ved${wet === 1 ? 'e' : 'ono'} pioggia` : `nessuno dei ${total} modelli vede pioggia`;
+  if (pop == null) {
+    const na = '(probabilità non disponibile)';
+    if (all || most) return { status: 'wet', why: `${models} ${na}` };
+    return { status: some ? 'mixed' : 'dry', why: `${models} ${na}` };
+  }
+  const p = `probabilità ${pop}%`;
+  if (most && pop >= BIKE_POP_MOST) return { status: 'wet', why: `${models} e ${p} (≥ ${BIKE_POP_MOST}%)` };
   if (some && pop >= BIKE_POP_ONE) return { status: 'wet', why: `${models} e ${p} (≥ ${BIKE_POP_ONE}%)` };
   if (pop >= BIKE_POP_ANY) return { status: 'wet', why: `${p} (≥ ${BIKE_POP_ANY}%), anche se ${models}` };
   if (!some && pop < BIKE_POP_DRY) return { status: 'dry', why: `${models} e ${p} (< ${BIKE_POP_DRY}%)` };
@@ -914,23 +935,29 @@ function bikeWindow(day, w, hourIdx) {
   const { hourly } = state.data;
   const hrs = windowHours(day, w).map((x) => ({ ...x, i: hourIdx.get(x.stamp) }));
   const shown = shownModels();
-  const models = shown.map((m) => {
-    const p = hourly.models[m.key].precipitation;
-    if (hrs.some((x) => x.i == null || p[x.i] == null)) return { m, mm: null };
-    return { m, mm: hrs.reduce((sum, x) => sum + p[x.i] * x.weight, 0) };
-  });
-  const avail = models.filter((x) => x.mm != null);
+  const mmOf = (m) => {
+    const p = hourly.models[m.key]?.precipitation;
+    if (!p || hrs.some((x) => x.i == null || p[x.i] == null)) return null;
+    return hrs.reduce((sum, x) => sum + p[x.i] * x.weight, 0);
+  };
+  // I modelli mostrati sempre (anche "n.d." oltre l'orizzonte), quelli di supporto solo dove
+  // coprono il tragitto (prime ~48 ore).
+  const main = shown.map((m) => ({ m, mm: mmOf(m) }));
+  const support = SUPPORT_MODELS.map((m) => ({ m, mm: mmOf(m), support: true })).filter((x) => x.mm != null);
+  const mainAvail = main.filter((x) => x.mm != null);
+  const models = [...main, ...support];
+  const avail = [...mainAvail, ...support];
   const chance = windowRainChance(hrs);
   const { pop } = chance;
   // Nessun modello mostrato copre il tragitto: niente verdetto, resta la probabilità.
-  if (!avail.length) return { w, status: 'na', why: `${shown.map((m) => m.name).join(' e ')} oltre l'orizzonte`, models, avail, ...chance };
+  if (!mainAvail.length) return { w, status: 'na', why: `${shown.map((m) => m.name).join(' e ')} oltre l'orizzonte`, models, avail, mainAvail, ...chance };
 
   const wet = avail.filter((x) => x.mm >= BIKE_WET_MM).length;
-  // Con un solo modello mostrato si nomina quello; con entrambi mostrati ma uno solo
-  // disponibile (fine orizzonte) "l'unico modello disponibile".
+  // Con un solo modello (mostrato e senza supporto) si nomina quello; con entrambi mostrati
+  // ma uno solo disponibile (fine orizzonte) "l'unico modello disponibile".
   const { status, why } = bikeVerdict(wet, avail.length, pop, shown.length === 1 ? shown[0].name : undefined);
   const mms = avail.map((x) => x.mm);
-  return { w, status, why, wet, models, avail, ...chance, mean: mms.reduce((a, b) => a + b, 0) / mms.length, min: Math.min(...mms), max: Math.max(...mms) };
+  return { w, status, why, wet, models, avail, mainAvail, ...chance, mean: mms.reduce((a, b) => a + b, 0) / mms.length, min: Math.min(...mms), max: Math.max(...mms) };
 }
 
 // Icone dello stato (16×16, tratto): sole = asciutto, nuvola = rischio,
@@ -978,12 +1005,13 @@ function renderBike(commute, day, hourIdx, today, nowMin) {
     else if (x.status === 'wet') mm = x.wet === x.avail.length ? `${fmt(x.mean, 1)} mm` : mmRange;
     else if (x.status === 'mixed') mm = mmRange;
     // "solo EU": uno dei modelli mostrati non copre il tragitto (non se se ne mostra uno solo).
-    const partial = x.avail.length === 1 && x.models.length > 1;
-    const only = partial ? `<span class="bike-only">solo ${x.avail[0].m.short}</span>` : '';
+    const shownN = x.models.filter((y) => !y.support).length;
+    const partial = x.mainAvail.length === 1 && shownN > 1;
+    const only = partial ? `<span class="bike-only">solo ${x.mainAvail[0].m.short}</span>` : '';
     const detail = x.models.map((y) => `${y.m.name}: ${y.mm == null ? 'n.d.' : `${fmt(y.mm, 1)} mm`}`).join(' · ');
     const popTxt = chanceText(x, 'nel tragitto');
     // Dettaglio: tooltip su desktop, avviso al tocco su mobile (dove mm e "solo EU" sono nascosti).
-    const tip = `Tragitto ${x.w.from}–${x.w.to}: ${st.label}${mm ? ` (${mm})` : ''}${x.why ? `\nPerché: ${x.why}` : ''}\n${detail}${partial ? ` (solo ${x.avail[0].m.name})` : ''}\n${popTxt}`;
+    const tip = `Tragitto ${x.w.from}–${x.w.to}: ${st.label}${mm ? ` (${mm})` : ''}${x.why ? `\nPerché: ${x.why}` : ''}\n${detail}${partial ? ` (solo ${x.mainAvail[0].m.name})` : ''}\n${popTxt}`;
     return `<button type="button" class="bike-chip st-${x.status}${past}" title="${esc(tip)}" data-tip="${esc(tip)}">
       <span class="bike-time">${range}</span>
       <span class="bike-info">
@@ -1218,7 +1246,7 @@ function renderChartSection() {
     legend = `Tratteggio: previsione corretta con la centralina (alle ${fixes[0].fix.time} misurato − previsto: ${diffs}), correzione dimezzata ogni ${TEMP_FIX_HALF_H} ore. `;
   }
   if (normals.length) legend += `Puntini grigi: massima e minima medie del periodo (${NORMALS.from}–${NORMALS.to}, ${NORMALS.name}). `;
-  if (cfg.pop) legend = `Barre: pioggia in mm (${shown.map((m) => m.name).join(', ')}) · area azzurra: probabilità di pioggia (scenari ${state.data.ensemble?.groups.map((g) => g.model).join(' e ') || 'ensemble'} con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm, scala a destra). `;
+  if (cfg.pop) legend = `Barre: pioggia in mm (${shown.map((m) => m.name).join(', ')}) · area azzurra: probabilità di pioggia (scenari ${listIt(state.data.ensemble?.groups.map((g) => g.model) || []) || 'ensemble'} con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm, scala a destra). `;
   for (const m of shown) {
     if (!inModelDomain(m, state.loc.lat, state.loc.lon)) note.push(`${m.name} non copre questa località.`);
     else {

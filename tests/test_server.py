@@ -199,6 +199,20 @@ class VerifyTest(unittest.TestCase):
         self.assertEqual(step(11.6, 0.2), 0.2)  # azzeramento con pioggia subito dopo
         self.assertEqual(step(1.4, 1.3), 0.0)  # piccola correzione
 
+    def test_coarse_blocks(self):
+        """Dati ogni 3 ore (ECMWF ENS): la pioggia del blocco è divisa in tre parti uguali; uno
+        scenario è bagnato se il totale del blocco arriva a WET_MM."""
+        # ore locali con l'ora legale (UTC+2): 00, 01, 02 = UTC 22, 23, 00 → un blocco
+        times = [f'2026-10-11T{h:02d}:00' for h in range(6)]
+        coarse = [[0.1, 0.1, 0.1, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
+        self.assertEqual(self.verify.coarse_block(coarse, times, 1, 7200), 0)
+        self.assertEqual(self.verify.coarse_block(coarse, times, 4, 7200), 3)
+        mask, n = self.verify.ensemble_masks(coarse, 1, times, 7200)
+        self.assertEqual((mask, n), (0b01, 2))  # 0,3 mm nelle 3 ore
+        hourly = [[0.1, 0.0, 0.1, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
+        self.assertIsNone(self.verify.coarse_block(hourly, times, 1, 7200))
+        self.assertEqual(self.verify.ensemble_masks(hourly, 0, times, 7200), (0, 2))
+
     def test_masks(self):
         mask, n = self.verify.ensemble_masks([[0.0], [0.3], [None], [0.2]], 0)
         self.assertEqual((mask, n), (0b1010, 3))

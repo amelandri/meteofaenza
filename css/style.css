@@ -15,6 +15,8 @@
   --i2i: #0f8a7e;
   --i2i-soft: #e1f3f0;
   --eu: #d9620f;
+  --d2: #6a62c9; /* modelli di supporto (solo nel dettaglio dei tragitti e nella Verifica) */
+  --arome: #b0478f;
   --eu-soft: #fcebdc;
 
   --good: #1d8a4c;
@@ -64,6 +66,8 @@
   --i2i: #34c7b5;
   --i2i-soft: #11312f;
   --eu: #ff9346;
+  --d2: #9d97ee;
+  --arome: #e07bc0;
   --eu-soft: #3a2414;
 
   --good: #4ccf83;
@@ -199,9 +203,11 @@ button { font: inherit; color: inherit; }
 .meta-line { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; margin: 0 0 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
 .meta-line:empty { display: none; }
 .run { display: inline-flex; align-items: center; gap: 5px; }
-.dot-i2i, .dot-eu { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot-i2i, .dot-eu, .dot-d2, .dot-arome { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .dot-i2i { background: var(--i2i); }
 .dot-eu { background: var(--eu); }
+.dot-d2 { background: var(--d2); }
+.dot-arome { background: var(--arome); }
 
 /* --- Adesso --------------------------------------------------------------------
    Usa la stessa griglia di .day (colonna etichetta + due colonne modello),
@@ -817,7 +823,7 @@ button { font: inherit; color: inherit; }
 .vs-table td small { display: inline; }
 .vs-table td { font-variant-numeric: tabular-nums; }
 .vs-table thead th { white-space: nowrap; }
-.vt thead .sm { display: none; }
+.vt thead .sm, .vs-table thead .sm { display: none; }
 .vs-table i[class^="dot-"], .vt i[class^="dot-"], .vd-list i[class^="dot-"] { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
 .verify-day .card-head { display: flex; align-items: baseline; gap: 10px; }
 .vd-badge { font-size: .72rem; font-weight: 650; color: var(--mid); background: color-mix(in srgb, var(--mid) 13%, transparent); padding: 1px 7px; border-radius: 6px; }
@@ -851,6 +857,11 @@ button { font: inherit; color: inherit; }
   .vt thead .sm { display: inline; }
   .vs-table { font-size: .8rem; }
   .vs-table th, .vs-table td { padding: 6px 4px; }
+  /* con 4 modelli (2I, EU e i modelli di supporto) la tabella deve stare in 390 px */
+  .vs-table thead .lg, .vs-table td small.opt { display: none; }
+  .vs-table thead .sm { display: inline; }
+  .vs-table td small { display: block; }
+  .vs-table tbody th { font-size: .66rem; }
 }
 
 /* --- Pagina Impostazioni (settings.html) ------------------------------------------- */

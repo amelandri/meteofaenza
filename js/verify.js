@@ -3,7 +3,7 @@
 // (api/verify, vedi server/verify.py); qui si calcolano fasce, intervalli monitorati ed esiti.
 // Convenzione oraria come nell'app: l'indice h (0…23) è la pioggia dell'ora (h, h+1].
 
-import { MODELS, getJSON } from './api.js';
+import { MODELS, SUPPORT_MODELS, getJSON } from './api.js';
 import * as store from './storage.js';
 import { fmt, fmtSigned, esc, dayTitle, localDateTime } from './weather.js';
 
@@ -35,6 +35,10 @@ const shownModels = () => {
   const only = MODELS.find((m) => m.key === settings.models);
   return only ? [only] : MODELS;
 };
+// Nella verifica anche i modelli di supporto (ICON-D2, AROME), che votano nel verdetto dei
+// tragitti: qui si vede se aiutano davvero.
+const verifyModels = () => [...shownModels(), ...SUPPORT_MODELS];
+const ALL_MODELS = [...MODELS, ...SUPPORT_MODELS];
 
 // --- Calcoli -------------------------------------------------------------------------
 
@@ -92,7 +96,7 @@ const minOf = (a) => { const v = (a || []).filter((x) => x != null); return v.le
 // modello, affidabilità della probabilità.
 function summarize(days, wet) {
   const full = days.filter((d) => d.observed.complete && !d.today);
-  const models = Object.fromEntries(MODELS.map((m) => [m.key, {
+  const models = Object.fromEntries(ALL_MODELS.map((m) => [m.key, {
     counts: { hit: 0, ok: 0, false: 0, miss: 0 }, rainErr: [], rainFc: 0, rainObs: 0, tmaxErr: [], tminErr: [],
   }]));
   const bins = BINS.map(([lo, hi]) => ({ lo, hi, n: 0, rained: 0 }));
@@ -100,7 +104,7 @@ function summarize(days, wet) {
     const obs = d.observed;
     for (const s of SLOTS) {
       const o = total(obs.rain, slotHours(s));
-      for (const m of MODELS) {
+      for (const m of ALL_MODELS) {
         const res = outcome(total(d.models[m.key]?.rain, slotHours(s)), o, wet);
         if (res) models[m.key].counts[res]++;
       }
@@ -111,7 +115,7 @@ function summarize(days, wet) {
         if (o >= wet - 1e-9) b.rained++;
       }
     }
-    for (const m of MODELS) {
+    for (const m of ALL_MODELS) {
       const f = d.models[m.key];
       if (!f) continue;
       const r = total(f.rain, dayHours());
@@ -141,17 +145,19 @@ function renderSummary(sum) {
     el.innerHTML = `<h2>Riepilogo</h2><p class="info-note">Nessun giorno completo nel periodo: le misure della centralina e le previsioni si raccolgono da quando il server è attivo, quindi la verifica si riempie giorno dopo giorno.</p>`;
     return;
   }
-  const shown = shownModels();
+  // i modelli di supporto solo se hanno almeno una fascia verificata (coprono ~48 ore)
+  const counted = (m) => Object.values(sum.models[m.key].counts).some(Boolean);
+  const shown = verifyModels().filter((m) => MODELS.includes(m) || counted(m));
   const row = (label, f, help = '') => `<tr><th scope="row">${label}${help ? `<small>${help}</small>` : ''}</th>${shown.map((m) => `<td>${f(sum.models[m.key])}</td>`).join('')}</tr>`;
   const pct = (s) => {
     const c = s.counts, n = c.hit + c.ok + c.false + c.miss;
-    return n ? `<b>${Math.round((100 * (c.hit + c.ok)) / n)}%</b> <small>(${c.hit + c.ok} su ${n})</small>` : '—';
+    return n ? `<b>${Math.round((100 * (c.hit + c.ok)) / n)}%</b> <small class="opt">(${c.hit + c.ok} su ${n})</small>` : '—';
   };
   const err = (a, unit, dec) => (a.length ? `${fmt(absMean(a), dec)}${unit} <small>(in media ${fmtSigned(mean(a), dec)}${unit})</small>` : '—');
   el.innerHTML = `
     <h2>Riepilogo <span class="day-date">${sum.full} ${sum.full === 1 ? 'giorno completo' : 'giorni completi'}</span></h2>
     <div class="table-wrap"><table class="info-table vs-table">
-      <thead><tr><th></th>${shown.map((m) => `<th><i class="dot-${m.key}"></i>${m.name}</th>`).join('')}</tr></thead>
+      <thead><tr><th></th>${shown.map((m) => `<th><i class="dot-${m.key}"></i><span class="lg">${m.name}</span><span class="sm">${m.short}</span></th>`).join('')}</tr></thead>
       <tbody>
         ${row('Fasce previste correttamente', pct, 'pioggia sì/no in ogni fascia di 6 ore')}
         ${row('Pioggia prevista e caduta', (s) => s.counts.hit)}
@@ -181,7 +187,8 @@ function cell(fc, obs, wet, judge = true) {
 
 function renderDay(d, wet, todayIso) {
   const obs = d.observed;
-  const shown = shownModels();
+  // i modelli di supporto solo se c'è la loro previsione (coprono ~48 ore)
+  const shown = verifyModels().filter((m) => MODELS.includes(m) || d.models[m.key]);
   const t = dayTitle(d.day, todayIso);
   const yesterday = new Date(Date.parse(`${todayIso}T12:00:00Z`) - 86400000).toISOString().slice(0, 10);
   if (d.day === yesterday) t.title = 'Ieri';

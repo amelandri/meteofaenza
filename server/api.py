@@ -43,10 +43,10 @@ def trim_forecast(fc, ens, today):
     (dopo mezzanotte il grafico parte dall'ora precedente). L'ensemble parte dalla stessa ora."""
     h, d = fc['hourly'], fc['daily']
     first_today = next((i for i, t in enumerate(h['time']) if t >= today), len(h['time']))
-    sources.slice_block(h, sources.HOURLY_VARS, sources.COMMON_HOURLY, max(0, first_today - 1))
+    sources.slice_block(h, sources.COMMON_HOURLY, max(0, first_today - 1))
     first_day = next((i for i, t in enumerate(d['time']) if t >= today), len(d['time']))
     if first_day > 0:
-        sources.slice_block(d, sources.DAILY_VARS, sources.COMMON_DAILY, first_day)
+        sources.slice_block(d, sources.COMMON_DAILY, first_day)
     if ens and h['time']:
         try:
             start = ens['time'].index(h['time'][0])
@@ -78,13 +78,19 @@ def compose_forecast(conn, now_ms):
         ens = {**e['data'], 'fetchedAt': e['fetched_at']}
     runs = (db.get_snapshot(conn, 'runs') or {}).get('data') or {}
     trim_forecast(data, ens, today)
+    # Dei modelli di supporto al frontend serve solo la pioggia (verdetto dei tragitti);
+    # temperatura e codice restano nel database per la verifica.
+    for m in sources.SUPPORT_MODELS:
+        series = data['hourly']['models'].get(m['key'])
+        if series is not None:
+            data['hourly']['models'][m['key']] = {'precipitation': series.get('precipitation', [])}
     out = {
         'schema': config.FORECAST_SCHEMA,
         'fetchedAt': fc['fetched_at'],  # download delle previsioni dalla fonte
         # incompleta: senza ensemble recente o senza metadati di un modello
         'incomplete': ens is None or any(runs.get(m['key']) is None for m in sources.MODELS),
         **data,
-        'runs': {m['key']: runs.get(m['key']) for m in sources.MODELS},
+        'runs': {m['key']: runs.get(m['key']) for m in sources.ALL_MODELS},
         'ensemble': ens,
     }
     body = json.dumps(out, separators=(',', ':')).encode()

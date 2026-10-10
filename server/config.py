@@ -45,4 +45,4 @@ RAIN_LOG_S = 2 * 3600  # letture restituite al frontend per capire se Sta pioven
 
 # Forma dei dati delle previsioni servite: deve coincidere con FORECAST_SCHEMA di
 # js/storage.js (il frontend scarta le cache con schema diverso).
-FORECAST_SCHEMA = 3
+FORECAST_SCHEMA = 4
