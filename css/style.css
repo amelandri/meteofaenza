@@ -853,16 +853,19 @@ button { font: inherit; color: inherit; }
 .radar-outlook .lv-maybe .ro-bar i { opacity: .55; }
 .radar-outlook .lv-wet .ro-w { color: var(--rain); font-weight: 650; }
 .ro-w { color: var(--muted); }
-.radar-img, .radar-map { position: absolute; inset: 0; width: 100%; height: 100%; }
+.radar-img, .radar-map, .radar-sea { position: absolute; inset: 0; width: 100%; height: 100%; }
+.radar-sea polygon { fill: color-mix(in srgb, var(--rain) 9%, var(--surface-2)); }
 .radar-img.fc { opacity: .78; }
 .radar-map { pointer-events: none; }
-.rm-coast polyline { fill: none; stroke: var(--muted); stroke-width: .6; opacity: .75; }
-.rm-rings circle { fill: none; stroke: var(--muted); stroke-width: .35; stroke-dasharray: 1.6 1.6; opacity: .7; }
-.radar-map text { font-family: var(--font); font-size: 4.4px; fill: var(--text); paint-order: stroke; stroke: var(--surface-2); stroke-width: 1.1px; stroke-linejoin: round; }
+.rm-coast polyline { fill: none; stroke: var(--muted); stroke-width: calc(.6px * var(--u, 1)); opacity: .75; }
+/* confini di regione (e di San Marino): tratto-punto, come sulle carte */
+.rm-border polyline { fill: none; stroke: var(--muted); stroke-width: calc(.5px * var(--u, 1)); stroke-dasharray: calc(2.4px * var(--u, 1)) calc(1px * var(--u, 1)) calc(.4px * var(--u, 1)) calc(1px * var(--u, 1)); stroke-linecap: round; opacity: .8; }
+.rm-rings circle { fill: none; stroke: var(--muted); stroke-width: calc(.35px * var(--u, 1)); stroke-dasharray: calc(1.6px * var(--u, 1)); opacity: .7; }
+.radar-map text { font-family: var(--font); font-size: calc(4.4px * var(--u, 1)); fill: var(--text); paint-order: stroke; stroke: var(--surface-2); stroke-width: calc(1.1px * var(--u, 1)); stroke-linejoin: round; }
 .rm-town circle { fill: var(--text); opacity: .75; }
-.rm-home circle { fill: var(--accent); stroke: var(--surface); stroke-width: .8; }
-.rm-home text { font-weight: 700; font-size: 4.8px; }
-.radar-map .rm-scale { font-size: 3.4px; fill: var(--muted); }
+.rm-home circle { fill: var(--accent); stroke: var(--surface); stroke-width: calc(.8px * var(--u, 1)); }
+.rm-home text { font-weight: 700; font-size: calc(4.8px * var(--u, 1)); }
+.radar-map .rm-scale { font-size: calc(3.4px * var(--u, 1)); fill: var(--muted); }
 .radar-badge, .radar-move {
   position: absolute; top: 8px; padding: 3px 9px; border-radius: 999px; font-size: .78rem; font-weight: 650;
   background: color-mix(in srgb, var(--surface) 88%, transparent); color: var(--text); box-shadow: var(--shadow);

@@ -30,7 +30,7 @@ from . import config, db, sources
 
 RAIN_MMH = 0.3  # mm/h oltre cui il radar "vede pioggia" (sotto è soprattutto rumore)
 MOTION_HALF = 100  # km: riquadro (2×100+1 px) per movimento e proiezione
-VIEW_HALF = 80  # km: riquadro dell'immagine mostrata
+VIEW_HALF = 60  # km: riquadro dell'immagine mostrata (il cerchio dei 50 km con un po' di margine)
 NEAR_KM = 50  # raggio entro cui si cerca la pioggia più vicina
 LEADS = list(range(0, 95, 5))  # minuti della stima
 IMAGE_LEADS = (15, 30, 45, 60)  # minuti delle immagini di proiezione
@@ -40,14 +40,23 @@ MAX_SPEED_KMH = 120  # oltre è un errore del calcolo
 GRID = {'lat0': 42.0, 'lon0': 12.5, 'x0': -600000.0, 'y0': 650000.0, 'px': 1000.0}
 
 # Riferimenti dell'immagine: città vicine e costa (Natural Earth 1:10m, dominio pubblico,
-# ritagliata e semplificata), in lat/lon; convertiti in pixel in view_geometry().
+# ritagliata e semplificata), in lat/lon; convertiti in pixel in view_geometry(). Per le città
+# un quarto valore True mette il nome a sinistra del punto (vicino al bordo destro).
 CITIES = [
     ('Faenza', config.LAT, config.LON), ('Bologna', 44.4949, 11.3426), ('Imola', 44.3534, 11.7146),
     ('Lugo', 44.4214, 11.9116), ('Forlì', 44.2227, 12.0407), ('Ravenna', 44.4184, 12.2035),
-    ('Cesena', 44.1396, 12.2431), ('Rimini', 44.0678, 12.5695), ('Ferrara', 44.8381, 11.6198),
-    ('Firenze', 43.7696, 11.2558),
+    ('Cesena', 44.1396, 12.2431), ('Rimini', 44.0678, 12.5695, True), ('Brisighella', 44.2213, 11.7730, True),
+    ('Marradi', 44.0774, 11.6139),
 ]
 COAST = [[[45.3, 12.354], [45.27, 12.337], [45.256, 12.304], [45.223, 12.278], [45.205, 12.302], [45.201, 12.379], [45.167, 12.326], [45.127, 12.317], [45.119, 12.371], [45.072, 12.361], [45.032, 12.383], [45.003, 12.4], [45.007, 12.458], [44.98, 12.531], [44.947, 12.538], [44.906, 12.481], [44.877, 12.412], [44.823, 12.381], [44.828, 12.304], [44.795, 12.285], [44.731, 12.249], [44.649, 12.268], [44.551, 12.296], [44.476, 12.296], [44.384, 12.326], [44.282, 12.363], [44.218, 12.39], [44.149, 12.453], [44.092, 12.522], [44.039, 12.606], [43.983, 12.678], [43.955, 12.72], [43.925, 12.763], [43.876, 12.889], [43.842, 12.988], [43.799, 13.055], [43.757, 13.133], [43.702, 13.236], [43.65, 13.311], [43.62, 13.379], [43.613, 13.4]]]
+
+# Confini regionali (Emilia-Romagna con Toscana e Marche) e di San Marino nel riquadro, dai
+# confini ISTAT 2026 (geojson-italy di openpolis, CC BY), semplificati: un elenco di tratti.
+# Tolta l'exclave toscana di Ca' Raffaello (Badia Tedalda), minuscola e fonte di confusione.
+BORDERS = [[[43.969, 12.751], [43.96, 12.754], [43.922, 12.729], [43.912, 12.727], [43.896, 12.735], [43.88, 12.723], [43.87, 12.734], [43.861, 12.722], [43.853, 12.682], [43.839, 12.678], [43.828, 12.681], [43.825, 12.675], [43.827, 12.644], [43.821, 12.624], [43.834, 12.61], [43.843, 12.619], [43.846, 12.616], [43.846, 12.605], [43.851, 12.601], [43.862, 12.603], [43.865, 12.589], [43.886, 12.589], [43.885, 12.572], [43.869, 12.56], [43.865, 12.541], [43.875, 12.519], [43.881, 12.518], [43.875, 12.502], [43.88, 12.494], [43.886, 12.487], [43.896, 12.487]],
+           [[43.894, 12.462], [43.878, 12.456], [43.871, 12.446], [43.875, 12.432], [43.872, 12.43], [43.873, 12.401], [43.87, 12.404], [43.867, 12.397], [43.847, 12.391], [43.826, 12.399], [43.817, 12.388], [43.813, 12.368], [43.8, 12.35], [43.806, 12.316], [43.795, 12.286], [43.789, 12.283], [43.786, 12.289], [43.765, 12.284], [43.76, 12.258], [43.753, 12.254], [43.751, 12.242], [43.76, 12.229], [43.755, 12.209], [43.745, 12.198], [43.732, 12.195], [43.762, 12.16], [43.752, 12.14], [43.749, 12.124], [43.754, 12.107], [43.741, 12.07], [43.757, 12.053], [43.755, 12.044], [43.765, 12.01], [43.762, 11.987], [43.776, 11.953], [43.79, 11.948], [43.799, 11.913], [43.808, 11.914], [43.813, 11.91], [43.809, 11.887], [43.817, 11.867], [43.816, 11.856], [43.808, 11.842], [43.816, 11.821], [43.848, 11.784], [43.863, 11.732], [43.874, 11.722], [43.877, 11.71], [43.888, 11.709], [43.922, 11.717], [43.935, 11.684], [43.956, 11.691], [43.975, 11.654], [43.991, 11.646], [44.003, 11.65], [44.006, 11.664], [44.018, 11.658], [44.021, 11.682], [44.039, 11.696], [44.056, 11.701], [44.085, 11.733], [44.121, 11.753], [44.126, 11.745], [44.121, 11.72], [44.123, 11.682], [44.101, 11.653], [44.112, 11.639], [44.119, 11.614], [44.112, 11.585], [44.124, 11.588], [44.125, 11.6], [44.137, 11.604], [44.143, 11.617], [44.158, 11.615], [44.161, 11.578], [44.167, 11.564], [44.165, 11.552], [44.159, 11.553], [44.153, 11.545], [44.158, 11.516], [44.176, 11.486], [44.18, 11.49], [44.184, 11.484], [44.186, 11.468], [44.194, 11.455], [44.2, 11.448], [44.212, 11.455], [44.221, 11.451], [44.239, 11.421], [44.217, 11.394], [44.2, 11.381], [44.204, 11.341], [44.196, 11.327], [44.182, 11.323], [44.173, 11.31], [44.172, 11.296], [44.168, 11.298], [44.156, 11.281], [44.159, 11.239], [44.15, 11.214], [44.151, 11.196], [44.143, 11.196], [44.132, 11.215], [44.116, 11.26], [44.104, 11.264], [44.098, 11.247], [44.102, 11.229], [44.099, 11.208], [44.112, 11.155], [44.11, 11.128], [44.09, 11.089], [44.09, 11.049], [44.095, 11.047], [44.097, 11.024], [44.112, 11.002], [44.122, 11.006], [44.125, 11.015], [44.137, 11.014], [44.139, 11.006], [44.136, 10.996], [44.13, 10.994], [44.116, 10.971], [44.102, 10.964]],
+           [[43.903, 12.49], [43.918, 12.492], [43.942, 12.516], [43.959, 12.507], [43.98, 12.51], [43.985, 12.516], [43.991, 12.514], [43.991, 12.507], [43.975, 12.464], [43.959, 12.439], [43.952, 12.414], [43.956, 12.405], [43.944, 12.405], [43.931, 12.415], [43.922, 12.408], [43.909, 12.413], [43.903, 12.408], [43.899, 12.418], [43.906, 12.44], [43.894, 12.457]],
+           [[43.894, 12.463], [43.897, 12.481]]]
 
 
 # --- Geometria -----------------------------------------------------------------------
@@ -103,8 +112,9 @@ def view_geometry():
         return round(col - (col0 - VIEW_HALF), 1), round(row - (row0 - VIEW_HALF), 1)
     return {
         'size': 2 * VIEW_HALF + 1, 'km': VIEW_HALF,
-        'cities': [{'name': n, 'x': px(la, lo)[0], 'y': px(la, lo)[1]} for n, la, lo in CITIES],
+        'cities': [{'name': c[0], 'x': px(c[1], c[2])[0], 'y': px(c[1], c[2])[1], 'left': len(c) > 3 and c[3]} for c in CITIES],
         'coast': [[px(la, lo) for la, lo in line] for line in COAST],
+        'borders': [[px(la, lo) for la, lo in line] for line in BORDERS],
     }
 
 
@@ -279,11 +289,22 @@ def render_png(view):
 def _store_frame(conn, t, grid):
     c = MOTION_HALF
     conn.execute('INSERT OR REPLACE INTO radar_frames (time, fetched_at, grid) VALUES (?, ?, ?)', (t, db.now_ms(), pack(grid)))
-    conn.execute('INSERT OR REPLACE INTO radar_images (name, created_at, png) VALUES (?, ?, ?)',
-                 (f'o{t}', t, render_png(window(grid, c, c, VIEW_HALF))))
+    _store_image(conn, t, grid)
     here = _disc(grid, c, c, 2)
     conn.execute('INSERT OR REPLACE INTO radar_obs (time, mmh) VALUES (?, ?)',
                  (t, round(float(here.mean()), 2) if here.size else None))
+
+
+def _obs_name(t):
+    """Nome dell'immagine misurata: comprende il riquadro, così cambiando VIEW_HALF le immagini
+    già salvate (di un'altra dimensione) non si mescolano con la nuova geometria."""
+    return f'o{t}_{VIEW_HALF}'
+
+
+def _store_image(conn, t, grid):
+    c = MOTION_HALF
+    conn.execute('INSERT OR REPLACE INTO radar_images (name, created_at, png) VALUES (?, ?, ?)',
+                 (_obs_name(t), t, render_png(window(grid, c, c, VIEW_HALF))))
 
 
 def _grid_at(conn, t):
@@ -327,11 +348,18 @@ def run(conn, force=False):
         for lead in IMAGE_LEADS:
             dx, dy = v
             view = window(latest, int(round(c - dy * lead)), int(round(c - dx * lead)), VIEW_HALF)
+            name = f'f{last}_{lead}_{VIEW_HALF}'
             conn.execute('INSERT OR REPLACE INTO radar_images (name, created_at, png) VALUES (?, ?, ?)',
-                         (f'f{last}_{lead}', last, render_png(view)))
-            forecast.append({'t': last + lead * 60000, 'min': lead, 'img': f'api/radar/f{last}_{lead}.png'})
-    frames = [{'t': r['time'], 'img': f"api/radar/o{r['time']}.png"} for r in conn.execute(
-        'SELECT time FROM radar_frames WHERE time >= ? ORDER BY time', (last - 60 * 60000,))]
+                         (name, last, render_png(view)))
+            forecast.append({'t': last + lead * 60000, 'min': lead, 'img': f'api/radar/{name}.png'})
+    # Immagini dell'ultima ora: quelle mancanti (es. dopo un cambio di VIEW_HALF) si ridisegnano
+    # dai ritagli salvati.
+    frames = []
+    for r in conn.execute('SELECT time FROM radar_frames WHERE time >= ? ORDER BY time', (last - 60 * 60000,)).fetchall():
+        t = r['time']
+        if not conn.execute('SELECT 1 FROM radar_images WHERE name = ?', (_obs_name(t),)).fetchone():
+            _store_image(conn, t, _grid_at(conn, t))
+        frames.append({'t': t, 'img': f'api/radar/{_obs_name(t)}.png'})
     summary = {
         'time': last,
         'now': steps[0]['mmh'] if steps and steps[0]['frac'] >= ARRIVE_FRAC else 0.0,

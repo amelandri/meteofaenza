@@ -71,20 +71,35 @@ function frameLabel(f, tz, off) {
   return f.min ? `${t} · stima +${f.min} min` : `${t} · misurato`;
 }
 
+// Costa, cerchi a 25 e 50 km e città sopra l'immagine. Le misure sono in pixel del ritaglio
+// (1 px = 1 km): `u` le rende proporzionali al riquadro (scritte uguali qualunque sia VIEW_HALF).
 function mapSvg(view) {
-  const { size, cities, coast } = view;
+  const { size, cities, coast, borders = [] } = view;
   const c = (size - 1) / 2;
+  const u = size / 161; // riferimento: riquadro di ±80 km, per cui sono state scelte le misure
   const line = (pts) => `<polyline points="${pts.map(([x, y]) => `${x},${y}`).join(' ')}"/>`;
   const rings = [25, 50].map((r) => `<circle cx="${c + 0.5}" cy="${c + 0.5}" r="${r}"/>`).join('');
   const towns = cities.map((t, i) => (i === 0
-    ? `<g class="rm-home"><circle cx="${t.x}" cy="${t.y}" r="2.6"/><text x="${t.x + 4}" y="${t.y + 1.8}">${esc(t.name)}</text></g>`
-    : `<g class="rm-town"><circle cx="${t.x}" cy="${t.y}" r="1.4"/><text x="${t.x + 3}" y="${t.y + 1.6}">${esc(t.name)}</text></g>`)).join('');
-  return `<svg class="radar-map" viewBox="0 0 ${size} ${size}" aria-hidden="true">
+    ? `<g class="rm-home"><circle cx="${t.x}" cy="${t.y}" r="${2.6 * u}"/><text x="${t.x + 4 * u}" y="${t.y + 1.8 * u}">${esc(t.name)}</text></g>`
+    : `<g class="rm-town"><circle cx="${t.x}" cy="${t.y}" r="${1.4 * u}"/><text x="${t.x + (t.left ? -3 : 3) * u}" y="${t.y + 1.6 * u}"${t.left ? ' text-anchor="end"' : ''}>${esc(t.name)}</text></g>`)).join('');
+  const label = (r) => `<text class="rm-scale" x="${c + 0.5 + r * 0.7071 + u}" y="${c + 0.5 - r * 0.7071 - u}">${r} km</text>`;
+  return `<svg class="radar-map" viewBox="0 0 ${size} ${size}" style="--u:${u.toFixed(3)}" aria-hidden="true">
     <g class="rm-coast">${coast.map(line).join('')}</g>
+    <g class="rm-border">${borders.map(line).join('')}</g>
     <g class="rm-rings">${rings}</g>
-    ${towns}
-    <text class="rm-scale" x="${c + 0.5 + 25 * 0.7071 + 1}" y="${c + 0.5 - 25 * 0.7071 - 1}">25 km</text>
+    ${towns}${label(25)}${label(50)}
   </svg>`.replace(/\s*\n\s*/g, '');
+}
+
+// Mare (sotto l'immagine radar, così la pioggia sul mare resta visibile): la costa chiusa
+// verso il bordo destro, dove sta l'Adriatico, riempita con una tinta azzurra leggera.
+function seaSvg(view) {
+  const { size, coast } = view;
+  const polys = coast.map((pts) => {
+    const ring = [...pts, [size + 20, pts[pts.length - 1][1]], [size + 20, pts[0][1]]];
+    return `<polygon points="${ring.map(([x, y]) => `${x},${y}`).join(' ')}"/>`;
+  }).join('');
+  return `<svg class="radar-sea" viewBox="0 0 ${size} ${size}" aria-hidden="true">${polys}</svg>`;
 }
 
 function show(el, k, tz, off) {
@@ -154,6 +169,7 @@ export function renderRadar(el, d, tz, off) {
   el.innerHTML = `
     <div class="radar-layout">
       <div class="radar-view" style="--n:${d.view.size}">
+        ${seaSvg(d.view)}
         <img class="radar-img" alt="Immagine radar della pioggia intorno a Faenza" width="${d.view.size}" height="${d.view.size}">
         ${mapSvg(d.view)}
         <span class="radar-badge"></span>
@@ -170,7 +186,7 @@ export function renderRadar(el, d, tz, off) {
         </div>
         ${outlook(d, tz, off)}
         <div class="radar-legend" aria-label="Intensità in mm/h">${legend}<span class="muted">mm/h</span></div>
-        <p class="radar-note muted">Le immagini dopo le ${localDateTime(player.frames[lastObs].t, tz, off).time} (con la scritta "stima") sono una <strong>stima</strong>: la pioggia di adesso spostata lungo il suo movimento. Non vede i temporali che nascono sul posto. In grigio le zone non coperte dal radar. Immagini: Dipartimento della Protezione Civile (CC BY-SA 4.0).</p>
+        <p class="radar-note muted">Le immagini dopo le ${localDateTime(player.frames[lastObs].t, tz, off).time} (con la scritta "stima") sono una <strong>stima</strong>: la pioggia di adesso spostata lungo il suo movimento. Non vede i temporali che nascono sul posto. In grigio le zone non coperte dal radar; il tratto-punto è il confine di regione. Immagini: Dipartimento della Protezione Civile (CC BY-SA 4.0); confini ISTAT (CC BY).</p>
       </div>
     </div>`;
   show(el, lastObs, tz, off);

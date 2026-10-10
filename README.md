@@ -186,7 +186,7 @@ deploy/                nginx, systemd, crontab
 - ICON-2I © [ItaliaMeteo-ARPAE](https://www.arpae.it/); ICON-EU, ICON-D2, ICON-EU-EPS e ICON-D2-EPS © [Deutscher Wetterdienst](https://www.dwd.de/); AROME © [Météo-France](https://meteofrance.com/); ECMWF ENS © [ECMWF](https://www.ecmwf.int/) (CC BY 4.0).
 - Misure: Osservatorio Meteorologico "E. Torricelli", [meteofaenza.it](https://www.meteofaenza.it/).
 - Livelli dei fiumi: [ARPAE Emilia-Romagna – Allerta Meteo](https://allertameteo.regione.emilia-romagna.it/).
-- Radar: [Dipartimento della Protezione Civile](https://radar.protezionecivile.it/), licenza CC BY-SA 4.0 (con la stessa licenza le immagini radar prodotte dall'app). Costa nell'immagine: Natural Earth (dominio pubblico).
+- Radar: [Dipartimento della Protezione Civile](https://radar.protezionecivile.it/), licenza CC BY-SA 4.0 (con la stessa licenza le immagini radar prodotte dall'app). Costa nell'immagine: Natural Earth (dominio pubblico); confini di regione: ISTAT (CC BY, tramite openpolis/geojson-italy).
 
 Nota tecnica sulla centralina: il suo file dati è un piccolo file JavaScript con le variabili delle misure. Lo legge il server, che ne estrae i valori senza eseguirlo; il browser non lo carica più.
 
