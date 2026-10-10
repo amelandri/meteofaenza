@@ -1044,6 +1044,12 @@ button { font: inherit; color: inherit; }
 }
 .footer p { margin: 2px 0; }
 .footer a { color: inherit; }
+/* Crediti come elenco: fonte (etichetta) e dettaglio, una riga per tipo di dato. */
+.credits { display: grid; gap: 4px; margin: 0; }
+.credits > div { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 8px; }
+.credits dt { font-weight: 650; text-transform: uppercase; letter-spacing: .04em; font-size: .68rem; padding-top: .12em; }
+.credits dd { margin: 0; }
+.footer .privacy { margin-top: 10px; }
 
 .toast {
   cursor: pointer; /* un tap lo chiude */
