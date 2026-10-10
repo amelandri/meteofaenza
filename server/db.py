@@ -67,6 +67,14 @@ CREATE TABLE IF NOT EXISTS radar_images (
   created_at INTEGER NOT NULL,
   png        BLOB NOT NULL
 );
+-- Livelli dei fiumi (idrometri ARPAE), una riga per stazione e istante: storico come la
+-- centralina (servirà a stimare quanto ci mette una piena ad arrivare a Faenza).
+CREATE TABLE IF NOT EXISTS river_levels (
+  station    INTEGER NOT NULL,
+  time       INTEGER NOT NULL,     -- ms
+  value      REAL NOT NULL,        -- metri
+  PRIMARY KEY (station, time)
+);
 -- Per la verifica (storico come la centralina): pioggia del radar su Faenza a ogni immagine
 -- e stima di ogni emissione per i minuti successivi (quota della zona con pioggia, mm/h).
 CREATE TABLE IF NOT EXISTS radar_obs (
@@ -146,6 +154,7 @@ def prune(conn):
     conn.execute('DELETE FROM forecast_archive WHERE issued_at < ?', (old,))
     conn.execute('DELETE FROM ensemble_archive WHERE issued_at < ?', (old,))
     conn.execute('DELETE FROM radar_obs WHERE time < ?', (old,))
+    conn.execute('DELETE FROM river_levels WHERE time < ?', (old,))
     conn.execute('DELETE FROM radar_nowcast WHERE issued < ?', (old,))
     recent = now_ms() - config.RADAR_KEEP_S * 1000
     conn.execute('DELETE FROM radar_frames WHERE time < ?', (recent,))
@@ -161,7 +170,7 @@ def log(conn, job, ok, detail=''):
 def last_logs(conn):
     """Ultimo esito di ogni job e ultimo successo."""
     out = {}
-    for job in ('station', 'forecast', 'ensemble', 'normals', 'radar'):
+    for job in ('station', 'forecast', 'ensemble', 'normals', 'radar', 'rivers'):
         last = conn.execute('SELECT at, ok, detail FROM fetch_log WHERE job = ? ORDER BY at DESC LIMIT 1', (job,)).fetchone()
         good = conn.execute('SELECT at FROM fetch_log WHERE job = ? AND ok = 1 ORDER BY at DESC LIMIT 1', (job,)).fetchone()
         out[job] = {

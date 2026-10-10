@@ -26,7 +26,7 @@ from zoneinfo import ZoneInfo
 
 from urllib.parse import parse_qs, urlsplit
 
-from . import config, db, radar, sources, verify
+from . import config, db, radar, rivers, sources, verify
 
 _cache = {}  # chiave → (corpo, etag): JSON già composto delle previsioni
 _cache_lock = threading.Lock()
@@ -157,7 +157,7 @@ def compose_normals(conn):
 def compose_status(conn):
     return {
         'now': db.now_ms(),
-        'snapshots': {n: db.snapshot_time(conn, n) for n in ('forecast', 'ensemble', 'runs', 'normals', 'radar')},
+        'snapshots': {n: db.snapshot_time(conn, n) for n in ('forecast', 'ensemble', 'runs', 'normals', 'radar', 'rivers')},
         'station': (db.latest_station(conn) or {}).get('time'),
         'jobs': db.last_logs(conn),
     }
@@ -221,7 +221,8 @@ class Handler(SimpleHTTPRequestHandler):
                 if res:
                     return self._json(200, res[0], res[1])
             else:
-                body = {'station': compose_station, 'normals': compose_normals, 'status': compose_status}.get(name)
+                body = {'station': compose_station, 'normals': compose_normals, 'status': compose_status,
+                        'rivers': rivers.compose}.get(name)
                 if body is None:
                     return self._json(404, {'error': 'risorsa sconosciuta'})
                 data = body(conn)

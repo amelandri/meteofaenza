@@ -107,6 +107,7 @@ Entro 5 minuti deve comparire una riga `radar:`, entro 10 una riga `station:`, e
 | `station` | ogni 10 minuti, 20 s dopo lo scoccare | legge la centralina (meteofaenza.it) |
 | `forecast` | minuti 2, 17, 32, 47 | controlla i metadati dei modelli; scarica le previsioni solo se è uscito un nuovo run (ICON-2I ogni 12 h, ICON-EU ogni 3 h) o se hanno più di 6 ore; ensemble ogni 3 ore |
 | `radar` | ogni 5 minuti, 10 s dopo lo scoccare | scarica le immagini nuove del radar della Protezione Civile, calcola movimento e stima dei prossimi 90 minuti, prepara le immagini dell'animazione (richiede numpy e Pillow, passo 1) |
+| `rivers` | minuti 7, 22, 37, 52 | livelli di Lamone e Marzeno (idrometri ARPAE, portale Allerta Meteo): soglie e serie delle ultime ~2,5 giorni, salvate nel database |
 | `normals` | ogni giorno alle 4:40 | scarica le medie del periodo 1991–2020 solo se mancano o hanno più di un anno |
 
 ## 7. nginx

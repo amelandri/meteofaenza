@@ -1,5 +1,6 @@
 import { MODELS, SUPPORT_MODELS, fetchForecast, inModelDomain, fetchNormals, dayOfYear, NORMALS } from './api.js';
 import { fetchStation, STATION, STATION_STALE_MS } from './station.js';
+import { loadRivers, renderRivers, riversSummary } from './rivers.js';
 import { radarStatus, radarWindowRain, radarWords, RADAR_BIKE_MIN, loadRadar, renderRadar, stopRadar, radarTime } from './radar.js';
 import * as store from './storage.js';
 import { renderChart, tipValue } from './chart.js';
@@ -109,6 +110,8 @@ function init() {
   scheduleStation();
   syncRadarCollapse();
   if (state.settings.radarOpen) loadRadarSection();
+  syncRiversCollapse();
+  loadRiversData();
 }
 
 // --- Medie del periodo ---------------------------------------------------------------
@@ -283,6 +286,8 @@ async function loadStation() {
   } finally {
     state.stationLoading = false;
     renderStationViews();
+    // Livelli dei fiumi: il server li aggiorna ogni 15 minuti, l'app li richiede con le letture.
+    if (Date.now() - (state.riversAt || 0) > RIVERS_CHECK_MS) loadRiversData();
     // Sezione Radar aperta: nuove immagini se il riepilogo arrivato con la misura è più recente.
     if (state.settings.radarOpen && state.station?.radar && state.station.radar.time !== radarTime()) loadRadarSection();
   }
@@ -1333,6 +1338,29 @@ function setRadarOpen(open) {
   if (open) loadRadarSection();
 }
 
+// Sezione "Fiumi" collassabile (chiusa di default, stato ricordato): i dati servono anche da
+// chiusa (livello a Faenza nell'intestazione), quindi si chiedono comunque, con le letture
+// della centralina se sono passati RIVERS_CHECK_MS dall'ultima richiesta.
+const RIVERS_CHECK_MS = 15 * 60 * 1000;
+function syncRiversCollapse() {
+  const open = !!state.settings.riversOpen;
+  $('#rivers-toggle').setAttribute('aria-expanded', String(open));
+  $('#rivers-hint').textContent = open ? 'Nascondi' : 'Mostra';
+  $('#rivers-body').hidden = !open;
+  $('#rivers-card').classList.toggle('open', open);
+  $('#rivers-sum').innerHTML = open ? '' : riversSummary(state.rivers);
+  if (open) renderRivers($('#rivers-body'), state.rivers, state.data?.timezone || 'Europe/Rome', state.data?.utcOffset || 0);
+}
+
+async function loadRiversData() {
+  if (!navigator.onLine) return;
+  state.riversAt = Date.now();
+  try {
+    state.rivers = await loadRivers();
+  } catch { /* resta l'ultimo dato ricevuto (o la sezione "non disponibile") */ }
+  syncRiversCollapse();
+}
+
 // Sezione "Dettaglio orario" collassabile (chiusa di default, stato ricordato).
 function syncHourlyCollapse() {
   const open = !!state.settings.hourlyOpen;
@@ -1436,6 +1464,11 @@ function bindControls() {
   });
 
   $('#radar-toggle').addEventListener('click', () => setRadarOpen(!state.settings.radarOpen));
+  $('#rivers-toggle').addEventListener('click', () => {
+    state.settings.riversOpen = !state.settings.riversOpen;
+    store.saveSettings({ riversOpen: state.settings.riversOpen });
+    syncRiversCollapse();
+  });
   // Riga del radar nel box Adesso: apre la sezione e ci porta.
   $('#now').addEventListener('click', (e) => {
     if (!e.target.closest('[data-open-radar]')) return;

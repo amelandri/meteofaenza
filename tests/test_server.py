@@ -312,3 +312,38 @@ class RadarNowcastTest(unittest.TestCase):
         back = radar.unpack(radar.pack(g))
         self.assertTrue(np.isnan(back[0, 0]))
         self.assertAlmostEqual(float(back[100, 100]), 4.0, places=2)
+
+
+class RiversTest(unittest.TestCase):
+    """Livelli dei fiumi: composizione di api/rivers dai valori salvati (senza rete)."""
+
+    def test_compose(self):
+        from server import rivers
+        old = config.DB_PATH
+        config.DB_PATH = Path(_tmp.name) / 'rivers.db'
+        try:
+            conn = db.connect()
+            meta = {str(st['id']): {'name': st['name'], 's': [1.0, 2.0, 3.0]}
+                    for r in sources.RIVERS for st in r['stations']}
+            db.put_snapshot(conn, 'rivers', meta)
+            t0 = 1791600000000
+            faenza = sources.RIVERS[0]['stations'][-1]['id']
+            for k in range(9):  # due ore ogni 15 minuti; Faenza sale da 0,5 a 1,3 m
+                for r in sources.RIVERS:
+                    for st in r['stations']:
+                        v = 0.5 + 0.1 * k if st['id'] == faenza else 0.2
+                        conn.execute('INSERT INTO river_levels VALUES (?, ?, ?)', (st['id'], t0 + k * 900000, v))
+            conn.commit()
+            d = rivers.compose(conn)
+            lamone = d['rivers'][0]
+            x = lamone['stations'][-1]
+            self.assertEqual(x['name'], 'Faenza')
+            self.assertAlmostEqual(x['v'], 1.3)
+            self.assertEqual(x['level'], 1)  # soglia 1 superata
+            self.assertAlmostEqual(x['trend'], 0.4)  # +0,4 m nell'ultima ora
+            self.assertEqual(lamone['level'], 1)
+            self.assertEqual(d['rivers'][1]['level'], 0)
+            self.assertEqual(len(x['series']), 9)
+            conn.close()
+        finally:
+            config.DB_PATH = old

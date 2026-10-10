@@ -23,3 +23,7 @@ SHELL=/bin/sh
 # misura della centralina (45 s dopo), che porta con sé il riepilogo del radar.
 # Richiede numpy e Pillow (apt install python3-numpy python3-pil).
 */5 * * * *  sleep 10; cd /opt/meteo && python3 -m server.jobs radar 2>&1 | logger -t meteo
+
+# Livelli dei fiumi Lamone e Marzeno (idrometri ARPAE, portale Allerta Meteo): ogni 15
+# minuti, il dato arriva con 30–60 minuti di ritardo. Minuti sfalsati rispetto agli altri job.
+7,22,37,52 * * * *  cd /opt/meteo && python3 -m server.jobs rivers 2>&1 | logger -t meteo

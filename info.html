@@ -44,6 +44,7 @@
       <a href="#icone">Le icone</a>
       <a href="#centralina">La centralina</a>
       <a href="#radar">Il radar</a>
+      <a href="#fiumi">I fiumi</a>
       <a href="#medie">Le medie del periodo</a>
       <a href="#verifica">La verifica</a>
       <a href="#limiti">Limiti</a>
@@ -226,6 +227,17 @@
       <p class="info-note">La stima funziona bene con fronti e linee di rovesci che si spostano, fino a circa un'ora. Non vede i <strong>temporali che nascono sul posto</strong> (frequenti d'estate sull'Appennino) né quelli che si rinforzano o si esauriscono; il radar fatica con la pioviggine e vicino ai rilievi. Per questo il radar può solo aggiungere pioggia al verdetto dei tragitti, mai toglierla. Immagini: Dipartimento della Protezione Civile, licenza CC BY-SA 4.0 (con la stessa licenza le immagini radar mostrate dall'app).</p>
     </section>
 
+    <section class="card" id="fiumi">
+      <h2>I fiumi</h2>
+      <p>La sezione <strong>Fiumi</strong> (chiusa di default) mostra il livello dell'acqua del <strong>Lamone</strong> e del <strong>Marzeno</strong>, misurato dagli idrometri di ARPAE Emilia-Romagna e pubblicato sul portale <a href="https://allertameteo.regione.emilia-romagna.it/" target="_blank" rel="noopener">Allerta Meteo</a>. Anche chiusa, l'intestazione riporta il livello vicino a Faenza di ciascun fiume, con un pallino colorato se è superata una soglia.</p>
+      <ul>
+        <li>Le stazioni sono in ordine nel verso della corrente: <strong>Lamone</strong> a Marradi (32 km a monte), Strada Casale (18 km), Sarna (7 km) e Faenza; <strong>Marzeno</strong> a Modigliana (16 km a monte) e a Rivalta (più a monte di Modigliana, nelle valli che formano il Marzeno, non ci sono idrometri). Le stazioni a monte servono da preavviso: una piena che sale lì arriva a Faenza qualche ora dopo.</li>
+        <li>Per ogni stazione il livello in metri, la tendenza nell'ultima ora (in salita o in calo se cambia di almeno 3 cm all'ora, altrimenti stabile), una barra con le tre <strong>soglie di allerta</strong> (1 gialla, 2 arancione, 3 rossa, fissate da ARPAE per ogni stazione) e il grafico delle ultime 48 ore.</li>
+        <li>Il server scarica i dati ogni 15 minuti; ARPAE li pubblica con 30–60 minuti di ritardo. Oltre 3 ore senza dati nuovi la sezione li segnala come non aggiornati.</li>
+      </ul>
+      <p class="info-note">Il livello è misurato rispetto a uno zero fissato per ogni stazione (non è la profondità dell'acqua) e può anche essere negativo: conta il confronto con le soglie della stessa stazione. Per gli avvisi ufficiali fa sempre fede il portale Allerta Meteo dell'Emilia-Romagna.</p>
+    </section>
+
     <section class="card" id="medie">
       <h2>Le medie del periodo</h2>
       <p>Per capire se una giornata è più calda o più fresca del normale, l'app confronta le temperature con le <strong>medie del periodo</strong>: la massima e la minima medie di quel giorno dell'anno nel trentennio <strong>1991–2020</strong>.</p>
@@ -268,7 +280,8 @@
     <p>Dati: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0) ·
       ICON-2I © <a href="https://www.arpae.it/" target="_blank" rel="noopener">ItaliaMeteo-ARPAE</a> ·
       ICON-EU, ICON-D2, ICON-EU-EPS e ICON-D2-EPS © <a href="https://www.dwd.de/" target="_blank" rel="noopener">Deutscher Wetterdienst</a> · AROME © <a href="https://meteofrance.com/" target="_blank" rel="noopener">Météo-France</a> · ECMWF ENS © <a href="https://www.ecmwf.int/" target="_blank" rel="noopener">ECMWF</a> (CC BY 4.0).
-      Radar: <a href="https://radar.protezionecivile.it/" target="_blank" rel="noopener">Dipartimento della Protezione Civile</a> (CC BY-SA 4.0).</p>
+      Radar: <a href="https://radar.protezionecivile.it/" target="_blank" rel="noopener">Dipartimento della Protezione Civile</a> (CC BY-SA 4.0).
+      Livelli dei fiumi: <a href="https://allertameteo.regione.emilia-romagna.it/" target="_blank" rel="noopener">ARPAE Emilia-Romagna – Allerta Meteo</a>.</p>
     <p>Medie del periodo 1991–2020: reanalisi <a href="https://cds.climate.copernicus.eu/" target="_blank" rel="noopener">ERA5-Land (Copernicus Climate Change Service)</a>, tramite Open-Meteo.</p>
     <p>Dati misurati: <a href="https://www.meteofaenza.it/" target="_blank" rel="noopener">Osservatorio Meteorologico "E. Torricelli" – meteofaenza.it</a>.</p>
   </footer>

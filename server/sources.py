@@ -24,6 +24,25 @@ ARCHIVE_URL = 'https://archive-api.open-meteo.com/v1/archive'
 # l'ultima immagine e restituisce un indirizzo temporaneo (5 minuti) del GeoTIFF. Il percorso
 # è quello usato da radar.protezionecivile.it (con /wide/ davanti la CDN risponde 403).
 RADAR_API = 'https://radar-api.protezionecivile.it'
+# Livelli dei fiumi (idrometri ARPAE Emilia-Romagna): API del portale Allerta Meteo, non
+# documentata come servizio pubblico (se cambia, il job fallisce e resta l'ultimo dato).
+ALLERTA_API = 'https://allertameteo.regione.emilia-romagna.it/o/api/allerta'
+LEVEL_VAR = '254,0,0/1,-,-,-/B13215'  # livello idrometrico (m)
+# Fiumi mostrati e loro stazioni, nel verso della corrente (prima quella a monte). Il fiume
+# di ogni stazione è dedotto dalla posizione (l'API dà solo nome e coordinate). Sul Marzeno
+# non ci sono idrometri a monte di Modigliana (Tramazzo, Ibola, Acerreta ne sono privi).
+RIVERS = [
+    {'key': 'lamone', 'name': 'Lamone', 'stations': [
+        {'id': 3037, 'name': 'Marradi', 'where': 'a monte · 32 km'},
+        {'id': 3217, 'name': 'Strada Casale', 'where': 'a monte · 18 km'},
+        {'id': 3214, 'name': 'Sarna', 'where': 'a monte · 7 km'},
+        {'id': 3189, 'name': 'Faenza', 'where': 'in città'},
+    ]},
+    {'key': 'marzeno', 'name': 'Marzeno', 'stations': [
+        {'id': 3195, 'name': 'Modigliana', 'where': 'a monte · 16 km'},
+        {'id': 3176, 'name': 'Rivalta', 'where': '5 km da Faenza'},
+    ]},
+]
 # File della centralina: variabili JavaScript stringa (var temperature = '17.2';). Lato
 # server non c'è il problema del CORS e il file non viene più eseguito nel browser.
 STATION_URL = 'https://www.meteofaenza.it/dati/today/data.js'
@@ -358,3 +377,28 @@ def fetch_radar_tif(time_ms, product='SRI'):
     if not info.get('url'):
         raise SourceError('radar: immagine non disponibile')
     return _get(info['url'])
+
+
+# --- Livelli dei fiumi -------------------------------------------------------------------
+
+def fetch_river_thresholds():
+    """{id stazione: {name, s: [soglia1, soglia2, soglia3]}} di tutte le stazioni (metri)."""
+    t = now_ms()
+    data = get_json(f'{ALLERTA_API}/get-sensor-values-no-time', {'variabile': LEVEL_VAR, 'time': t - t % 900000})
+    out = {}
+    for r in data[1:] if isinstance(data, list) else []:
+        try:
+            out[int(r['idstazione'])] = {'name': r.get('nomestaz'), 's': [float(r['soglia1']), float(r['soglia2']), float(r['soglia3'])]}
+        except (KeyError, TypeError, ValueError):
+            continue
+    if not out:
+        raise SourceError('fiumi: elenco delle stazioni vuoto')
+    return out
+
+
+def fetch_river_series(station_id):
+    """Livelli degli ultimi ~2,5 giorni ogni 15 minuti: [(istante ms, metri)]."""
+    data = get_json(f'{ALLERTA_API}/get-time-series/', {'stazione': station_id, 'variabile': LEVEL_VAR})
+    if not isinstance(data, list):
+        raise SourceError(f'fiumi: serie non valida per la stazione {station_id}')
+    return [(int(x['t']), float(x['v'])) for x in data if isinstance(x, dict) and x.get('v') is not None and 't' in x]

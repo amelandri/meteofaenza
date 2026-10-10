@@ -4,6 +4,7 @@
   python3 -m server.jobs forecast [--force] previsioni ed ensemble (controllo ogni 15 minuti)
   python3 -m server.jobs normals  [--force] medie del periodo (controllo giornaliero)
   python3 -m server.jobs radar    [--force] radar della Protezione Civile (ogni 5 minuti)
+  python3 -m server.jobs rivers           livelli di Lamone e Marzeno (ogni 15 minuti)
   python3 -m server.jobs all                tutti, forzati (prima installazione)
 
 Ogni job prende un lock: se il precedente è ancora in corso, quello nuovo esce subito.
@@ -14,7 +15,7 @@ import argparse
 import fcntl
 import sys
 
-from . import config, db, radar, sources, verify
+from . import config, db, radar, rivers, sources, verify
 
 
 def _locked(name):
@@ -106,7 +107,7 @@ def job_radar(conn, force=False):
     return detail
 
 
-JOBS = {'station': job_station, 'forecast': job_forecast, 'normals': job_normals, 'radar': job_radar}
+JOBS = {'station': job_station, 'forecast': job_forecast, 'normals': job_normals, 'radar': job_radar, 'rivers': rivers.run}
 
 
 def run(name, force=False):

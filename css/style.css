@@ -17,6 +17,9 @@
   --eu: #d9620f;
   --d2: #6a62c9; /* modelli di supporto (solo nel dettaglio dei tragitti e nella Verifica) */
   --arome: #b0478f;
+  --lv1: #e3b505; /* soglie di allerta dei fiumi: 1 gialla, 2 arancione, 3 rossa */
+  --lv2: #f08a24;
+  --lv3: #d93a2b;
   --eu-soft: #fcebdc;
 
   --good: #1d8a4c;
@@ -68,6 +71,9 @@
   --eu: #ff9346;
   --d2: #9d97ee;
   --arome: #e07bc0;
+  --lv1: #f2c94c;
+  --lv2: #ff9a40;
+  --lv3: #ff5a4a;
   --eu-soft: #3a2414;
 
   --good: #4ccf83;
@@ -880,6 +886,58 @@ button { font: inherit; color: inherit; }
   .radar-layout { grid-template-columns: minmax(0, min(68vh, 640px)) minmax(240px, 1fr); gap: 22px; align-items: start; }
   .radar-view, .radar-side, .radar-ctrl, .radar-legend, .radar-note { max-width: none; margin: 0; }
 }
+
+/* --- Fiumi (js/rivers.js) ---------------------------------------------------------- */
+
+/* Intestazione della sezione chiusa: livello a Faenza di ogni fiume. */
+.rv-sum { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-right: 4px; }
+.rv-sum:empty { display: none; }
+.rv-chip { font-size: .78rem; font-weight: 650; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--text); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rv-chip i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; background: var(--rain); }
+.rv-chip.l1 i { background: var(--lv1); } .rv-chip.l2 i { background: var(--lv2); } .rv-chip.l3 i { background: var(--lv3); }
+@media (max-width: 560px) {
+  .rv-sum:not(:empty) + .collapse-hint { display: none; } /* con i livelli la riga non ci starebbe */
+  .rv-chip { font-size: .74rem; padding: 2px 7px; }
+}
+
+/* Un riquadro per fiume, affiancati se c'è spazio. */
+#rivers-body { container: rivers / inline-size; }
+.rv-grid { display: grid; gap: 14px; }
+/* align-items: start: il Lamone ha 4 stazioni e il Marzeno 2, niente riquadro allungato a vuoto */
+@container rivers (min-width: 760px) { .rv-grid { grid-template-columns: 1fr 1fr; align-items: start; } }
+.rv { background: var(--surface-2); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+.rv-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.rv-head h3 { margin: 0; font-size: 1rem; }
+.rv-state { font-size: .76rem; font-weight: 650; padding: 3px 9px; border-radius: 999px; background: var(--surface); color: var(--muted); text-align: right; }
+.rv-state.l1 { background: color-mix(in srgb, var(--lv1) 24%, var(--surface)); color: color-mix(in srgb, var(--lv1) 45%, var(--text)); }
+.rv-state.l2 { background: color-mix(in srgb, var(--lv2) 24%, var(--surface)); color: color-mix(in srgb, var(--lv2) 50%, var(--text)); }
+.rv-state.l3 { background: var(--lv3); color: #fff; }
+/* Stazione: nome e livello, sotto barra delle soglie e grafico di 48 ore. */
+.rv-st { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name lvl" "bar bar" "spark spark"; gap: 4px 10px; padding: 10px 0; }
+.rv-name { grid-area: name; font-weight: 650; }
+.rv-name small { display: block; font-weight: 500; color: var(--muted); font-size: .74rem; }
+.rv-lvl { grid-area: lvl; text-align: right; font-variant-numeric: tabular-nums; }
+.rv-lvl b { font-size: 1.35rem; letter-spacing: -.02em; }
+.rv-lvl b span { font-size: .8rem; font-weight: 500; color: var(--muted); margin-left: 2px; }
+.rv-lvl small { display: block; font-size: .74rem; color: var(--muted); }
+.rv-lvl small.up { color: var(--lv2); font-weight: 650; }
+.rv-bar { grid-area: bar; position: relative; height: 24px; margin-top: 2px; }
+.rv-track, .rv-fill { position: absolute; left: 0; top: 4px; height: 8px; border-radius: 4px; }
+.rv-track { right: 0; background: var(--surface); }
+.rv-fill { background: var(--rain); }
+.rv-fill.l1 { background: var(--lv1); } .rv-fill.l2 { background: var(--lv2); } .rv-fill.l3 { background: var(--lv3); }
+.rv-tick { position: absolute; top: 1px; width: 2px; height: 14px; border-radius: 1px; }
+.rv-tick.t1 { background: var(--lv1); } .rv-tick.t2 { background: var(--lv2); } .rv-tick.t3 { background: var(--lv3); }
+.rv-lab { position: absolute; top: 15px; transform: translateX(-50%); font-size: .62rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rv-spark { grid-area: spark; width: 100%; height: 46px; }
+.rv-spark polygon { fill: color-mix(in srgb, var(--rain) 16%, transparent); }
+.rv-spark polyline { fill: none; stroke: var(--rain); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.rv-spark.l1 polyline { stroke: var(--lv1); } .rv-spark.l2 polyline { stroke: var(--lv2); } .rv-spark.l3 polyline { stroke: var(--lv3); }
+.rv-spark line { stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.rv-spark .t1 { stroke: var(--lv1); } .rv-spark .t2 { stroke: var(--lv2); } .rv-spark .t3 { stroke: var(--lv3); }
+.rv-flow { display: flex; align-items: center; gap: 6px; font-size: .7rem; color: var(--muted); margin: -2px 0; }
+.rv-flow::before { content: ""; flex: none; width: 2px; height: 16px; margin-left: 6px; background: var(--border); }
+.rv-note { font-size: .76rem; margin: 12px 0 0; }
 
 /* --- Pagina Verifica (verify.html, js/verify.js) ----------------------------------- */
 
