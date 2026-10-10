@@ -826,10 +826,27 @@ button { font: inherit; color: inherit; }
 .obs-radar.lv-maybe { color: var(--rain); }
 .obs-radar:hover span { text-decoration: underline; text-underline-offset: 2px; }
 
+/* Sezione: immagine quadrata e, accanto (se c'è spazio), la colonna con stato, comandi,
+   stima su Faenza, legenda e nota; su schermi stretti tutto in colonna. */
+#radar-body { container: radar / inline-size; }
+.radar-layout { display: grid; gap: 14px; }
+.radar-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; width: 100%; max-width: 560px; margin: 0 auto; }
 .radar-view {
   position: relative; width: 100%; max-width: 560px; margin: 0 auto; aspect-ratio: 1;
   border-radius: 10px; overflow: hidden; background: var(--surface-2);
 }
+.radar-status { margin: 0; font-size: .95rem; font-weight: 650; color: var(--muted); }
+.radar-status.lv-wet, .radar-status.lv-maybe { color: var(--rain); }
+.radar-status small { display: block; margin-top: 3px; font-size: .8rem; font-weight: 500; color: var(--muted); }
+.radar-outlook h3 { margin: 0 0 6px; font-size: .74rem; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.radar-outlook ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.radar-outlook li { display: grid; grid-template-columns: 42px minmax(0, 1fr) 118px; align-items: center; gap: 10px; font-size: .82rem; }
+.ro-t { font-variant-numeric: tabular-nums; color: var(--muted); }
+.ro-bar { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.ro-bar i { display: block; height: 100%; background: var(--rain); border-radius: 4px; }
+.radar-outlook .lv-maybe .ro-bar i { opacity: .55; }
+.radar-outlook .lv-wet .ro-w { color: var(--rain); font-weight: 650; }
+.ro-w { color: var(--muted); }
 .radar-img, .radar-map { position: absolute; inset: 0; width: 100%; height: 100%; }
 .radar-img.fc { opacity: .78; }
 .radar-map { pointer-events: none; }
@@ -848,16 +865,21 @@ button { font: inherit; color: inherit; }
 .radar-badge.fc { color: var(--accent); outline: 1px dashed var(--accent); outline-offset: -1px; }
 .radar-move { right: 8px; display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
 .radar-move svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.radar-ctrl { display: flex; align-items: center; gap: 10px; max-width: 560px; margin: 10px auto 0; }
+.radar-ctrl { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 560px; margin: 0 auto; }
 .radar-ctrl .radar-range { flex: 1; min-width: 0; accent-color: var(--accent); }
 #radar-play .i-pause, #radar-play.on .i-play { display: none; }
 #radar-play.on .i-pause { display: block; }
 #radar-play svg path { stroke-linejoin: round; }
 #radar-play .i-play path { fill: currentColor; }
-.radar-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; max-width: 560px; margin: 8px auto 0; font-size: .74rem; font-variant-numeric: tabular-nums; }
+.radar-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; width: 100%; max-width: 560px; margin: 0 auto; font-size: .74rem; font-variant-numeric: tabular-nums; }
 .radar-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .radar-legend i { width: 14px; height: 9px; border-radius: 2px; }
-.radar-note { max-width: 560px; margin: 8px auto 0; font-size: .76rem; line-height: 1.45; }
+.radar-note { width: 100%; max-width: 560px; margin: 0 auto; font-size: .76rem; line-height: 1.45; }
+@container radar (min-width: 700px) {
+  /* immagine quadrata alta al massimo ~70% dello schermo, il resto alla colonna laterale */
+  .radar-layout { grid-template-columns: minmax(0, min(68vh, 640px)) minmax(240px, 1fr); gap: 22px; align-items: start; }
+  .radar-view, .radar-side, .radar-ctrl, .radar-legend, .radar-note { max-width: none; margin: 0; }
+}
 
 /* --- Pagina Verifica (verify.html, js/verify.js) ----------------------------------- */
 

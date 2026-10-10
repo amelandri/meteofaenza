@@ -124,6 +124,19 @@ function play(el, tz, off) {
   player.timer = setTimeout(tick, STEP_MS);
 }
 
+// "Su Faenza nei prossimi 90 minuti": la stima ogni 15 minuti, con una barra lunga quanto la
+// quota della zona con pioggia (piena = pioggia certa nella zona guardata).
+function outlook(d, tz, off) {
+  const steps = (radarSteps(d) || []).filter((s) => s.min % 15 === 0);
+  if (steps.length < 2) return '';
+  const rows = steps.map((s) => {
+    const word = s.frac >= d.arriveFrac ? `pioggia ${radarWords(s.mmh)}` : s.frac >= d.maybeFrac ? 'possibile' : 'asciutto';
+    const lv = s.frac >= d.arriveFrac ? 'wet' : s.frac >= d.maybeFrac ? 'maybe' : 'dry';
+    return `<li class="lv-${lv}"><span class="ro-t">${localDateTime(s.at, tz, off).time}</span><span class="ro-bar"><i style="width:${Math.round(s.frac * 100)}%"></i></span><span class="ro-w">${word}</span></li>`;
+  }).join('');
+  return `<div class="radar-outlook"><h3>Su Faenza nei prossimi 90 minuti</h3><ul>${rows}</ul></div>`;
+}
+
 // Disegna la sezione con i dati di api/radar. `el` = corpo della sezione.
 export function renderRadar(el, d, tz, off) {
   stopRadar();
@@ -137,22 +150,29 @@ export function renderRadar(el, d, tz, off) {
   for (const f of player.frames) new Image().src = f.img;
   const lastObs = player.frames.findLastIndex((f) => !f.min);
   const legend = d.legend.map((x) => `<span><i style="background:${x.color}"></i>${String(x.from).replace('.', ',')}</span>`).join('');
+  const st = radarStatus(d, tz, off);
   el.innerHTML = `
-    <div class="radar-view" style="--n:${d.view.size}">
-      <img class="radar-img" alt="Immagine radar della pioggia intorno a Faenza" width="${d.view.size}" height="${d.view.size}">
-      ${mapSvg(d.view)}
-      <span class="radar-badge"></span>
-      ${d.motion ? `<span class="radar-move" title="Movimento della pioggia"><svg viewBox="0 0 24 24" aria-hidden="true" style="transform: rotate(${d.motion.deg}deg)"><path d="M12 20V5M6 11l6-6 6 6"/></svg>${d.motion.kmh} km/h</span>` : ''}
-    </div>
-    <div class="radar-ctrl">
-      <button type="button" id="radar-play" class="icon-btn" aria-label="Avvia">
-        <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-        <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>
-      </button>
-      <input class="radar-range" type="range" min="0" max="${player.frames.length - 1}" step="1" aria-label="Momento dell'immagine">
-    </div>
-    <div class="radar-legend" aria-label="Intensità in mm/h">${legend}<span class="muted">mm/h</span></div>
-    <p class="radar-note muted">Le immagini dopo le ${localDateTime(player.frames[lastObs].t, tz, off).time} (con la scritta "stima") sono una <strong>stima</strong>: la pioggia di adesso spostata lungo il suo movimento. Non vede i temporali che nascono sul posto. In grigio le zone non coperte dal radar. Immagini: Dipartimento della Protezione Civile (CC BY-SA 4.0).</p>`;
+    <div class="radar-layout">
+      <div class="radar-view" style="--n:${d.view.size}">
+        <img class="radar-img" alt="Immagine radar della pioggia intorno a Faenza" width="${d.view.size}" height="${d.view.size}">
+        ${mapSvg(d.view)}
+        <span class="radar-badge"></span>
+        ${d.motion ? `<span class="radar-move" title="Movimento della pioggia"><svg viewBox="0 0 24 24" aria-hidden="true" style="transform: rotate(${d.motion.deg}deg)"><path d="M12 20V5M6 11l6-6 6 6"/></svg>${d.motion.kmh} km/h</span>` : ''}
+      </div>
+      <div class="radar-side">
+        ${st ? `<p class="radar-status lv-${st.level}">${esc(st.text.charAt(0).toUpperCase() + st.text.slice(1))}${d.motion ? `<small>La pioggia si muove verso ${d.motion.dir} a circa ${d.motion.kmh} km/h.</small>` : ''}</p>` : ''}
+        <div class="radar-ctrl">
+          <button type="button" id="radar-play" class="icon-btn" aria-label="Avvia">
+            <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+            <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>
+          </button>
+          <input class="radar-range" type="range" min="0" max="${player.frames.length - 1}" step="1" aria-label="Momento dell'immagine">
+        </div>
+        ${outlook(d, tz, off)}
+        <div class="radar-legend" aria-label="Intensità in mm/h">${legend}<span class="muted">mm/h</span></div>
+        <p class="radar-note muted">Le immagini dopo le ${localDateTime(player.frames[lastObs].t, tz, off).time} (con la scritta "stima") sono una <strong>stima</strong>: la pioggia di adesso spostata lungo il suo movimento. Non vede i temporali che nascono sul posto. In grigio le zone non coperte dal radar. Immagini: Dipartimento della Protezione Civile (CC BY-SA 4.0).</p>
+      </div>
+    </div>`;
   show(el, lastObs, tz, off);
   el.querySelector('#radar-play').addEventListener('click', () => (player.playing ? stopRadar() : play(el, tz, off)));
   el.querySelector('.radar-range').addEventListener('input', (e) => { stopRadar(); show(el, Number(e.target.value), tz, off); });
