@@ -95,6 +95,43 @@ def _day_targets(day):
     return [(d + timedelta(hours=h)).strftime('%Y-%m-%dT%H:00') for h in range(1, 25)]
 
 
+def rain_step(a, b):
+    """mm caduti tra due letture consecutive dai mm cumulati della centralina. Il totale
+    "di oggi" della centralina NON riparte a mezzanotte (riparte a mezzanotte dell'ora solare,
+    cioè alle 01:00 con l'ora legale): un calo forte è l'azzeramento e i mm della nuova
+    lettura sono pioggia caduta dopo; un calo piccolo è una correzione e non conta."""
+    va, vb = a.get('rainToday'), b.get('rainToday')
+    if va is None or vb is None:
+        return 0.0
+    if vb >= va:
+        return vb - va
+    return vb if vb < va / 2 else 0.0
+
+
+def _hhmm(ms, tz):
+    return datetime.fromtimestamp(ms / 1000, tz).strftime('%H:%M')
+
+
+def _extreme(readings, key, pick, tz):
+    """Minima o massima del giorno: la più estrema tra le letture ogni 10 minuti e il valore
+    della centralina (che misura in continuo). Quello della centralina vale solo se il suo
+    orario non è successivo alla lettura: altrimenti appartiene al giorno precedente (dopo
+    mezzanotte la centralina riporta ancora i valori di ieri fino al suo azzeramento)."""
+    best = None
+    for r in readings:
+        t = r.get('temperature')
+        if t is not None and (best is None or pick(t, best[0]) == t and t != best[0]):
+            best = (t, _hhmm(r['time'], tz))
+    for r in reversed(readings):
+        v, vt = r.get(key), r.get(key + 'Time')
+        if v is None or not vt or vt > _hhmm(r['time'], tz):
+            continue
+        if best is None or pick(v, best[0]) == v:
+            best = (v, vt)
+        break
+    return best or (None, None)
+
+
 def observed_day(conn, day):
     """Misure del giorno dalle letture della centralina: pioggia e temperatura orarie (24
     valori, None dove mancano letture), totale, minima e massima. None se nessuna lettura."""
@@ -109,35 +146,38 @@ def observed_day(conn, day):
     if not same_day:
         return None
 
-    def closest(t_ms, pool):
-        best = min(pool, key=lambda r: abs(r['time'] - t_ms), default=None)
-        return best if best and abs(best['time'] - t_ms) <= NEAR_MS else None
+    def closest(t_ms):
+        """Indice della lettura più vicina all'istante (entro NEAR_MS), anche del giorno prima
+        o dopo: serve come confine delle ore."""
+        k = min(range(len(readings)), key=lambda j: abs(readings[j]['time'] - t_ms))
+        return k if abs(readings[k]['time'] - t_ms) <= NEAR_MS else None
 
-    # mm cumulati del giorno a ogni ora piena (a mezzanotte il totale riparte da zero; per
-    # le 24 si usa l'ultima lettura del giorno, entro un quarto d'ora dalla mezzanotte)
-    cum = [0.0] + [None] * 24
-    for hh in range(1, 24):
-        r = closest(start_ms + hh * 3600000, same_day)
-        cum[hh] = r.get('rainToday') if r else None
-    last = same_day[-1]
-    day_done = last['time'] >= end_ms - 15 * 60 * 1000
-    cum[24] = last.get('rainToday') if day_done else None
-    rain = []
-    for hh in range(1, 25):
-        a, b = cum[hh - 1], cum[hh]
-        rain.append(round(max(0.0, b - a), 1) if a is not None and b is not None else None)
-    temp = []
-    for hh in range(1, 25):
-        r = closest(start_ms + hh * 3600000, readings)
-        temp.append(r.get('temperature') if r else None)
+    def between(i, j):
+        """mm caduti tra la lettura i e la lettura j (somma dei passi, azzeramenti compresi)."""
+        return sum(rain_step(readings[k - 1], readings[k]) for k in range(i + 1, j + 1))
+
+    # Confini delle ore: la lettura più vicina a ogni ora piena, da mezzanotte a mezzanotte.
+    # Non si assume che a mezzanotte il totale della centralina riparta da zero.
+    edge = [closest(start_ms + hh * 3600000) for hh in range(25)]
+    rain = [round(between(edge[hh], edge[hh + 1]), 1) if edge[hh] is not None and edge[hh + 1] is not None else None
+            for hh in range(24)]
+    temp = [readings[edge[hh]].get('temperature') if edge[hh] is not None else None for hh in range(1, 25)]
+
+    first = edge[0] if edge[0] is not None else readings.index(same_day[0])
+    last_i = edge[24] if edge[24] is not None else readings.index(same_day[-1])
+    day_done = edge[24] is not None or same_day[-1]['time'] >= end_ms - 15 * 60 * 1000
+    t_min, t_min_time = _extreme(same_day, 'tMin', min, tz)
+    t_max, t_max_time = _extreme(same_day, 'tMax', max, tz)
     return {
         'rain': rain,
         'temp': temp,
-        'total': last.get('rainToday'),  # mm del giorno (fino all'ultima lettura)
-        'tMin': last.get('tMin'), 'tMinTime': last.get('tMinTime'),
-        'tMax': last.get('tMax'), 'tMaxTime': last.get('tMaxTime'),
-        'complete': day_done and sum(v is not None for v in rain) >= 20,
-        'lastReading': last['time'],
+        # mm del giorno dalle letture; senza la lettura di mezzanotte manca la pioggia
+        # caduta prima della prima lettura (il giorno è comunque "incompleto")
+        'total': round(between(first, last_i), 1),
+        'tMin': t_min, 'tMinTime': t_min_time,
+        'tMax': t_max, 'tMaxTime': t_max_time,
+        'complete': edge[0] is not None and day_done and sum(v is not None for v in rain) >= 20,
+        'lastReading': same_day[-1]['time'],
     }
 
 

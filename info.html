@@ -217,7 +217,7 @@
 
     <section class="card" id="verifica">
       <h2>La verifica delle previsioni</h2>
-      <p>La pagina <a href="verify.html">Verifica</a> confronta, per i giorni passati, le previsioni con quello che è successo davvero secondo la centralina. Il server conserva ogni previsione scaricata e le letture della centralina ogni 10 minuti, da cui ricava la pioggia caduta ora per ora.</p>
+      <p>La pagina <a href="verify.html">Verifica</a> confronta, per i giorni passati, le previsioni con quello che è successo davvero secondo la centralina. Il server conserva ogni previsione scaricata e le letture della centralina ogni 10 minuti, da cui ricava la pioggia caduta ora per ora, da mezzanotte a mezzanotte. Attenzione: la centralina azzera i millimetri "di oggi" alla mezzanotte dell'ora solare (con l'ora legale all'01:00), quindi il suo totale non coincide sempre con quello della verifica.</p>
       <ul>
         <li>Si verifica la previsione disponibile <strong>la sera prima</strong> (l'ultima scaricata prima della mezzanotte del giorno) oppure quella di <strong>due giorni prima</strong>.</li>
         <li>Per ogni fascia di 6 ore e per ogni intervallo monitorato: pioggia misurata, pioggia prevista da ciascun modello e probabilità. Una previsione è <strong>corretta</strong> se prevede pioggia (almeno 0,2 mm) quando piove o niente pioggia quando non piove; altrimenti è un <strong>falso allarme</strong> o una <strong>pioggia non prevista</strong>.</li>

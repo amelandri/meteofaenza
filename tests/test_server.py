@@ -141,6 +141,37 @@ class VerifyTest(unittest.TestCase):
         self.assertTrue(obs['complete'])
         self.assertIsNone(self.verify.observed_day(self.conn, '2026-09-01'))
 
+    def test_station_resets_after_midnight(self):
+        """La centralina azzera i mm "di oggi" alle 01:00 (mezzanotte dell'ora solare): fino ad
+        allora riporta il totale e la minima/massima di ieri, che non vanno attribuiti a oggi."""
+        from datetime import datetime, timedelta
+        from zoneinfo import ZoneInfo
+        conn = db.connect()
+        start = datetime(2026, 10, 5, tzinfo=ZoneInfo('Europe/Rome'))
+        for k in range(-3, 147):
+            t = start + timedelta(minutes=10 * k, seconds=20)
+            before_reset = k < 6  # fino alle 00:50
+            mm = 11.6 if before_reset else (0.4 if k >= 4 * 6 else 0.0)  # 0,4 mm tra le 3 e le 4
+            r = sources.parse_station(STATION_JS, fetched_at=1)
+            r.update(time=int(t.timestamp() * 1000), rainToday=mm, temperature=14.0 - (0.5 if k == 2 else 0),
+                     tMin=9.0 if before_reset else 13.6, tMinTime='05:17',
+                     tMax=22.0 if before_reset else 16.0, tMaxTime='14:00' if before_reset else '01:00')
+            db.put_station(conn, r)
+        obs = self.verify.observed_day(conn, '2026-10-05')
+        self.assertEqual(obs['rain'][0], 0.0)  # non gli 11,6 mm di ieri
+        self.assertAlmostEqual(obs['rain'][3], 0.4)
+        self.assertAlmostEqual(obs['total'], 0.4)
+        self.assertEqual((obs['tMin'], obs['tMinTime']), (13.5, '00:20'))  # lettura, non i 9° di ieri
+        self.assertEqual((obs['tMax'], obs['tMaxTime']), (16.0, '01:00'))
+        conn.close()
+
+    def test_rain_step(self):
+        step = lambda a, b: self.verify.rain_step({'rainToday': a}, {'rainToday': b})  # noqa: E731
+        self.assertAlmostEqual(step(1.0, 1.4), 0.4)
+        self.assertEqual(step(11.6, 0.0), 0.0)  # azzeramento
+        self.assertEqual(step(11.6, 0.2), 0.2)  # azzeramento con pioggia subito dopo
+        self.assertEqual(step(1.4, 1.3), 0.0)  # piccola correzione
+
     def test_masks(self):
         mask, n = self.verify.ensemble_masks([[0.0], [0.3], [None], [0.2]], 0)
         self.assertEqual((mask, n), (0b1010, 3))
