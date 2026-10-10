@@ -102,10 +102,39 @@ def compose_station(conn):
     if not st:
         return None
     tz = ZoneInfo(config.TIMEZONE)
+    # I valori "di oggi" della centralina ripartono alle 01:00 con l'ora legale (vedi
+    # verify.STATION_DAY_TZ): si ricalcolano da mezzanotte locale con le letture salvate.
+    local = datetime.fromtimestamp(st['time'] / 1000, tz)
+    start_ms = int(local.replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000)
+    since = min(start_ms - verify.NEAR_MS, st['time'] - config.RAIN_LOG_S * 1000)
+    readings = db.station_since(conn, since)
+    day_readings = [r for r in readings if r['time'] >= start_ms - verify.NEAR_MS]
+    station_ok = verify.station_day_ok(st, tz)
+    cum_mm = {}  # mm da mezzanotte locale per lettura, se calcolati
+    res = verify.local_day(day_readings, start_ms, tz)
+    if res:
+        values, cum = res
+        # Senza la lettura di mezzanotte (server fermo) il totale della centralina, se è già
+        # di oggi, è più completo di quello ricalcolato dalla prima lettura.
+        if values.pop('fromMidnight') or not station_ok:
+            cum_mm = {r['time']: mm for r, mm in zip(day_readings, cum) if mm is not None and r['time'] >= start_ms}
+        else:
+            values['rainToday'] = st.get('rainToday')
+        if not station_ok:
+            # prima dell'azzeramento la direzione della raffica e i totali del mese / dell'anno
+            # sono ancora quelli di ieri
+            values['windMaxDirection'] = None
+            yday = datetime.fromtimestamp(st['time'] / 1000, verify.STATION_DAY_TZ).date()
+            if (yday.year, yday.month) != (local.year, local.month):
+                values['rainMonth'] = values['rainToday']
+            if yday.year != local.year:
+                values['rainYear'] = values['rainToday']
+        st = {**st, **values}
     log = [
-        {'t': r['time'], 'day': datetime.fromtimestamp(r['time'] / 1000, tz).strftime('%Y-%m-%d'), 'mm': r['rainToday']}
-        for r in db.station_since(conn, st['time'] - config.RAIN_LOG_S * 1000)
-        if r.get('rainToday') is not None
+        {'t': r['time'], 'day': datetime.fromtimestamp(r['time'] / 1000, tz).strftime('%Y-%m-%d'),
+         'mm': cum_mm.get(r['time'], r.get('rainToday'))}
+        for r in readings
+        if r['time'] >= st['time'] - config.RAIN_LOG_S * 1000 and cum_mm.get(r['time'], r.get('rainToday')) is not None
     ]
     return {**st, 'rainLog': log}
 

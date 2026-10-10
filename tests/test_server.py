@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 _tmp = tempfile.TemporaryDirectory()
 os.environ['METEO_DB'] = str(Path(_tmp.name) / 'test.db')
 
-from server import api, db, sources  # noqa: E402
+from server import api, config, db, sources  # noqa: E402
 
 STATION_JS = """
 var currentTimeMillis = '1791551161652';
@@ -61,6 +61,33 @@ class StationTest(unittest.TestCase):
         self.assertEqual([e['mm'] for e in st['rainLog']], [1.0, 1.0, 1.4])
         self.assertEqual(st['rainLog'][0]['day'], '2026-10-09')  # data locale (Europe/Rome)
         conn.close()
+
+
+    def test_station_before_reset(self):
+        """Tra mezzanotte e le 01:00 (ora legale) la centralina riporta ancora i valori di ieri:
+        api/station li ricalcola da mezzanotte locale."""
+        from datetime import datetime, timedelta
+        from zoneinfo import ZoneInfo
+        old = config.DB_PATH
+        config.DB_PATH = Path(_tmp.name) / 'reset.db'
+        try:
+            conn = db.connect()
+            start = datetime(2026, 10, 10, tzinfo=ZoneInfo('Europe/Rome'))
+            for k, (mm, temp) in enumerate([(11.6, 14.0), (11.6, 13.8), (11.8, 13.5), (12.0, 13.7)]):
+                r = sources.parse_station(STATION_JS, fetched_at=1)
+                r.update(time=int((start + timedelta(minutes=10 * (k - 1), seconds=20)).timestamp() * 1000),
+                         rainToday=mm, temperature=temp, tMin=9.0, tMinTime='05:17', tMax=22.0, tMaxTime='14:00')
+                db.put_station(conn, r)
+            st = api.compose_station(conn)  # ultima lettura alle 00:20
+            self.assertAlmostEqual(st['rainToday'], 0.4)  # non 12,0
+            self.assertEqual((st['tMin'], st['tMinTime']), (13.5, '00:10'))
+            self.assertEqual((st['tMax'], st['tMaxTime']), (13.8, '00:00'))
+            self.assertIsNone(st['windMax'])
+            today = [e['mm'] for e in st['rainLog'] if e['day'] == '2026-10-10']
+            self.assertEqual(today, [0.0, 0.2, 0.4])  # coerenti con rainToday (pioggia in corso)
+            conn.close()
+        finally:
+            config.DB_PATH = old
 
 
 class NormalsTest(unittest.TestCase):

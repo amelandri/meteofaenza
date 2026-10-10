@@ -112,24 +112,65 @@ def _hhmm(ms, tz):
     return datetime.fromtimestamp(ms / 1000, tz).strftime('%H:%M')
 
 
-def _extreme(readings, key, pick, tz):
-    """Minima o massima del giorno: la più estrema tra le letture ogni 10 minuti e il valore
-    della centralina (che misura in continuo). Quello della centralina vale solo se il suo
-    orario non è successivo alla lettura: altrimenti appartiene al giorno precedente (dopo
-    mezzanotte la centralina riporta ancora i valori di ieri fino al suo azzeramento)."""
+# La centralina tiene i valori del giorno (mm, minima, massima, raffica…) sull'ora solare:
+# ripartono a mezzanotte di UTC+1, cioè alle 01:00 con l'ora legale.
+STATION_DAY_TZ = timezone(timedelta(hours=1))
+
+
+def station_day_ok(r, tz):
+    """True se i valori del giorno della lettura sono già quelli del giorno locale."""
+    t = r['time'] / 1000
+    return datetime.fromtimestamp(t, STATION_DAY_TZ).date() == datetime.fromtimestamp(t, tz).date()
+
+
+def _extreme(readings, sample, key, pick, tz):
+    """Minima o massima del giorno: la più estrema tra le letture ogni 10 minuti (campo
+    `sample`) e il valore della centralina (`key`, misurato in continuo) dell'ultima lettura
+    in cui è già del giorno locale (prima del suo azzeramento è ancora quello di ieri)."""
     best = None
     for r in readings:
-        t = r.get('temperature')
-        if t is not None and (best is None or pick(t, best[0]) == t and t != best[0]):
-            best = (t, _hhmm(r['time'], tz))
+        v = r.get(sample) if sample else None
+        if v is not None and (best is None or (pick(v, best[0]) == v and v != best[0])):
+            best = (v, _hhmm(r['time'], tz))
     for r in reversed(readings):
-        v, vt = r.get(key), r.get(key + 'Time')
-        if v is None or not vt or vt > _hhmm(r['time'], tz):
+        if not station_day_ok(r, tz):
+            break
+        v = r.get(key)
+        if v is None:
             continue
         if best is None or pick(v, best[0]) == v:
-            best = (v, vt)
+            best = (v, r.get(key + 'Time'))
         break
     return best or (None, None)
+
+
+# Valori del giorno della centralina: (campo, campo campionato ogni 10 minuti, min/max)
+DAY_EXTREMES = [('tMin', 'temperature', min), ('tMax', 'temperature', max),
+                ('humidityMin', 'humidity', min), ('humidityMax', 'humidity', max),
+                ('pressureMin', 'pressure', min), ('pressureMax', 'pressure', max),
+                ('windMax', None, max), ('radiationMax', 'radiation', max)]
+
+
+def local_day(readings, start_ms, tz):
+    """Valori "di oggi" da mezzanotte locale fino all'ultima lettura, da `readings` (in ordine,
+    da poco prima di mezzanotte): pioggia dalla somma dei passi (azzeramento della centralina
+    compreso) e minime/massime come _extreme(). `rain` = mm cumulati di ogni lettura del
+    giorno (None per quelle precedenti), utili per il registro della pioggia in corso."""
+    near = [k for k, r in enumerate(readings) if abs(r['time'] - start_ms) <= NEAR_MS]
+    day = [k for k, r in enumerate(readings) if r['time'] >= start_ms]
+    if not day:
+        return None
+    base = min(near, key=lambda k: abs(readings[k]['time'] - start_ms)) if near else day[0]
+    cum, rain = 0.0, [None] * len(readings)
+    for k in range(base, len(readings)):
+        if k > base:
+            cum += rain_step(readings[k - 1], readings[k])
+        rain[k] = round(cum, 1)
+    same = [readings[k] for k in day]
+    out = {'rainToday': rain[-1], 'fromMidnight': bool(near)}
+    for key, sample, pick in DAY_EXTREMES:
+        out[key], out[key + 'Time'] = _extreme(same, sample, key, pick, tz)
+    return out, rain
 
 
 def observed_day(conn, day):
@@ -166,8 +207,8 @@ def observed_day(conn, day):
     first = edge[0] if edge[0] is not None else readings.index(same_day[0])
     last_i = edge[24] if edge[24] is not None else readings.index(same_day[-1])
     day_done = edge[24] is not None or same_day[-1]['time'] >= end_ms - 15 * 60 * 1000
-    t_min, t_min_time = _extreme(same_day, 'tMin', min, tz)
-    t_max, t_max_time = _extreme(same_day, 'tMax', max, tz)
+    t_min, t_min_time = _extreme(same_day, 'temperature', 'tMin', min, tz)
+    t_max, t_max_time = _extreme(same_day, 'temperature', 'tMax', max, tz)
     return {
         'rain': rain,
         'temp': temp,
