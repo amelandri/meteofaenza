@@ -3,6 +3,7 @@
   python3 -m server.jobs station            centralina (ogni 10 minuti)
   python3 -m server.jobs forecast [--force] previsioni ed ensemble (controllo ogni 15 minuti)
   python3 -m server.jobs normals  [--force] medie del periodo (controllo giornaliero)
+  python3 -m server.jobs radar    [--force] radar della Protezione Civile (ogni 5 minuti)
   python3 -m server.jobs all                tutti, forzati (prima installazione)
 
 Ogni job prende un lock: se il precedente è ancora in corso, quello nuovo esce subito.
@@ -13,7 +14,7 @@ import argparse
 import fcntl
 import sys
 
-from . import config, db, sources, verify
+from . import config, db, radar, sources, verify
 
 
 def _locked(name):
@@ -99,7 +100,13 @@ def job_normals(conn, force=False):
     return 'medie scaricate'
 
 
-JOBS = {'station': job_station, 'forecast': job_forecast, 'normals': job_normals}
+def job_radar(conn, force=False):
+    detail = radar.run(conn, force)
+    db.prune(conn)
+    return detail
+
+
+JOBS = {'station': job_station, 'forecast': job_forecast, 'normals': job_normals, 'radar': job_radar}
 
 
 def run(name, force=False):
@@ -115,9 +122,11 @@ def run(name, force=False):
             db.log(conn, name, True, detail)
         print(f'{name}: {detail}')
         return 0
-    except sources.SourceError as err:
-        db.log(conn, name, False, str(err))
-        print(f'{name}: errore: {err}', file=sys.stderr)
+    except (sources.SourceError, ImportError) as err:
+        # ImportError: numpy o Pillow mancanti (servono solo al radar, vedi deploy/INSTALL.md)
+        msg = f'librerie mancanti ({err})' if isinstance(err, ImportError) else str(err)
+        db.log(conn, name, False, msg)
+        print(f'{name}: errore: {msg}', file=sys.stderr)
         return 1
     finally:
         conn.close()

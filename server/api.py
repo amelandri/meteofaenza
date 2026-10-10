@@ -26,7 +26,7 @@ from zoneinfo import ZoneInfo
 
 from urllib.parse import parse_qs, urlsplit
 
-from . import config, db, sources, verify
+from . import config, db, radar, sources, verify
 
 _cache = {}  # chiave → (corpo, etag): JSON già composto delle previsioni
 _cache_lock = threading.Lock()
@@ -136,6 +136,7 @@ def compose_station(conn):
             if yday.year != local.year:
                 values['rainYear'] = values['rainToday']
         st = {**st, **values}
+    st['radar'] = radar.compose(conn, full=False)  # riepilogo del radar, letto con la misura
     log = [
         {'t': r['time'], 'day': datetime.fromtimestamp(r['time'] / 1000, tz).strftime('%Y-%m-%d'),
          'mm': cum_mm.get(r['time'], r.get('rainToday'))}
@@ -156,7 +157,7 @@ def compose_normals(conn):
 def compose_status(conn):
     return {
         'now': db.now_ms(),
-        'snapshots': {n: db.snapshot_time(conn, n) for n in ('forecast', 'ensemble', 'runs', 'normals')},
+        'snapshots': {n: db.snapshot_time(conn, n) for n in ('forecast', 'ensemble', 'runs', 'normals', 'radar')},
         'station': (db.latest_station(conn) or {}).get('time'),
         'jobs': db.last_logs(conn),
     }
@@ -174,7 +175,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header('Cache-Control', 'no-cache')
         super().end_headers()
 
-    def _json(self, status, body, etag=None):
+    def _json(self, status, body, etag=None, content_type='application/json; charset=utf-8'):
         if isinstance(body, (dict, list)):
             body = json.dumps(body, separators=(',', ':')).encode()
         if etag is None:
@@ -187,7 +188,7 @@ class Handler(SimpleHTTPRequestHandler):
             self.end_headers()
             return
         self.send_response(status)
-        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Content-Type', content_type)
         self.send_header('Content-Length', str(len(body)))
         self.send_header('ETag', etag)
         if self.command != 'HEAD':
@@ -206,6 +207,15 @@ class Handler(SimpleHTTPRequestHandler):
                 except ValueError:
                     return self._json(400, {'error': 'parametri non validi'})
                 return self._json(200, verify.compose_verify(conn, days, lead))
+            if name.startswith('radar/'):
+                # immagini dell'animazione: 'o<ms>.png' misurate, 'f<ms>_<minuti>.png' stimate
+                png = radar.image(conn, name[len('radar/'):].removesuffix('.png'))
+                if png is None:
+                    return self._json(404, {'error': 'immagine non disponibile'})
+                return self._json(200, png, content_type='image/png')
+            if name == 'radar':
+                data = radar.compose(conn)
+                return self._json(200, data) if data else self._json(503, {'error': 'radar non disponibile'})
             if name == 'forecast':
                 res = compose_forecast(conn, db.now_ms())
                 if res:

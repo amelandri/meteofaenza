@@ -1,5 +1,6 @@
 import { MODELS, SUPPORT_MODELS, fetchForecast, inModelDomain, fetchNormals, dayOfYear, NORMALS } from './api.js';
 import { fetchStation, STATION, STATION_STALE_MS } from './station.js';
+import { radarStatus, radarWindowRain, radarWords, RADAR_BIKE_MIN, loadRadar, renderRadar, stopRadar, radarTime } from './radar.js';
 import * as store from './storage.js';
 import { renderChart, tipValue } from './chart.js';
 import {
@@ -106,6 +107,8 @@ function init() {
   loadNormals();
   if (stationDue()) loadStation();
   scheduleStation();
+  syncRadarCollapse();
+  if (state.settings.radarOpen) loadRadarSection();
 }
 
 // --- Medie del periodo ---------------------------------------------------------------
@@ -280,6 +283,8 @@ async function loadStation() {
   } finally {
     state.stationLoading = false;
     renderStationViews();
+    // Sezione Radar aperta: nuove immagini se il riepilogo arrivato con la misura è più recente.
+    if (state.settings.radarOpen && state.station?.radar && state.station.radar.time !== radarTime()) loadRadarSection();
   }
 }
 
@@ -424,8 +429,18 @@ function renderObservation() {
           ${stat('Raffica max', st.windMax != null && sameDay ? `${fmt(st.windMax)} km/h${st.windMaxTime ? ` <small>${st.windMaxTime}</small>` : ''}` : '')}
         </dl>
       </div>
+      ${radarRow(timezone, utcOffset)}
     </article>
   </div>`;
+}
+
+// Riga del radar in fondo al box della centralina (riepilogo arrivato con la misura): al
+// tocco apre la sezione Radar.
+const RADAR_ICON = '<svg class="radar-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M12 12 18.5 5.5"/><path d="M16.2 7.8A6 6 0 1 0 18 12"/><path d="M19.1 4.9A10 10 0 1 0 22 12"/></svg>';
+function radarRow(tz, off) {
+  const r = radarStatus(state.station?.radar, tz, off);
+  if (!r) return '';
+  return `<button type="button" class="obs-radar lv-${r.level}" data-open-radar title="${esc(r.tip)}">${RADAR_ICON}<span><b>Radar:</b> ${esc(r.text)}</span></button>`;
 }
 
 // Box "Adesso": solo la lettura della centralina (nessuna previsione per l'ora corrente).
@@ -984,13 +999,31 @@ function applyRainNow(x, rn, nowMin) {
   };
 }
 
+// Pioggia vista arrivare dal radar: un tragitto di oggi in corso o che inizia entro
+// RADAR_BIKE_MIN minuti in cui la stima del radar dà pioggia diventa "Pioggia".
+function applyRadar(x, day, nowMin) {
+  if (x.status === 'na' || x.rainNow || toMinutes(x.w.from) - nowMin > RADAR_BIKE_MIN || nowMin >= toMinutes(x.w.to)) return x;
+  const { utcOffset, timezone } = state.data;
+  const ms = (hhmm) => Date.parse(`${day}T${hhmm}:00Z`) - utcOffset * 1000;
+  const s = radarWindowRain(state.station?.radar, ms(x.w.from), ms(x.w.to));
+  if (!s) return x;
+  const forecast = `previsione: ${BIKE_STATUS[x.status].label.toLowerCase()}${x.why ? `, ${x.why}` : ''}`;
+  return {
+    ...x, status: 'wet', rainNow: true,
+    why: `il radar vede arrivare pioggia ${radarWords(s.mmh)} verso le ${localDateTime(s.at, timezone, utcOffset).time}; ${forecast}`,
+  };
+}
+
 function renderBike(commute, day, hourIdx, today, nowMin) {
   // Solo gli intervalli attivi in questo giorno della settimana (w.days, 0 = domenica).
   const wd = parts(day).wd;
   const windows = commute.windows.filter((w) => w.days.includes(wd));
   if (!windows.length) return '';
   const rn = day === today ? stationRainNow() : null;
-  const items = windows.map((w) => applyRainNow(bikeWindow(day, w, hourIdx), rn, nowMin));
+  const items = windows.map((w) => {
+    const x = applyRainNow(bikeWindow(day, w, hourIdx), rn, nowMin);
+    return day === today ? applyRadar(x, day, nowMin) : x;
+  });
   if (items.every((x) => x.status === 'na' && x.pop == null)) return '';
   const chips = items.map((x) => {
     const st = BIKE_STATUS[x.status];
@@ -1271,6 +1304,35 @@ function popCell(i) {
   return `<td class="first num prob" style="${tint}" title="${esc(tip)}" data-tip="${esc(tip)}">${val}</td>`;
 }
 
+// Sezione "Radar" collassabile (chiusa di default, stato ricordato): le immagini si
+// chiedono al server solo quando è aperta.
+function syncRadarCollapse() {
+  const open = !!state.settings.radarOpen;
+  $('#radar-toggle').setAttribute('aria-expanded', String(open));
+  $('#radar-hint').textContent = open ? 'Nascondi' : 'Mostra';
+  $('#radar-body').hidden = !open;
+  $('#radar-card').classList.toggle('open', open);
+  if (!open) stopRadar();
+}
+
+async function loadRadarSection() {
+  const body = $('#radar-body');
+  if (!body.firstChild) body.innerHTML = '<p class="muted">Caricamento del radar…</p>';
+  try {
+    const d = await loadRadar();
+    if (state.settings.radarOpen) renderRadar(body, d, state.data?.timezone || 'Europe/Rome', state.data?.utcOffset || 0);
+  } catch (err) {
+    body.innerHTML = `<p class="muted">Radar non disponibile: ${esc(err.message)}.</p>`;
+  }
+}
+
+function setRadarOpen(open) {
+  state.settings.radarOpen = open;
+  store.saveSettings({ radarOpen: open });
+  syncRadarCollapse();
+  if (open) loadRadarSection();
+}
+
 // Sezione "Dettaglio orario" collassabile (chiusa di default, stato ricordato).
 function syncHourlyCollapse() {
   const open = !!state.settings.hourlyOpen;
@@ -1371,6 +1433,14 @@ function bindControls() {
     state.settings.range = b.dataset.range;
     store.saveSettings({ range: b.dataset.range });
     renderChartSection();
+  });
+
+  $('#radar-toggle').addEventListener('click', () => setRadarOpen(!state.settings.radarOpen));
+  // Riga del radar nel box Adesso: apre la sezione e ci porta.
+  $('#now').addEventListener('click', (e) => {
+    if (!e.target.closest('[data-open-radar]')) return;
+    if (!state.settings.radarOpen) setRadarOpen(true);
+    $('#radar-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
   $('#hourly-toggle').addEventListener('click', () => {

@@ -10,13 +10,14 @@ Web app (PWA) che mette a confronto le previsioni di due modelli meteorologici p
 
 ## Cosa mostra
 
-- **Adesso**: l'ultima misura della centralina (temperatura con minima e massima del giorno, umidità, vento, pioggia di oggi, raffica massima). Viene aggiornata ai minuti :00, :10, :20, :30, :40, :50. Se i millimetri di oggi aumentano tra una lettura e l'altra compare "Sta piovendo".
+- **Adesso**: l'ultima misura della centralina (temperatura con minima e massima del giorno, umidità, vento, pioggia di oggi, raffica massima). Viene aggiornata ai minuti :00, :10, :20, :30, :40, :50. Se i millimetri di oggi aumentano tra una lettura e l'altra compare "Sta piovendo". In fondo, la riga **Radar**: pioggia su Faenza, in arrivo (con l'orario stimato), la più vicina entro 50 km o nessuna.
 - **Oggi, Domani, Dopodomani**: una scheda per giorno, con i due modelli a confronto:
   - riepilogo del giorno e suddivisione in quattro fasce (notte, mattina, pomeriggio, sera);
   - alba e tramonto; per ogni fascia anche la probabilità di pioggia;
   - un giudizio sulla **concordanza dei modelli** (concordi / lievi differenze / discordi), con il motivo;
   - **Bike**: per ogni intervallo del tragitto in bici (nome e fino a 6 "intervalli monitorati" configurabili nella pagina Impostazioni, ognuno con i giorni della settimana in cui vale, al massimo 3 nello stesso giorno; predefiniti 06:45–08:00, 12:30–15:00, 17:00–18:30, tutti i giorni), se pioverà (Asciutto, Rischio, Incerto, Pioggia) e con quale probabilità.
 - **Andamento orario**: grafico che sovrappone i due modelli per precipitazioni (con la probabilità di pioggia ora per ora), temperatura, vento, nuvolosità, umidità e pressione. Nella temperatura due linee tratteggiate mostrano le previsioni corrette con la misura della centralina per le ore successive.
+- **Radar** (chiuso di default): animazione del radar della Protezione Civile intorno a Faenza nell'ultima ora, più la stima dei prossimi 60 minuti (la pioggia di adesso spostata lungo il suo movimento). Il radar fa diventare "Pioggia" anche i tragitti di oggi in cui vede arrivare la pioggia entro un'ora.
 - **Dettaglio orario** (chiuso di default): tabella ora per ora con entrambi i modelli e la probabilità di pioggia.
 - **Verifica** (icona con il grafico e la spunta, pagina `verify.html`): per i giorni passati, pioggia e temperature previste la sera prima (o due giorni prima) confrontate con quelle misurate dalla centralina, fascia per fascia e negli intervalli monitorati, con un riepilogo per modello (fasce previste correttamente, falsi allarmi, errori medi) e l'affidabilità della probabilità di pioggia.
 
@@ -55,8 +56,9 @@ fonti esterne ──(cron)──▶ server/jobs.py ──▶ SQLite ◀── se
 | Ensemble ICON-EU-EPS / ICON-D2-EPS / ECMWF ENS | Open-Meteo | ogni 3 ore (i loro metadati non sono affidabili) |
 | Metadati dei run | Open-Meteo | ogni 15 minuti (pochi byte) |
 | Medie del periodo 1991–2020 | archivio Open-Meteo (ERA5-Land) | controllo giornaliero, download solo se mancano o hanno più di un anno |
+| Radar (pioggia al suolo, SRI) | Protezione Civile | ogni 5 minuti (immagini nuove, ~780 KB l'una; servono numpy e Pillow) |
 
-In una giornata il server fa così circa 20 download di previsioni, 8 di ensemble e 144 letture della centralina, qualunque sia il numero di utenti. Prima ogni browser aperto scaricava previsioni ed ensemble ogni 30 minuti.
+In una giornata il server fa così circa 20 download di previsioni, 8 di ensemble, 144 letture della centralina e 288 immagini radar (~225 MB), qualunque sia il numero di utenti. Prima ogni browser aperto scaricava previsioni ed ensemble ogni 30 minuti.
 
 API (tutte in sola lettura, con `ETag`: il browser riscarica solo se i dati sono cambiati):
 
@@ -154,6 +156,7 @@ js/settings.js         pagina Impostazioni
 js/verify.js           pagina Verifica
 js/api.js              accesso all'API del server (previsioni, centralina, medie)
 js/station.js          misure della centralina (dall'API)
+js/radar.js            radar: riga del box Adesso, tragitti, sezione con l'animazione
 js/storage.js          salvataggio nel browser (localStorage)
 js/chart.js            grafico SVG
 js/weather.js          icone meteo e formattazione
@@ -166,6 +169,7 @@ server/jobs.py         job di aggiornamento (lanciati da cron)
 server/api.py          API JSON (e file statici in locale)
 server/db.py           database SQLite
 server/verify.py       archivio delle previsioni e verifica con le misure
+server/radar.py        radar: lettura delle immagini, movimento, stima, immagini PNG (numpy, Pillow)
 tests/                 test del server
 swiftbar/              plugin SwiftBar per la barra dei menu del Mac
 deploy/                nginx, systemd, crontab
@@ -177,6 +181,7 @@ deploy/                nginx, systemd, crontab
 - Medie del periodo 1991–2020: reanalisi ERA5-Land (Copernicus Climate Change Service), dall'archivio storico di Open-Meteo.
 - ICON-2I © [ItaliaMeteo-ARPAE](https://www.arpae.it/); ICON-EU, ICON-D2, ICON-EU-EPS e ICON-D2-EPS © [Deutscher Wetterdienst](https://www.dwd.de/); AROME © [Météo-France](https://meteofrance.com/); ECMWF ENS © [ECMWF](https://www.ecmwf.int/) (CC BY 4.0).
 - Misure: Osservatorio Meteorologico "E. Torricelli", [meteofaenza.it](https://www.meteofaenza.it/).
+- Radar: [Dipartimento della Protezione Civile](https://radar.protezionecivile.it/), licenza CC BY-SA 4.0 (con la stessa licenza le immagini radar prodotte dall'app). Costa nell'immagine: Natural Earth (dominio pubblico).
 
 Nota tecnica sulla centralina: il suo file dati è un piccolo file JavaScript con le variabili delle misure. Lo legge il server, che ne estrae i valori senza eseguirlo; il browser non lo carica più.
 

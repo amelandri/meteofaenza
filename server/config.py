@@ -43,6 +43,13 @@ NORMALS_MAX_AGE_S = 365 * 24 * 3600
 STATION_KEEP_DAYS = 400
 RAIN_LOG_S = 2 * 3600  # letture restituite al frontend per capire se Sta piovendo
 
+# Radar (server/radar.py): un'immagine ogni 5 minuti, pubblicata ~7–8 minuti dopo; il job
+# gira ogni 5 minuti. Ritagli e immagini si tengono 3 ore (animazione dell'ultima ora e
+# calcolo del movimento), il dato su Faenza e le stime per la verifica come la centralina.
+# Oltre RADAR_MAX_AGE_S la stima non si serve più (radar fermo o job che non gira).
+RADAR_KEEP_S = 3 * 3600
+RADAR_MAX_AGE_S = 30 * 60
+
 # Forma dei dati delle previsioni servite: deve coincidere con FORECAST_SCHEMA di
 # js/storage.js (il frontend scarta le cache con schema diverso).
 FORECAST_SCHEMA = 4

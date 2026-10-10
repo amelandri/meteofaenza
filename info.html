@@ -43,6 +43,7 @@
       <a href="#giorni">Fasce orarie e concordanza</a>
       <a href="#icone">Le icone</a>
       <a href="#centralina">La centralina</a>
+      <a href="#radar">Il radar</a>
       <a href="#medie">Le medie del periodo</a>
       <a href="#verifica">La verifica</a>
       <a href="#limiti">Limiti</a>
@@ -134,7 +135,7 @@
       <table class="info-table">
         <thead><tr><th>Indicazione</th><th>Quando</th></tr></thead>
         <tbody>
-          <tr><td><span class="info-st st-wet">Pioggia</span></td><td>la maggioranza dei modelli prevede pioggia (entrambi su due, almeno 3 su 4) e probabilità ≥ 30%, oppure almeno un modello e probabilità ≥ 60%, oppure probabilità ≥ 80%; oppure <strong>Sta piovendo adesso</strong> secondo la centralina e il tragitto è in corso o inizia entro 30 minuti</td></tr>
+          <tr><td><span class="info-st st-wet">Pioggia</span></td><td>la maggioranza dei modelli prevede pioggia (entrambi su due, almeno 3 su 4) e probabilità ≥ 30%, oppure almeno un modello e probabilità ≥ 60%, oppure probabilità ≥ 80%; oppure <strong>Sta piovendo adesso</strong> secondo la centralina e il tragitto è in corso o inizia entro 30 minuti; oppure il <a href="#radar">radar</a> vede arrivare pioggia durante il tragitto entro i prossimi 60 minuti</td></tr>
           <tr><td><span class="info-st st-dry">Asciutto</span></td><td>nessun modello prevede pioggia e probabilità sotto il 20%</td></tr>
           <tr><td><span class="info-st st-risk">Rischio</span></td><td>nessun modello prevede pioggia, ma probabilità ≥ 20%</td></tr>
           <tr><td><span class="info-st st-mixed">Incerto</span></td><td>tutti gli altri casi (es. metà dei modelli prevede pioggia e l'altra metà no, con probabilità media)</td></tr>
@@ -205,6 +206,26 @@
       <p>Nel grafico della temperatura le linee tratteggiate sono le previsioni dei due modelli corrette con la centralina: l'app calcola la differenza tra la temperatura misurata e quella prevista nello stesso momento e la applica alle ore successive, dimezzandola ogni 3 ore e azzerandola dopo 12. Differenze di oltre 5 °C non vengono usate (più probabile una misura anomala). I box dei giorni mostrano invece le previsioni originali, per non alterare il confronto tra i modelli.</p>
     </section>
 
+    <section class="card" id="radar">
+      <h2>Il radar</h2>
+      <p>Il radar meteorologico vede la pioggia <strong>che sta cadendo adesso</strong>, in un raggio di centinaia di chilometri. L'app usa il mosaico nazionale del Dipartimento della Protezione Civile: intensità della pioggia al suolo in mm/h, con pixel da 1 km e un'immagine ogni 5 minuti, pubblicata 7–8 minuti dopo. Il server la scarica ogni 5 minuti e tiene solo la zona intorno a Faenza.</p>
+      <p>Confrontando l'ultima immagine con quella di 15 minuti prima il server calcola <strong>dove si sta muovendo la pioggia</strong> e a che velocità, poi la "sposta in avanti" lungo quel movimento per i prossimi 90 minuti: è il <em>nowcasting</em>. Per ogni momento guarda una zona intorno a Faenza che si allarga con il tempo (da 3 km adesso a 12 km tra 90 minuti, perché l'incertezza cresce): se in almeno metà della zona c'è pioggia (almeno 0,3 mm/h) la pioggia è <strong>in arrivo</strong>, se in almeno un quarto è <strong>possibile</strong>.</p>
+      <ul>
+        <li>In fondo al box della centralina la riga <strong>Radar</strong> dice se piove su Faenza (e fino a quando), se la pioggia è in arrivo e a che ora, dov'è la pioggia più vicina entro 50 km, oppure che non ce n'è. Toccandola si apre la sezione Radar.</li>
+        <li>Un <strong>tragitto di oggi</strong> in corso o che inizia entro un'ora diventa <em>Pioggia</em> se il radar la vede arrivare durante il tragitto entro i prossimi 60 minuti (oltre la stima è troppo incerta).</li>
+        <li>La sezione <strong>Radar</strong> (chiusa di default) mostra l'animazione dell'ultima ora e, con la scritta "stima", la proiezione dei prossimi 60 minuti; i cerchi tratteggiati sono a 25 e 50 km da Faenza, in grigio le zone non coperte.</li>
+      </ul>
+      <table class="info-table">
+        <thead><tr><th>mm/h</th><th>Intensità</th></tr></thead>
+        <tbody>
+          <tr><td>meno di 2,5</td><td>debole</td></tr>
+          <tr><td>2,5 – 7,5</td><td>moderata</td></tr>
+          <tr><td>oltre 7,5</td><td>forte</td></tr>
+        </tbody>
+      </table>
+      <p class="info-note">La stima funziona bene con fronti e linee di rovesci che si spostano, fino a circa un'ora. Non vede i <strong>temporali che nascono sul posto</strong> (frequenti d'estate sull'Appennino) né quelli che si rinforzano o si esauriscono; il radar fatica con la pioviggine e vicino ai rilievi. Per questo il radar può solo aggiungere pioggia al verdetto dei tragitti, mai toglierla. Immagini: Dipartimento della Protezione Civile, licenza CC BY-SA 4.0 (con la stessa licenza le immagini radar mostrate dall'app).</p>
+    </section>
+
     <section class="card" id="medie">
       <h2>Le medie del periodo</h2>
       <p>Per capire se una giornata è più calda o più fresca del normale, l'app confronta le temperature con le <strong>medie del periodo</strong>: la massima e la minima medie di quel giorno dell'anno nel trentennio <strong>1991–2020</strong>.</p>
@@ -246,7 +267,8 @@
   <footer class="footer muted">
     <p>Dati: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0) ·
       ICON-2I © <a href="https://www.arpae.it/" target="_blank" rel="noopener">ItaliaMeteo-ARPAE</a> ·
-      ICON-EU, ICON-D2, ICON-EU-EPS e ICON-D2-EPS © <a href="https://www.dwd.de/" target="_blank" rel="noopener">Deutscher Wetterdienst</a> · AROME © <a href="https://meteofrance.com/" target="_blank" rel="noopener">Météo-France</a> · ECMWF ENS © <a href="https://www.ecmwf.int/" target="_blank" rel="noopener">ECMWF</a> (CC BY 4.0).</p>
+      ICON-EU, ICON-D2, ICON-EU-EPS e ICON-D2-EPS © <a href="https://www.dwd.de/" target="_blank" rel="noopener">Deutscher Wetterdienst</a> · AROME © <a href="https://meteofrance.com/" target="_blank" rel="noopener">Météo-France</a> · ECMWF ENS © <a href="https://www.ecmwf.int/" target="_blank" rel="noopener">ECMWF</a> (CC BY 4.0).
+      Radar: <a href="https://radar.protezionecivile.it/" target="_blank" rel="noopener">Dipartimento della Protezione Civile</a> (CC BY-SA 4.0).</p>
     <p>Medie del periodo 1991–2020: reanalisi <a href="https://cds.climate.copernicus.eu/" target="_blank" rel="noopener">ERA5-Land (Copernicus Climate Change Service)</a>, tramite Open-Meteo.</p>
     <p>Dati misurati: <a href="https://www.meteofaenza.it/" target="_blank" rel="noopener">Osservatorio Meteorologico "E. Torricelli" – meteofaenza.it</a>.</p>
   </footer>

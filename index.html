@@ -82,6 +82,17 @@
         <p id="chart-note" class="chart-note muted"></p>
       </section>
 
+      <section class="card collapsible" id="radar-card">
+        <h2 class="card-head collapse-head">
+          <button id="radar-toggle" class="collapse-btn" type="button" aria-expanded="false" aria-controls="radar-body">
+            <span>Radar</span>
+            <span class="collapse-hint muted" id="radar-hint">Mostra</span>
+            <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+        </h2>
+        <div id="radar-body" hidden></div>
+      </section>
+
       <section class="card collapsible" id="hourly-card">
         <h2 class="card-head collapse-head">
           <button id="hourly-toggle" class="collapse-btn" type="button" aria-expanded="false" aria-controls="hourly-body">
@@ -105,7 +116,8 @@
     <div id="updated" class="meta-line"></div>
     <p>Dati: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0) ·
       ICON-2I © <a href="https://www.arpae.it/" target="_blank" rel="noopener">ItaliaMeteo-ARPAE</a> ·
-      ICON-EU, ICON-D2, ICON-EU-EPS e ICON-D2-EPS © <a href="https://www.dwd.de/" target="_blank" rel="noopener">Deutscher Wetterdienst</a> · AROME © <a href="https://meteofrance.com/" target="_blank" rel="noopener">Météo-France</a> · ECMWF ENS © <a href="https://www.ecmwf.int/" target="_blank" rel="noopener">ECMWF</a> (CC BY 4.0).</p>
+      ICON-EU, ICON-D2, ICON-EU-EPS e ICON-D2-EPS © <a href="https://www.dwd.de/" target="_blank" rel="noopener">Deutscher Wetterdienst</a> · AROME © <a href="https://meteofrance.com/" target="_blank" rel="noopener">Météo-France</a> · ECMWF ENS © <a href="https://www.ecmwf.int/" target="_blank" rel="noopener">ECMWF</a> (CC BY 4.0).
+      Radar: <a href="https://radar.protezionecivile.it/" target="_blank" rel="noopener">Dipartimento della Protezione Civile</a> (CC BY-SA 4.0; anche le immagini radar dell'app).</p>
     <p>Medie del periodo 1991–2020: reanalisi <a href="https://cds.climate.copernicus.eu/" target="_blank" rel="noopener">ERA5-Land (Copernicus Climate Change Service)</a>, tramite Open-Meteo.</p>
     <p>Dati misurati: <a href="https://www.meteofaenza.it/" target="_blank" rel="noopener">Osservatorio Meteorologico "E. Torricelli" – meteofaenza.it</a>.</p>
     <p>Le previsioni vengono salvate solo nel tuo browser.</p>

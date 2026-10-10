@@ -33,10 +33,12 @@ git push -u origin server
 ```bash
 sudo apt update
 sudo apt install -y git python3 nginx certbot python3-certbot-nginx
+sudo apt install -y python3-numpy python3-pil   # solo per il job del radar
 python3 --version        # serve 3.9 o successivo (Debian 11+, Ubuntu 22.04+)
+python3 -c "import numpy, PIL; print('numpy', numpy.__version__, '· Pillow', PIL.__version__)"
 ```
 
-Non servono pacchetti Python aggiuntivi: il server usa solo la libreria standard.
+Il server usa la libreria standard di Python; l'unica eccezione sono **numpy** e **Pillow**, usate solo dal job del radar (lettura delle immagini e calcolo del movimento della pioggia). Si installano dai pacchetti di Debian con `apt`, **non con `pip`** (su Debian 12 e successivi `pip install` sul Python di sistema è bloccato apposta): così le aggiorna `apt upgrade` insieme al resto e le vedono sia il servizio systemd sia cron, che usano il Python di sistema. Se mancassero, fallirebbe solo il job del radar.
 
 ## 2. Utente di servizio e cartella del database
 
@@ -98,12 +100,13 @@ Per seguire gli aggiornamenti in diretta:
 journalctl -t meteo -f
 ```
 
-Entro 10 minuti deve comparire una riga `station:`, entro 15 una riga `forecast:`.
+Entro 5 minuti deve comparire una riga `radar:`, entro 10 una riga `station:`, entro 15 una riga `forecast:`.
 
 | Job | Quando | Cosa fa |
 |---|---|---|
 | `station` | ogni 10 minuti, 20 s dopo lo scoccare | legge la centralina (meteofaenza.it) |
 | `forecast` | minuti 2, 17, 32, 47 | controlla i metadati dei modelli; scarica le previsioni solo se è uscito un nuovo run (ICON-2I ogni 12 h, ICON-EU ogni 3 h) o se hanno più di 6 ore; ensemble ogni 3 ore |
+| `radar` | ogni 5 minuti, 10 s dopo lo scoccare | scarica le immagini nuove del radar della Protezione Civile, calcola movimento e stima dei prossimi 90 minuti, prepara le immagini dell'animazione (richiede numpy e Pillow, passo 1) |
 | `normals` | ogni giorno alle 4:40 | scarica le medie del periodo 1991–2020 solo se mancano o hanno più di un anno |
 
 ## 7. nginx

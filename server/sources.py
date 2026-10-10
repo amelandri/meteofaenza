@@ -20,6 +20,10 @@ FORECAST_URL = 'https://api.open-meteo.com/v1/forecast'
 META_URL = 'https://api.open-meteo.com/data/{model}/static/meta.json'
 ENSEMBLE_URL = 'https://ensemble-api.open-meteo.com/v1/ensemble'
 ARCHIVE_URL = 'https://archive-api.open-meteo.com/v1/archive'
+# Radar della Protezione Civile (mosaico nazionale, licenza CC BY-SA 4.0): l'API dice qual è
+# l'ultima immagine e restituisce un indirizzo temporaneo (5 minuti) del GeoTIFF. Il percorso
+# è quello usato da radar.protezionecivile.it (con /wide/ davanti la CDN risponde 403).
+RADAR_API = 'https://radar-api.protezionecivile.it'
 # File della centralina: variabili JavaScript stringa (var temperature = '17.2';). Lato
 # server non c'è il problema del CORS e il file non viene più eseguito nel browser.
 STATION_URL = 'https://www.meteofaenza.it/dati/today/data.js'
@@ -85,6 +89,20 @@ def _get(url, params=None):
         raise SourceError(f'HTTP {err.code} {reason}'.strip()) from err
     except (urllib.error.URLError, TimeoutError, OSError) as err:
         raise SourceError(f'connessione non riuscita: {err}') from err
+
+
+def post_json(url, payload):
+    req = urllib.request.Request(url, data=json.dumps(payload).encode(), method='POST',
+                                 headers={'User-Agent': config.USER_AGENT, 'Content-Type': 'application/json'})
+    try:
+        with urllib.request.urlopen(req, timeout=config.HTTP_TIMEOUT) as res:
+            return json.loads(res.read())
+    except urllib.error.HTTPError as err:
+        raise SourceError(f'HTTP {err.code}') from err
+    except (urllib.error.URLError, TimeoutError, OSError) as err:
+        raise SourceError(f'connessione non riuscita: {err}') from err
+    except json.JSONDecodeError as err:
+        raise SourceError('risposta non valida') from err
 
 
 def get_json(url, params=None):
@@ -321,3 +339,22 @@ def parse_station(text, fetched_at=None):
 def fetch_station():
     text = _get(STATION_URL, {'t': now_ms()}).decode('utf-8', errors='replace')
     return parse_station(text)
+
+
+# --- Radar ---------------------------------------------------------------------------
+
+def fetch_radar_last(product='SRI'):
+    """Istante (ms) dell'ultima immagine disponibile del prodotto (SRI = pioggia al suolo, mm/h)."""
+    data = get_json(f'{RADAR_API}/findLastProductByType', {'type': product, 'lang': 'it'})
+    try:
+        return int(data['lastProducts'][0]['time'])
+    except (KeyError, IndexError, TypeError, ValueError) as err:
+        raise SourceError('radar: risposta senza ultima immagine') from err
+
+
+def fetch_radar_tif(time_ms, product='SRI'):
+    """GeoTIFF dell'immagine all'istante dato (byte)."""
+    info = post_json(f'{RADAR_API}/downloadProduct', {'productType': product, 'productDate': time_ms})
+    if not info.get('url'):
+        raise SourceError('radar: immagine non disponibile')
+    return _get(info['url'])

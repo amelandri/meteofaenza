@@ -55,6 +55,31 @@ CREATE TABLE IF NOT EXISTS ensemble_archive (
   PRIMARY KEY (issued_at, target, grp)
 );
 CREATE INDEX IF NOT EXISTS ensemble_archive_target ON ensemble_archive (target, issued_at);
+-- Radar (server/radar.py). Ritagli intorno a Faenza (float16 compressi, NaN = fuori
+-- copertura) per movimento e proiezione, e immagini PNG già pronte: si tengono RADAR_KEEP_S.
+CREATE TABLE IF NOT EXISTS radar_frames (
+  time       INTEGER PRIMARY KEY,  -- ms, istante dell'immagine radar
+  fetched_at INTEGER NOT NULL,
+  grid       BLOB NOT NULL
+);
+CREATE TABLE IF NOT EXISTS radar_images (
+  name       TEXT PRIMARY KEY,     -- 'o<ms>' misurata, 'f<ms>_<minuti>' proiezione
+  created_at INTEGER NOT NULL,
+  png        BLOB NOT NULL
+);
+-- Per la verifica (storico come la centralina): pioggia del radar su Faenza a ogni immagine
+-- e stima di ogni emissione per i minuti successivi (quota della zona con pioggia, mm/h).
+CREATE TABLE IF NOT EXISTS radar_obs (
+  time       INTEGER PRIMARY KEY,
+  mmh        REAL                  -- media entro 2 km, NULL fuori copertura
+);
+CREATE TABLE IF NOT EXISTS radar_nowcast (
+  issued     INTEGER NOT NULL,     -- ms, istante dell'immagine da cui parte la stima
+  lead       INTEGER NOT NULL,     -- minuti
+  frac       REAL,
+  mmh        REAL,
+  PRIMARY KEY (issued, lead)
+);
 """
 
 
@@ -120,6 +145,11 @@ def prune(conn):
     old = now_ms() - config.STATION_KEEP_DAYS * 86400000  # stesso storico delle letture
     conn.execute('DELETE FROM forecast_archive WHERE issued_at < ?', (old,))
     conn.execute('DELETE FROM ensemble_archive WHERE issued_at < ?', (old,))
+    conn.execute('DELETE FROM radar_obs WHERE time < ?', (old,))
+    conn.execute('DELETE FROM radar_nowcast WHERE issued < ?', (old,))
+    recent = now_ms() - config.RADAR_KEEP_S * 1000
+    conn.execute('DELETE FROM radar_frames WHERE time < ?', (recent,))
+    conn.execute('DELETE FROM radar_images WHERE created_at < ?', (recent,))
     conn.commit()
 
 
@@ -131,7 +161,7 @@ def log(conn, job, ok, detail=''):
 def last_logs(conn):
     """Ultimo esito di ogni job e ultimo successo."""
     out = {}
-    for job in ('station', 'forecast', 'ensemble', 'normals'):
+    for job in ('station', 'forecast', 'ensemble', 'normals', 'radar'):
         last = conn.execute('SELECT at, ok, detail FROM fetch_log WHERE job = ? ORDER BY at DESC LIMIT 1', (job,)).fetchone()
         good = conn.execute('SELECT at FROM fetch_log WHERE job = ? AND ok = 1 ORDER BY at DESC LIMIT 1', (job,)).fetchone()
         out[job] = {

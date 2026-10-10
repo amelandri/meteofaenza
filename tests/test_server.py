@@ -239,3 +239,76 @@ class VerifyTest(unittest.TestCase):
         res = self.verify.compose_verify(self.conn, 120, 1)
         self.assertEqual(res['lead'], 1)
         self.assertIn(self.DAY, [d['day'] for d in res['days']])
+
+
+try:
+    import numpy as np  # noqa: F401  (numpy e Pillow servono solo al radar)
+    import PIL  # noqa: F401
+    HAVE_NUMPY = True
+except ImportError:
+    HAVE_NUMPY = False
+
+
+class RadarGeometryTest(unittest.TestCase):
+    """Geometria del mosaico (senza numpy)."""
+
+    def test_faenza_pixel(self):
+        from server import radar
+        col, row = radar.to_pixel(44.29007, 11.87948)
+        self.assertEqual((int(row), int(col)), (395, 550))  # verificato sull'immagine reale
+
+    def test_compass(self):
+        from server import radar
+        self.assertEqual(radar.compass(1, 0)[1], 'est')
+        self.assertEqual(radar.compass(0, -1)[1], 'nord')  # dy verso sud: -1 = nord
+        self.assertEqual(radar.compass(-1, 1)[1], 'sud-ovest')
+
+    def test_view_geometry(self):
+        from server import radar
+        v = radar.view_geometry()
+        faenza = v['cities'][0]
+        self.assertAlmostEqual(faenza['x'], radar.VIEW_HALF, delta=1)
+        self.assertAlmostEqual(faenza['y'], radar.VIEW_HALF, delta=1)
+
+
+@unittest.skipUnless(HAVE_NUMPY, 'numpy e Pillow non installati')
+class RadarNowcastTest(unittest.TestCase):
+    """Movimento e stima su campi sintetici: una macchia di pioggia a ovest che va verso est."""
+
+    @staticmethod
+    def blob(cx, cy, n=201, r=12, mmh=4.0):
+        import numpy as np
+        yy, xx = np.mgrid[0:n, 0:n]
+        return np.where((xx - cx) ** 2 + (yy - cy) ** 2 <= r * r, mmh, 0.0).astype(np.float32)
+
+    def test_motion_and_arrival(self):
+        from server import radar
+        c = radar.MOTION_HALF
+        # 40 km/h verso est = 10 px in 15 minuti; ora la macchia è 30 km a ovest di Faenza
+        older, newer = self.blob(c - 40, c), self.blob(c - 30, c)
+        v = radar.motion(older, newer, 15)
+        self.assertAlmostEqual(v[0] * 60, 40, delta=4)
+        self.assertAlmostEqual(v[1] * 60, 0, delta=4)
+        steps = {s['min']: s for s in radar.nowcast(newer, v)}
+        self.assertEqual(steps[0]['frac'], 0.0)
+        self.assertGreaterEqual(steps[45]['frac'], radar.ARRIVE_FRAC)  # 30 km a 40 km/h
+        self.assertEqual(radar.nearest(newer)['dir'], 'ovest')
+
+    def test_no_rain(self):
+        import numpy as np
+        from server import radar
+        dry = np.zeros((201, 201), np.float32)
+        self.assertIsNone(radar.motion(dry, dry, 15))
+        self.assertIsNone(radar.nearest(dry))
+        self.assertEqual([s['min'] for s in radar.nowcast(dry, None)], [0])
+
+    def test_png_and_pack(self):
+        import numpy as np
+        from server import radar
+        g = self.blob(100, 100)
+        g[:5, :5] = np.nan
+        png = radar.render_png(radar.window(g, 100, 100, radar.VIEW_HALF))
+        self.assertEqual(png[:8], b'\x89PNG\r\n\x1a\n')
+        back = radar.unpack(radar.pack(g))
+        self.assertTrue(np.isnan(back[0, 0]))
+        self.assertAlmostEqual(float(back[100, 100]), 4.0, places=2)
