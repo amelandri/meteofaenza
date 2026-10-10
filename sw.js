@@ -3,7 +3,7 @@
 // tiene una copia nel localStorage per l'uso offline.
 // Ad ogni modifica dei file dell'app incrementare VERSION.
 
-const VERSION = 'v148';
+const VERSION = 'v150';
 const CACHE = `meteo-shell-${VERSION}`;
 
 const SHELL = [

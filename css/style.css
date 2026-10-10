@@ -909,15 +909,16 @@ button { font: inherit; color: inherit; }
 /* align-items: start: il Lamone ha 4 stazioni e il Marzeno 2, niente riquadro allungato a vuoto */
 @container rivers (min-width: 760px) { .rv-grid { grid-template-columns: 1fr 1fr; align-items: start; } }
 .rv { background: var(--surface-2); border-radius: 12px; padding: 12px 14px; min-width: 0; }
-.rv-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
-.rv-head h3 { margin: 0; font-size: 1rem; }
+.rv-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 -14px 2px; padding: 0 14px 10px; border-bottom: 1px solid var(--surface); }
+/* nome del fiume ben più evidente di quello delle stazioni */
+.rv-head h3 { margin: 0; font-size: 1.3rem; font-weight: 750; letter-spacing: -.015em; }
 .rv-state { font-size: .76rem; font-weight: 650; padding: 3px 9px; border-radius: 999px; background: var(--surface); color: var(--muted); text-align: right; }
 .rv-state.l1 { background: color-mix(in srgb, var(--lv1) 24%, var(--surface)); color: color-mix(in srgb, var(--lv1) 45%, var(--text)); }
 .rv-state.l2 { background: color-mix(in srgb, var(--lv2) 24%, var(--surface)); color: color-mix(in srgb, var(--lv2) 50%, var(--text)); }
 .rv-state.l3 { background: var(--lv3); color: #fff; }
 /* Stazione: nome e livello, sotto barra delle soglie e grafico di 48 ore. */
-.rv-st { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name lvl" "bar bar" "spark spark"; gap: 4px 10px; padding: 10px 0; }
-.rv-name { grid-area: name; font-weight: 650; }
+.rv-st { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name lvl" "bar bar" "spark spark" "axis axis"; gap: 4px 10px; padding: 10px 0; }
+.rv-name { grid-area: name; font-size: .9rem; font-weight: 600; }
 .rv-name small { display: block; font-weight: 500; color: var(--muted); font-size: .74rem; }
 .rv-lvl { grid-area: lvl; text-align: right; font-variant-numeric: tabular-nums; }
 .rv-lvl b { font-size: 1.35rem; letter-spacing: -.02em; }
@@ -937,6 +938,11 @@ button { font: inherit; color: inherit; }
 .rv-spark polyline { fill: none; stroke: var(--rain); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
 .rv-spark.l1 polyline { stroke: var(--lv1); } .rv-spark.l2 polyline { stroke: var(--lv2); } .rv-spark.l3 polyline { stroke: var(--lv3); }
 .rv-spark line { stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.rv-spark line.mid { stroke: var(--border); stroke-width: 1; stroke-dasharray: none; }
+/* Asse del tempo sotto il grafico: giorno a ogni mezzanotte, ora dell'ultimo dato a destra */
+.rv-axis { grid-area: axis; position: relative; height: 12px; margin-top: -3px; font-size: .62rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rv-axis span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.rv-axis .end { right: 0; transform: none; }
 .rv-spark .t1 { stroke: var(--lv1); } .rv-spark .t2 { stroke: var(--lv2); } .rv-spark .t3 { stroke: var(--lv3); }
 .rv-flow { display: flex; align-items: center; gap: 6px; font-size: .7rem; color: var(--muted); margin: -2px 0; }
 .rv-flow::before { content: ""; flex: none; width: 2px; height: 16px; margin-left: 6px; background: var(--border); }

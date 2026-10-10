@@ -32,9 +32,13 @@ function bar(x) {
     x.s.map((s, i) => `<i class="rv-tick t${i + 1}" style="left:calc(${p(s)}% - 1px)"></i><span class="rv-lab" style="left:${p(s)}%">${fmt(s, 1)}</span>`).join('')}</div>`;
 }
 
+const WEEKDAYS = ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'];
+
 // Grafico delle ultime 48 ore: scala sui dati (almeno 0,5 m, per non ingigantire i
-// centimetri), soglie tratteggiate quando rientrano nella scala.
-function spark(x) {
+// centimetri), soglie tratteggiate quando rientrano nella scala. Sotto, l'asse del tempo:
+// una linea a ogni mezzanotte (ora della località) con il giorno, e a destra l'ora
+// dell'ultimo dato. Le scritte sono HTML (l'SVG si deforma in larghezza).
+function spark(x, tz, off) {
   const d = x.series;
   if (d.length < 2) return '';
   const W = 300, H = 46;
@@ -46,7 +50,19 @@ function spark(x) {
   const Y = (v) => H - 4 - ((v - lo) / (hi - lo)) * (H - 8);
   const pts = d.map((p) => `${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join(' ');
   const thr = x.s.map((s, i) => (s <= hi ? `<line class="t${i + 1}" x1="0" x2="${W}" y1="${Y(s).toFixed(1)}" y2="${Y(s).toFixed(1)}"/>` : '')).join('');
-  return `<svg class="rv-spark${lv(x.level)}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${thr}<polygon points="0,${H} ${pts} ${W},${H}"/><polyline points="${pts}"/></svg>`;
+  // Mezzanotti locali comprese nel periodo.
+  const days = [];
+  const day = 86400000;
+  for (let m = Math.ceil((t0 + off * 1000) / day) * day - off * 1000; m < t1; m += day) days.push(m);
+  const pct = (t) => ((t - t0) / Math.max(1, t1 - t0)) * 100;
+  const mid = days.map((m) => `<line class="mid" x1="${X(m).toFixed(1)}" x2="${X(m).toFixed(1)}" y1="0" y2="${H}"/>`).join('');
+  const labels = days.map((m) => {
+    const d0 = localDateTime(m + 3600000, tz, off); // un'ora dopo: il giorno che comincia
+    const wd = WEEKDAYS[new Date(`${d0.date}T12:00:00Z`).getUTCDay()];
+    return pct(m) < 88 ? `<span style="left:${pct(m).toFixed(1)}%">${wd} ${Number(d0.date.slice(8))}</span>` : '';
+  }).join('');
+  return `<svg class="rv-spark${lv(x.level)}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${mid}${thr}<polygon points="0,${H} ${pts} ${W},${H}"/><polyline points="${pts}"/></svg>
+    <div class="rv-axis" aria-hidden="true">${labels}<span class="end">${localDateTime(t1, tz, off).time}</span></div>`;
 }
 
 function station(x, tz, off) {
@@ -54,7 +70,7 @@ function station(x, tz, off) {
   return `<div class="rv-st" title="${esc(tip)}">
     <div class="rv-name">${esc(x.name)}<small>${esc(x.where)}</small></div>
     <div class="rv-lvl"><b>${m2(x.v)}<span>m</span></b>${trend(x)}</div>
-    ${bar(x)}${spark(x)}
+    ${bar(x)}${spark(x, tz, off)}
   </div>`;
 }
 
@@ -84,5 +100,5 @@ export function renderRivers(el, d, tz, off) {
   const at = localDateTime(d.time, tz, off);
   const stale = Date.now() - d.time > RIVERS_STALE_MS;
   el.innerHTML = `<div class="rv-grid">${d.rivers.map((r) => river(r, tz, off)).join('')}</div>
-    <p class="rv-note muted">${stale ? '<b class="obs-stale">Dati non aggiornati.</b> ' : ''}Livello dell'acqua in metri, ultimo dato delle ${at.time}${stale ? ` del ${at.day}` : ''} (ogni 15 minuti, pubblicato con 30–60 minuti di ritardo). Le tacche colorate sono le soglie di allerta 1, 2 e 3; il grafico copre le ultime 48 ore. Dati: ARPAE Emilia-Romagna – Allerta Meteo.</p>`;
+    <p class="rv-note muted">${stale ? '<b class="obs-stale">Dati non aggiornati.</b> ' : ''}Livello dell'acqua in metri, ultimo dato delle ${at.time}${stale ? ` del ${at.day}` : ''} (ogni 15 minuti, pubblicato con 30–60 minuti di ritardo). Le tacche colorate sono le soglie di allerta 1, 2 e 3; il grafico copre le ultime 48 ore (le linee verticali sono le mezzanotti, a destra l'ora dell'ultimo dato). Dati: ARPAE Emilia-Romagna – Allerta Meteo.</p>`;
 }
