@@ -299,6 +299,28 @@ class VerifyTest(unittest.TestCase):
         self.assertEqual(sum(f['eu']['rain']), 1.0)
         conn.close()
 
+    def test_thin_ensemble_archive(self):
+        """Dei giorni passati resta solo l'ultimo download dell'ensemble (quello che la verifica
+        usa); quelli di oggi restano tutti."""
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        old = config.DB_PATH
+        config.DB_PATH = Path(_tmp.name) / 'thin.db'
+        try:
+            conn = db.connect()
+            ms = lambda d, h: int(datetime(2026, 10, d, h, tzinfo=ZoneInfo('Europe/Rome')).timestamp() * 1000)  # noqa: E731
+            issued = [ms(10, 3), ms(10, 21), ms(11, 3), ms(11, 15), ms(12, 3), ms(12, 9)]
+            for t in issued:
+                conn.execute('INSERT INTO ensemble_archive VALUES (?, ?, ?, ?, ?)', (t, '2026-10-13T12:00', 'X', 1, 1))
+            conn.commit()
+            dropped = self.verify.thin_ensemble_archive(conn, now_ms=ms(12, 10))
+            left = [r[0] for r in conn.execute('SELECT issued_at FROM ensemble_archive ORDER BY issued_at')]
+            self.assertEqual(dropped, 2)
+            self.assertEqual(left, [ms(10, 21), ms(11, 15), ms(12, 3), ms(12, 9)])
+            conn.close()
+        finally:
+            config.DB_PATH = old
+
     def test_compose(self):
         res = self.verify.compose_verify(self.conn, 120, 1)
         self.assertEqual(res['lead'], 1)

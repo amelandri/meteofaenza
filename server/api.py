@@ -186,13 +186,18 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(config.ROOT), **kwargs)
 
+    # Immagini radar: il nome comprende l'istante (e il riquadro), il contenuto non cambia mai;
+    # il browser le tiene finché il server le conserva (RADAR_KEEP_S) senza ricontrollarle.
+    IMMUTABLE = f'public, max-age={config.RADAR_KEEP_S}, immutable'
+
     def end_headers(self):
-        # API: il browser rivalida sempre (ETag → 304). File statici serviti in locale:
-        # niente cache aggressiva durante lo sviluppo.
-        self.send_header('Cache-Control', 'no-cache')
+        # API: il browser rivalida sempre (ETag → 304), salvo le immagini radar. File statici
+        # serviti in locale: niente cache aggressiva durante lo sviluppo.
+        self.send_header('Cache-Control', getattr(self, '_cache_control', None) or 'no-cache')
         super().end_headers()
 
-    def _json(self, status, body, etag=None, content_type='application/json; charset=utf-8'):
+    def _json(self, status, body, etag=None, content_type='application/json; charset=utf-8', cache=None):
+        self._cache_control = cache
         if isinstance(body, (dict, list)):
             body = json.dumps(body, separators=(',', ':')).encode()
         if etag is None:
@@ -229,7 +234,7 @@ class Handler(SimpleHTTPRequestHandler):
                 png = radar.image(conn, name[len('radar/'):].removesuffix('.png'))
                 if png is None:
                     return self._json(404, {'error': 'immagine non disponibile'})
-                return self._json(200, png, content_type='image/png')
+                return self._json(200, png, content_type='image/png', cache=self.IMMUTABLE)
             if name == 'radar':
                 data = radar.compose(conn)
                 return self._json(200, data) if data else self._json(503, {'error': 'radar non disponibile'})
@@ -251,6 +256,7 @@ class Handler(SimpleHTTPRequestHandler):
             conn.close()
 
     def do_GET(self):
+        self._cache_control = None  # per richiesta (con keep-alive l'oggetto serve più richieste)
         parts = urlsplit(self.path)
         path = parts.path
         if '/api/' in path:

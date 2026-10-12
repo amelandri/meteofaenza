@@ -1213,12 +1213,20 @@ function fitBikes() {
   const colWidth = daily.clientWidth;
   if (colWidth <= 560) return;
   const col = daily.querySelector('.dm')?.getBoundingClientRect().width || 0;
-  const gap = 6;
-  // Blocchi del tragitto i-esimo nel giorno che ne ha di più
-  const countOf = (i) => Math.max(0, ...[...daily.querySelectorAll(`.bikes > .bike:nth-child(${i + 1}) .bike-chips`)].map((r) => r.children.length));
-  const chipsWidth = (c, i) => countOf(i) * width + Math.max(0, countOf(i) - 1) * gap;
-  const labelOf = (i) => daily.querySelectorAll('.bikes')[0]?.children[i]?.querySelector('.bike-label')?.getBoundingClientRect().width || 0;
-  const fits = BIKE_COMMUTES.every((c, i) => (i === 0 ? chipsWidth(c, i) : labelOf(i) + 12 + chipsWidth(c, i)) <= col);
+  const gap = 5; // come .bike-chips
+  // Per ogni tragitto: blocchi nel giorno che ne ha di più ed etichetta (misurati una volta).
+  const counts = BIKE_COMMUTES.map(() => 0);
+  for (const bikes of daily.querySelectorAll('.bikes')) {
+    [...bikes.children].forEach((b, i) => {
+      if (i < counts.length) counts[i] = Math.max(counts[i], b.querySelector('.bike-chips')?.children.length || 0);
+    });
+  }
+  const firstBikes = daily.querySelector('.bikes');
+  const fits = counts.every((n, i) => {
+    const chips = n * width + Math.max(0, n - 1) * gap;
+    const label = i === 0 ? 0 : (firstBikes?.children[i]?.querySelector('.bike-label')?.getBoundingClientRect().width || 0) + 12;
+    return label + chips <= col;
+  });
   if (colWidth <= 720 || !fits) daily.classList.add('bikes-flow');
 }
 
@@ -1328,13 +1336,30 @@ function popCell(i) {
   const x = windowRainChance([{ stamp: t, weight: 1, i }]);
   // Classe "prob" (non "pop-cell": quella delle righe dei giorni è un flex e romperebbe la cella).
   if (x.pop == null) return '<td class="first num prob na">—</td>';
-  // Il valore delle 00:00 riguarda le 23–24 del giorno prima.
-  const h = Number(t.slice(11, 13));
-  const hours = `${dayShort(h === 0 ? (state.data.hourly.time[i - 1] ?? t) : t)} · ore ${String((h + 23) % 24).padStart(2, '0')}–${h === 0 ? '24' : t.slice(11, 13)}`;
-  const tip = tipHead(hours) + tipChance(x, "nell'ora");
   const tint = `background: color-mix(in srgb, var(--rain) ${Math.round(x.pop * 0.3)}%, transparent)`;
   const val = x.pop > 0 ? `${x.popExact ? '' : '~'}${fmt(x.pop)}<small>%</small>` : '<span class="muted">0</span>';
-  return `<td class="first num prob" style="${tint}" data-tip="${esc(tip)}" data-tip-key="hour|${t}" aria-label="${esc(`${hours}: ${chancePlain(x, "nell'ora")}`)}">${val}</td>`;
+  // Dettaglio costruito solo al tocco (hourTip()): con tutte le ore sarebbero ~150 KB di HTML.
+  return `<td class="first num prob" style="${tint}" data-tip data-tip-key="hour|${t}" aria-label="${esc(`${hourRange(i)}: ${chancePlain(x, "nell'ora")}`)}">${val}</td>`;
+}
+
+// "lun 12 · ore 13–14": il valore delle 00:00 riguarda le 23–24 del giorno prima.
+function hourRange(i) {
+  const t = state.data.hourly.time[i];
+  const h = Number(t.slice(11, 13));
+  return `${dayShort(h === 0 ? (state.data.hourly.time[i - 1] ?? t) : t)} · ore ${String((h + 23) % 24).padStart(2, '0')}–${h === 0 ? '24' : t.slice(11, 13)}`;
+}
+
+function hourTip(t) {
+  const i = state.data.hourly.time.indexOf(t);
+  if (i < 0) return '';
+  return tipHead(hourRange(i)) + tipChance(windowRainChance([{ stamp: t, weight: 1, i }]), "nell'ora");
+}
+
+// Contenuto del dettaglio: in data-tip, oppure costruito al momento dalla chiave (celle "Prob.").
+function tipContent(el) {
+  if (el.dataset.tip) return el.dataset.tip;
+  const key = el.dataset.tipKey || '';
+  return key.startsWith('hour|') ? hourTip(key.slice(5)) : '';
 }
 
 // Porta una scheda in cima allo schermo, sotto la barra in alto (fissa: con scrollIntoView
@@ -1481,12 +1506,18 @@ function bindControls() {
     // Chiave stabile dell'elemento (il contenuto può cambiare a ogni lettura della centralina).
     const key = el.dataset.tipKey || el.dataset.tip;
     if (!$('#toast').hidden && $('#toast').dataset.source === key) hideToast();
-    else toast(el.dataset.tip, 9000, key, true);
+    else toast(tipContent(el), 9000, key, true);
   };
   for (const id of ['#daily', '#hourly-body']) $(id).addEventListener('click', showTip);
   // Il riquadro segue l'elemento scorrendo la pagina; si chiude se l'elemento esce dallo
   // schermo o non c'è più (sezione ridisegnata), al ridimensionamento e con Esc.
-  window.addEventListener('scroll', () => { if (tipFor) placeTipCard(); }, { passive: true });
+  // Al massimo una volta per fotogramma: placeTipCard() misura gli elementi (layout forzato).
+  let placing = false;
+  window.addEventListener('scroll', () => {
+    if (!tipFor || placing) return;
+    placing = true;
+    requestAnimationFrame(() => { placing = false; if (tipFor) placeTipCard(); });
+  }, { passive: true });
   window.addEventListener('resize', hideTipCard);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTipCard(); });
   $('#tipcard').addEventListener('click', hideTipCard);
@@ -1567,7 +1598,7 @@ const hoverTips = window.matchMedia('(hover: hover) and (pointer: fine)');
 let tipFor = null;
 function showTipCard(el) {
   const card = $('#tipcard');
-  card.innerHTML = el.dataset.tip;
+  card.innerHTML = tipContent(el);
   card.hidden = false;
   tipFor?.classList.remove('tip-open');
   tipFor = el;

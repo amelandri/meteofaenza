@@ -122,6 +122,7 @@ export function stopRadar() {
   clearTimeout(player.timer);
   player.timer = null;
   player.playing = false;
+  player.suspended = false;
   const b = document.querySelector('#radar-play');
   if (b) { b.setAttribute('aria-label', 'Avvia'); b.classList.remove('on'); }
 }
@@ -139,8 +140,10 @@ function play(el, tz, off) {
   b.setAttribute('aria-label', 'Pausa');
   b.classList.add('on');
   const lastObs = player.frames.findLastIndex((f) => !f.min);
+  player.ctx = [el, tz, off];
   const tick = () => {
-    if (document.visibilityState !== 'visible') { player.timer = setTimeout(tick, 2000); return; }
+    // App in background: animazione sospesa (niente timer), riprende al ritorno in primo piano.
+    if (document.visibilityState !== 'visible') { player.timer = null; player.suspended = true; return; }
     const next = player.idx >= player.frames.length - 1 ? 0 : player.idx + 1;
     show(el, next, tz, off);
     const hold = next === lastObs || next === player.frames.length - 1;
@@ -226,3 +229,9 @@ export function renderRadar(el, d, tz, off) {
 }
 
 export const radarTime = () => player.data?.time ?? null;
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && player.suspended && player.playing && player.ctx?.[0].isConnected) {
+    play(...player.ctx);
+  }
+});

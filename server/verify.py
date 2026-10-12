@@ -117,6 +117,24 @@ def archive_ensemble(conn, ens, utc_offset, issued_at):
     return len(rows)
 
 
+def thin_ensemble_archive(conn, now_ms=None):
+    """Toglie i download dell'ensemble che la verifica non userà mai. ensemble_day() prende
+    l'ultimo download prima di una mezzanotte locale (la sera prima / due giorni prima): per
+    ogni giorno passato basta l'ultimo download di quel giorno. Degli 8 al giorno ne resta 1.
+    Restituisce il numero di download tolti."""
+    tz = _tz()
+    today = datetime.fromtimestamp((now_ms or db.now_ms()) / 1000, tz).date()
+    last = {}
+    for (t,) in conn.execute('SELECT DISTINCT issued_at FROM ensemble_archive ORDER BY issued_at'):
+        d = datetime.fromtimestamp(t / 1000, tz).date()
+        if d < today:
+            last.setdefault(d, []).append(t)
+    drop = [t for ts in last.values() for t in ts[:-1]]
+    conn.executemany('DELETE FROM ensemble_archive WHERE issued_at = ?', [(t,) for t in drop])
+    conn.commit()
+    return len(drop)
+
+
 # --- Misure --------------------------------------------------------------------------
 
 def _day_targets(day):

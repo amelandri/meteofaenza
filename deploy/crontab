@@ -14,8 +14,9 @@ SHELL=/bin/sh
 # hanno più di 6 ore; gli ensemble ogni 3 ore. Minuti sfalsati rispetto alla centralina.
 2,17,32,47 * * * *  cd /opt/meteo && python3 -m server.jobs forecast 2>&1 | logger -t meteo
 
-# Medie del periodo 1991–2020: controllo giornaliero, scarica solo se mancano o hanno più
-# di un anno (dopo un errore, es. troppe richieste, riprova il giorno dopo).
+# Manutenzione degli archivi e medie del periodo 1991–2020: controllo giornaliero, scarica
+# le medie solo se mancano o hanno più di un anno (dopo un errore, es. troppe richieste,
+# riprova il giorno dopo).
 40 4 * * *  cd /opt/meteo && python3 -m server.jobs normals 2>&1 | logger -t meteo
 
 # Radar della Protezione Civile: un'immagine ogni 5 minuti, pubblicata ~7–8 minuti dopo.

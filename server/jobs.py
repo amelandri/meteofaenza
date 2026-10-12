@@ -97,11 +97,15 @@ def job_forecast(conn, force=False):
 
 
 def job_normals(conn, force=False):
+    """Job giornaliero: manutenzione degli archivi (prima, così avviene anche se il download
+    delle medie non riesce) e medie del periodo se mancano o sono vecchie."""
+    db.prune_archives(conn)
+    thinned = verify.thin_ensemble_archive(conn)
     at = db.snapshot_time(conn, 'normals')
     if not force and at and db.now_ms() - at < config.NORMALS_MAX_AGE_S * 1000:
-        return 'medie già presenti'
+        return f'medie già presenti; archivi puliti ({thinned} download dell\'ensemble tolti)'
     db.put_snapshot(conn, 'normals', sources.fetch_normals())
-    return 'medie scaricate'
+    return f'medie scaricate; archivi puliti ({thinned} download dell\'ensemble tolti)'
 
 
 def job_radar(conn, force=False):

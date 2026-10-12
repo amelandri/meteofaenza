@@ -147,18 +147,25 @@ def station_since(conn, since_ms):
 
 
 def prune(conn):
-    """Toglie letture e archivi oltre STATION_KEEP_DAYS e il registro oltre i 30 giorni."""
-    conn.execute('DELETE FROM station_readings WHERE time < ?', (now_ms() - config.STATION_KEEP_DAYS * 86400000,))
+    """Toglie ritagli e immagini del radar oltre RADAR_KEEP_S (tabelle piccole: a ogni job)."""
+    recent = now_ms() - config.RADAR_KEEP_S * 1000
+    conn.execute('DELETE FROM radar_frames WHERE time < ?', (recent,))
+    conn.execute('DELETE FROM radar_images WHERE created_at < ?', (recent,))
+    conn.commit()
+
+
+def prune_archives(conn):
+    """Toglie letture e archivi oltre STATION_KEEP_DAYS e il registro oltre i 30 giorni. Una
+    volta al giorno (job normals): alcune di queste tabelle hanno centinaia di migliaia di
+    righe e il DELETE per data le scorre per intero."""
+    old = now_ms() - config.STATION_KEEP_DAYS * 86400000
+    conn.execute('DELETE FROM station_readings WHERE time < ?', (old,))
     conn.execute('DELETE FROM fetch_log WHERE at < ?', (now_ms() - 30 * 86400000,))
-    old = now_ms() - config.STATION_KEEP_DAYS * 86400000  # stesso storico delle letture
     conn.execute('DELETE FROM forecast_archive WHERE issued_at < ?', (old,))
     conn.execute('DELETE FROM ensemble_archive WHERE issued_at < ?', (old,))
     conn.execute('DELETE FROM radar_obs WHERE time < ?', (old,))
     conn.execute('DELETE FROM river_levels WHERE time < ?', (old,))
     conn.execute('DELETE FROM radar_nowcast WHERE issued < ?', (old,))
-    recent = now_ms() - config.RADAR_KEEP_S * 1000
-    conn.execute('DELETE FROM radar_frames WHERE time < ?', (recent,))
-    conn.execute('DELETE FROM radar_images WHERE created_at < ?', (recent,))
     conn.commit()
 
 
