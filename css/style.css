@@ -1158,8 +1158,17 @@ button { font: inherit; color: inherit; }
     box-shadow: 0 0 0 100vmax transparent, 0 16px 40px rgb(0 0 0 / 0), 0 3px 10px rgb(0 0 0 / 0);
   }
 }
+/* Chiusura (hideToast() in app.js): esce scorrendo verso il fondo e il velo svanisce; a fine
+   animazione l'avviso viene nascosto. */
+.toast.rich.leaving { animation: toast-out .35s cubic-bezier(.55, 0, .75, .2) forwards; pointer-events: none; }
+@keyframes toast-out {
+  to {
+    transform: translate(-50%, calc(100% + 20px + env(safe-area-inset-bottom)));
+    box-shadow: 0 0 0 100vmax transparent, 0 16px 40px rgb(0 0 0 / 0), 0 3px 10px rgb(0 0 0 / 0);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
-  .toast.rich { animation: none; }
+  .toast.rich, .toast.rich.leaving { animation: none; }
 }
 .tipcard { position: fixed; z-index: 60; width: 340px; max-width: calc(100vw - 16px); padding: 12px 14px; font-size: .82rem; pointer-events: none; }
 /* Contenuto strutturato (tipHead / tipRows / tipChance in app.js) */

@@ -1545,6 +1545,7 @@ function toast(msg, ms = 4000, source = '', html = false) {
   if (html) el.innerHTML = msg; // contenuto generato dall'app (testi esterni già passati da esc())
   else el.textContent = msg;
   el.classList.toggle('rich', html);
+  el.classList.remove('leaving'); // riaperto mentre usciva: torna a entrare dal fondo
   el.dataset.source = source;
   el.hidden = false;
   clearTimeout(toastTimer);
@@ -1572,11 +1573,24 @@ function hideHoverTip() {
   $('#tipcard').hidden = true;
 }
 
+// L'avviso del dettaglio (.rich) esce scorrendo verso il fondo (.leaving, @keyframes
+// toast-out) e si nasconde a fine animazione; gli avvisi semplici e chi preferisce meno
+// animazioni lo chiudono subito.
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 function hideToast() {
   clearTimeout(toastTimer);
   const el = $('#toast');
-  el.hidden = true;
   el.dataset.source = '';
+  if (el.hidden || el.classList.contains('leaving')) return;
+  if (!el.classList.contains('rich') || reducedMotion.matches) { el.hidden = true; return; }
+  el.classList.add('leaving');
+  const done = (e) => {
+    if (e.target !== el) return; // animazioni degli elementi interni
+    el.removeEventListener('animationend', done);
+    // Riaperto durante l'uscita (toast() toglie .leaving): resta visibile.
+    if (el.classList.contains('leaving')) { el.classList.remove('leaving'); el.hidden = true; }
+  };
+  el.addEventListener('animationend', done);
 }
 
 function setBanner(msg) {
