@@ -6,21 +6,21 @@ Web app (PWA) che mette a confronto le previsioni di due modelli meteorologici p
 - **ICON-EU**: modello europeo (7 km) del servizio meteorologico tedesco DWD, copre circa 5 giorni e mezzo;
 - **Centralina**: Osservatorio Meteorologico "E. Torricelli" ([meteofaenza.it](https://www.meteofaenza.it/)).
 
-È composta da un **frontend statico** (HTML, CSS e JavaScript senza passaggio di build) e da un **piccolo server in Python** (solo libreria standard) con un database **SQLite**. Il server scarica le fonti esterne a intervalli regolari, via cron, e le serve al frontend come API JSON. Così le fonti vengono interrogate una volta per tutti gli utenti e non da ogni browser. Non serve alcuna API key e non c'è login: le preferenze restano nel browser. Le previsioni vengono salvate anche nel browser e restano consultabili offline (fino a un giorno dal download).
+È composta da un **frontend statico** (HTML, CSS e JavaScript senza passaggio di build) e da un **piccolo server in Python** (libreria standard; numpy e Pillow solo per il radar) con un database **SQLite**. Il server scarica le fonti esterne a intervalli regolari, via cron, e le serve al frontend come API JSON. Così le fonti vengono interrogate una volta per tutti gli utenti e non da ogni browser. Non serve alcuna API key e non c'è login: le preferenze restano nel browser. Le previsioni vengono salvate anche nel browser e restano consultabili offline (fino a un giorno dal download).
 
 ## Cosa mostra
 
-- **Adesso**: l'ultima misura della centralina (temperatura con minima e massima del giorno, umidità, vento, pioggia di oggi, raffica massima). Viene aggiornata ai minuti :00, :10, :20, :30, :40, :50. Se i millimetri di oggi aumentano tra una lettura e l'altra compare "Sta piovendo". In fondo, la riga **Radar**: pioggia su Faenza, in arrivo (con l'orario stimato), la più vicina entro 50 km o nessuna.
+- **Adesso**: l'ultima misura della centralina (temperatura con minima e massima del giorno, umidità, vento, pioggia di oggi, raffica massima). Viene aggiornata ai minuti :00, :10, :20, :30, :40, :50; i valori del giorno contano da mezzanotte (la centralina li azzera all'01:00 con l'ora legale: il server li ricalcola). Se i millimetri di oggi aumentano tra una lettura e l'altra compare "Sta piovendo". In fondo, la riga **Radar**: pioggia su Faenza, in arrivo (con l'orario stimato), la più vicina entro 50 km o nessuna.
 - **Oggi, Domani, Dopodomani**: una scheda per giorno, con i due modelli a confronto:
   - riepilogo del giorno e suddivisione in quattro fasce (notte, mattina, pomeriggio, sera);
   - alba e tramonto; per ogni fascia anche la probabilità di pioggia;
   - un giudizio sulla **concordanza dei modelli** (concordi / lievi differenze / discordi), con il motivo;
   - **Bike**: per ogni intervallo del tragitto in bici (nome e fino a 6 "intervalli monitorati" configurabili nella pagina Impostazioni, ognuno con i giorni della settimana in cui vale, al massimo 3 nello stesso giorno; predefiniti 06:45–08:00, 12:30–15:00, 17:00–18:30, tutti i giorni), se pioverà (Asciutto, Rischio, Incerto, Pioggia) e con quale probabilità.
 - **Andamento orario**: grafico che sovrappone i due modelli per precipitazioni (con la probabilità di pioggia ora per ora), temperatura, vento, nuvolosità, umidità e pressione. Nella temperatura due linee tratteggiate mostrano le previsioni corrette con la misura della centralina per le ore successive.
-- **Radar** (chiuso di default): animazione del radar della Protezione Civile intorno a Faenza nell'ultima ora, più la stima dei prossimi 60 minuti (la pioggia di adesso spostata lungo il suo movimento). Il radar fa diventare "Pioggia" anche i tragitti di oggi in cui vede arrivare la pioggia entro un'ora.
+- **Radar** (chiuso di default): animazione del radar della Protezione Civile nell'ultima ora, più la stima dei prossimi 60 minuti (la pioggia di adesso spostata lungo il suo movimento), su una cartina di 60 km attorno a Faenza con città, costa e mare, confini di regione e cerchi a 25 e 50 km; accanto, la stima su Faenza ogni 15 minuti per i prossimi 90. Il radar fa diventare "Pioggia" anche i tragitti di oggi in cui vede arrivare la pioggia entro un'ora.
 - **Fiumi** (chiuso di default; l'intestazione mostra comunque il livello a Faenza): livelli di Lamone (Marradi, Strada Casale, Sarna, Faenza) e Marzeno (Modigliana, Rivalta), con tendenza, soglie di allerta e grafico delle ultime 48 ore.
 - **Dettaglio orario** (chiuso di default): tabella ora per ora con entrambi i modelli e la probabilità di pioggia.
-- **Verifica** (icona con il grafico e la spunta, pagina `verify.html`): per i giorni passati, pioggia e temperature previste la sera prima (o due giorni prima) confrontate con quelle misurate dalla centralina, fascia per fascia e negli intervalli monitorati, con un riepilogo per modello (fasce previste correttamente, falsi allarmi, errori medi) e l'affidabilità della probabilità di pioggia.
+- **Verifica** (icona con il grafico e la spunta, pagina `verify.html`): per i giorni passati, pioggia e temperature previste la sera prima (o due giorni prima) confrontate con quelle misurate dalla centralina, fascia per fascia e in una tabella per gli intervalli monitorati (Bike), con esito ✓ ! ✗ per ogni modello (anche ICON-D2 e AROME), un riepilogo per modello (fasce e intervalli previsti correttamente, falsi allarmi, errori medi) e l'affidabilità della probabilità di pioggia. Su desktop il riepilogo resta a sinistra e i giorni scorrono a destra.
 
 Massima e minima (previste e misurate) sono confrontate con le **medie del periodo** 1991–2020: lo scarto compare accanto ai valori nelle card dei giorni e nel box Adesso, e il grafico della temperatura ha due linee punteggiate con massima e minima medie. Il server le scarica una volta e le aggiorna una volta l'anno.
 
@@ -41,13 +41,14 @@ Per ogni intervallo l'app controlla se ciascun modello prevede almeno 0,2 mm di 
 | ☁ Rischio | nessun modello vede pioggia, ma probabilità ≥ 20% |
 | ☁💧 Incerto | tutti gli altri casi |
 
-Toccando un tragitto (o passandoci sopra con il mouse) si vede il dettaglio: millimetri per modello, probabilità e motivo del verdetto.
+Toccando un tragitto (o passandoci sopra con il mouse) si apre il dettaglio, organizzato a blocchi: verdetto, motivo, millimetri per modello, probabilità con gli scenari di ogni ensemble, quantità di pioggia e note. Lo stesso vale per l'etichetta di concordanza e per le probabilità delle fasce e del dettaglio orario.
 
 ## Architettura
 
 ```
 fonti esterne ──(cron)──▶ server/jobs.py ──▶ SQLite ◀── server/api.py ◀──(nginx /api/)── browser
-(Open-Meteo, centralina)                                                  nginx: file statici
+(Open-Meteo, centralina,                                                  nginx: file statici
+ radar DPC, idrometri ARPAE)
 ```
 
 | Dato | Fonte | Aggiornamento sul server |
@@ -67,7 +68,10 @@ API (tutte in sola lettura, con `ETag`: il browser riscarica solo se i dati sono
 | Percorso | Contenuto |
 |---|---|
 | `api/forecast` | previsioni dei due modelli, ensemble e metadati dei run |
-| `api/station` | ultima misura della centralina e letture delle ultime 2 ore |
+| `api/station` | ultima misura della centralina (valori del giorno da mezzanotte), letture delle ultime 2 ore e riepilogo del radar |
+| `api/radar` | radar: riepilogo, stima dei prossimi 90 minuti, elenco delle immagini e geometria della cartina (città, costa, confini) |
+| `api/radar/<nome>.png` | immagini dell'animazione (misurate e stimate) |
+| `api/rivers` | livelli di Lamone e Marzeno: soglie, ultimo valore, tendenza e serie di 48 ore per stazione |
 | `api/normals` | medie del periodo |
 | `api/status` | stato dei job (ultimo aggiornamento, errori) |
 | `api/verify?days=30&lead=1` | verifica dei giorni passati: misure orarie della centralina e previsioni disponibili la sera prima (`lead=1`) o due giorni prima (`lead=2`) |
@@ -76,14 +80,14 @@ Per la verifica il server archivia ogni run dei modelli (pioggia, temperatura e 
 
 ## Avvio in locale
 
-Serve solo Python 3.9 o successivo, senza pacchetti aggiuntivi:
+Serve Python 3.9 o successivo; il radar richiede anche numpy e Pillow (`apt install python3-numpy python3-pil` su Debian, oppure in un ambiente virtuale), il resto solo la libreria standard:
 
 ```bash
 python3 -m server.jobs all          # primo popolamento del database (data/meteo.db)
 python3 -m server.api --static      # API + file del frontend su http://127.0.0.1:8085
 ```
 
-poi aprire <http://127.0.0.1:8085>. In locale i job si rilanciano a mano (`python3 -m server.jobs station`, `forecast`, `normals`). Test: `python3 -m unittest discover -s tests`.
+poi aprire <http://127.0.0.1:8085>. In locale i job si rilanciano a mano (`python3 -m server.jobs station`, `forecast`, `normals`, `radar`, `rivers`). Test: `python3 -m unittest discover -s tests`.
 
 Il service worker funziona solo su `http://localhost`/`127.0.0.1` o in HTTPS.
 
@@ -91,7 +95,7 @@ Il service worker funziona solo su `http://localhost`/`127.0.0.1` o in HTTPS.
 
 Guida completa, passo per passo: [`deploy/INSTALL.md`](deploy/INSTALL.md). In breve:
 
-1. Codice in `/opt/meteo` (es. `git clone`), utente di servizio e cartella del database:
+1. Pacchetti: `apt install git python3 python3-numpy python3-pil nginx` (numpy e Pillow servono solo al job del radar). Codice in `/opt/meteo` (es. `git clone`), utente di servizio e cartella del database:
    ```bash
    useradd --system --home /var/lib/meteo meteo
    mkdir -p /var/lib/meteo && chown meteo:meteo /var/lib/meteo
@@ -99,7 +103,7 @@ Guida completa, passo per passo: [`deploy/INSTALL.md`](deploy/INSTALL.md). In br
 2. Primo popolamento: `sudo -u meteo env METEO_DB=/var/lib/meteo/meteo.db sh -c 'cd /opt/meteo && python3 -m server.jobs all'`
 3. API come servizio: `deploy/meteo-api.service` in `/etc/systemd/system/`, poi `systemctl enable --now meteo-api` (ascolta solo su `127.0.0.1:8085`).
 4. Aggiornamenti: `crontab -u meteo deploy/crontab` (log con `journalctl -t meteo`).
-5. nginx: `deploy/nginx-meteo.conf` in `/etc/nginx/sites-available/`, adattare `server_name`, collegare in `sites-enabled`, `nginx -t && systemctl reload nginx`; HTTPS con `certbot --nginx`. La configurazione non espone `server/`, `data/`, `tests/` e `deploy/`. Per installare l'app in una sottocartella c'è una variante commentata nello stesso file.
+5. nginx: `deploy/nginx-meteo.conf` in `/etc/nginx/sites-available/`, adattare `server_name`, collegare in `sites-enabled`, `nginx -t && systemctl reload nginx`; HTTPS con `certbot --nginx`. La configurazione non espone `server/`, `data/`, `tests/`, `deploy/` e `swiftbar/`. Per installare l'app in una sottocartella c'è una variante commentata nello stesso file.
 
 Controllo: `curl -s https://<dominio>/api/status`.
 
@@ -137,6 +141,9 @@ Tema, modelli mostrati e intervalli monitorati si scelgono dalla pagina Impostaz
 | Giorni mostrati in "Prossimi giorni" | `DAILY_DAYS` in `js/app.js` |
 | Località per il server (coordinate) | `LAT`, `LON` in `server/config.py` |
 | Ensemble usati per la probabilità | `ENSEMBLE_MODELS` in `server/sources.py` |
+| Modelli di supporto (ICON-D2, AROME) | `SUPPORT_MODELS` in `server/sources.py` e `js/api.js` |
+| Stazioni dei fiumi | `RIVERS` in `server/sources.py` |
+| Radar: soglie della stima, riquadro della cartina, città | `RAIN_MMH`, `ARRIVE_FRAC`, `MAYBE_FRAC`, `VIEW_HALF`, `CITIES` in `server/radar.py`; `RADAR_BIKE_MIN` in `js/radar.js` |
 | Frequenza degli aggiornamenti del server | `deploy/crontab` e `*_MAX_AGE_S` / `ENSEMBLE_EVERY_S` in `server/config.py` |
 | Ogni quanto il browser ricontrolla il server | `CACHE_TTL_MS` in `js/storage.js` |
 
@@ -176,7 +183,7 @@ server/rivers.py       livelli dei fiumi (download e api/rivers)
 server/radar.py        radar: lettura delle immagini, movimento, stima, immagini PNG (numpy, Pillow)
 tests/                 test del server
 swiftbar/              plugin SwiftBar per la barra dei menu del Mac
-deploy/                nginx, systemd, crontab
+deploy/                nginx, systemd, crontab, guida di installazione (INSTALL.md)
 ```
 
 ## Fonti dei dati
@@ -192,4 +199,4 @@ Nota tecnica sulla centralina: il suo file dati è un piccolo file JavaScript co
 
 ## Privacy
 
-L'app non ha login e non raccoglie dati personali: il server conserva solo i dati meteo (previsioni, misure della centralina, medie). Preferenze di visualizzazione, tema, modelli mostrati e intervalli monitorati restano solo nel `localStorage` del browser, insieme a una copia delle previsioni (al massimo di un giorno prima) per l'uso offline. Come ogni server web, nginx registra nei suoi log gli indirizzi IP delle richieste.
+L'app non ha login e non raccoglie dati personali: il server conserva solo i dati meteo (previsioni, misure della centralina, medie, radar, livelli dei fiumi). Preferenze di visualizzazione, tema, modelli mostrati e intervalli monitorati restano solo nel `localStorage` del browser, insieme a una copia delle previsioni (al massimo di un giorno prima) per l'uso offline. Come ogni server web, nginx registra nei suoi log gli indirizzi IP delle richieste.

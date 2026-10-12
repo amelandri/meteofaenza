@@ -143,7 +143,7 @@
         </tbody>
       </table>
       <p>Se nelle Impostazioni è scelto un solo modello, il verdetto considera quello e i modelli di supporto (oltre le 48 ore solo quello); se il modello scelto non copre il tragitto resta solo la probabilità.</p>
-      <p>Toccando un tragitto si vede il dettaglio: millimetri di ciascun modello, probabilità, quantità di pioggia negli scenari bagnati e il motivo dell'indicazione.</p>
+      <p>Toccando un tragitto (o passandoci sopra con il mouse) si apre il dettaglio: il verdetto, il motivo, i millimetri di ciascun modello, la probabilità con gli scenari di ogni ensemble e la quantità di pioggia negli scenari bagnati.</p>
       <p class="info-note">Il verdetto non usa la media dei millimetri dei modelli: con 2 mm da un modello e 0 dall'altro la media direbbe "1 mm", nascondendo proprio il disaccordo.</p>
     </section>
 
@@ -194,12 +194,13 @@
           <tr><td>raffiche diverse di almeno 15 km/h, con almeno un modello sopra 30 km/h</td><td>1</td></tr>
         </tbody>
       </table>
-      <p>0 punti: <strong>modelli concordi</strong> · 1 punto: <strong>lievi differenze</strong> · 2 o più: <strong>modelli discordi</strong>. Toccando l'etichetta si vede il motivo.</p>
+      <p>0 punti: <strong>modelli concordi</strong> · 1 punto: <strong>lievi differenze</strong> · 2 o più: <strong>modelli discordi</strong>. Toccando l'etichetta (o passandoci sopra con il mouse) si vede il motivo, con le differenze tra i due modelli.</p>
     </section>
 
     <section class="card" id="centralina">
       <h2>La centralina</h2>
       <p>Il riquadro "Adesso" mostra le misure reali dell'Osservatorio Meteorologico "E. Torricelli" di Faenza (<a href="https://www.meteofaenza.it/" target="_blank" rel="noopener">meteofaenza.it</a>): temperatura con minima e massima del giorno, umidità, vento, pioggia caduta da mezzanotte e raffica massima.</p>
+      <p>La centralina azzera i valori del giorno (pioggia, minima, massima, raffica) alla mezzanotte dell'ora solare, cioè all'01:00 quando c'è l'ora legale. Il server li ricalcola dalle letture salvate a partire dalla mezzanotte vera, così dopo mezzanotte l'app non mostra più i valori di ieri; tra mezzanotte e l'01:00 la raffica massima non è disponibile.</p>
       <p>Il server dell'app legge la centralina ai minuti :00, :10, :20, :30, :40 e :50 e conserva le letture; l'app chiede la nuova misura al server poco dopo. Aprendo l'app (o tornandoci) la chiede subito solo se l'ultima ha più di 10 minuti; altrimenti mostra quella salvata e aspetta la lettura programmata. Se la misura ha più di 30 minuti viene segnalata come "non aggiornata".</p>
       <h3>Pioggia in corso</h3>
       <p>La centralina fornisce solo i millimetri caduti da mezzanotte. Confrontando la misura con una lettura di 8–40 minuti prima l'app capisce se Sta piovendo e lo scrive in alto nel box della centralina ("Sta piovendo"). Le letture precedenti le conserva il server, quindi l'indicazione c'è subito, anche appena aperta l'app. Se Sta piovendo, un tragitto in corso o che inizia entro 30 minuti diventa <em>Pioggia</em>, qualunque cosa dicano i modelli; il dettaglio riporta anche cosa prevedevano.</p>
@@ -214,7 +215,7 @@
       <ul>
         <li>In fondo al box della centralina la riga <strong>Radar</strong> dice se piove su Faenza (e fino a quando), se la pioggia è in arrivo e a che ora, dov'è la pioggia più vicina entro 50 km, oppure che non ce n'è. Toccandola si apre la sezione Radar.</li>
         <li>Un <strong>tragitto di oggi</strong> in corso o che inizia entro un'ora diventa <em>Pioggia</em> se il radar la vede arrivare durante il tragitto entro i prossimi 60 minuti (oltre la stima è troppo incerta).</li>
-        <li>La sezione <strong>Radar</strong> (chiusa di default) mostra l'animazione dell'ultima ora e, con la scritta "stima", la proiezione dei prossimi 60 minuti; i cerchi tratteggiati sono a 25 e 50 km da Faenza, in grigio le zone non coperte. Accanto (sotto, sul telefono) la stima <strong>su Faenza nei prossimi 90 minuti</strong>, ogni 15 minuti: la barra è la quota della zona guardata in cui il radar vede pioggia.</li>
+        <li>La sezione <strong>Radar</strong> (chiusa di default) mostra l'animazione dell'ultima ora e, con la scritta "stima", la proiezione dei prossimi 60 minuti; la cartina copre 60 km attorno a Faenza, con le città principali, la costa e il mare (in azzurro), i confini di regione e di San Marino (tratto-punto) e i cerchi tratteggiati a 25 e 50 km; in grigio le zone non coperte dal radar. Accanto (sotto, sul telefono) la stima <strong>su Faenza nei prossimi 90 minuti</strong>, ogni 15 minuti: la barra è la quota della zona guardata in cui il radar vede pioggia.</li>
       </ul>
       <table class="info-table">
         <thead><tr><th>mm/h</th><th>Intensità</th></tr></thead>
@@ -253,10 +254,10 @@
 
     <section class="card" id="verifica">
       <h2>La verifica delle previsioni</h2>
-      <p>La pagina <a href="verify.html">Verifica</a> confronta, per i giorni passati, le previsioni con quello che è successo davvero secondo la centralina. Il server conserva ogni previsione scaricata e le letture della centralina ogni 10 minuti, da cui ricava la pioggia caduta ora per ora, da mezzanotte a mezzanotte. Attenzione: la centralina azzera i millimetri "di oggi" alla mezzanotte dell'ora solare (con l'ora legale all'01:00), quindi il suo totale non coincide sempre con quello della verifica.</p>
+      <p>La pagina <a href="verify.html">Verifica</a> confronta, per i giorni passati, le previsioni con quello che è successo davvero secondo la centralina. Il server conserva ogni previsione scaricata e le letture della centralina ogni 10 minuti, da cui ricava la pioggia caduta ora per ora, da mezzanotte a mezzanotte. La centralina azzera i millimetri "di oggi" alla mezzanotte dell'ora solare (con l'ora legale all'01:00): la verifica, come l'app, conta invece da mezzanotte a mezzanotte, quindi il totale mostrato sul sito della centralina può essere diverso.</p>
       <ul>
         <li>Si verifica la previsione disponibile <strong>la sera prima</strong> (l'ultima scaricata prima della mezzanotte del giorno) oppure quella di <strong>due giorni prima</strong>.</li>
-        <li>Per ogni fascia di 6 ore e per ogni intervallo monitorato: pioggia misurata, pioggia prevista da ciascun modello e probabilità. Una previsione è <strong>corretta</strong> se prevede pioggia (almeno 0,2 mm) quando piove o niente pioggia quando non piove; altrimenti è un <strong>falso allarme</strong> o una <strong>pioggia non prevista</strong>.</li>
+        <li>Per ogni fascia di 6 ore e, in una tabella a parte, per ogni intervallo monitorato (Bike): pioggia misurata, pioggia prevista da ciascun modello (anche ICON-D2 e AROME, quando c'è la loro previsione) con l'esito ✓ ! ✗, e probabilità. Una previsione è <strong>corretta</strong> se prevede pioggia (almeno 0,2 mm) quando piove o niente pioggia quando non piove; altrimenti è un <strong>falso allarme</strong> o una <strong>pioggia non prevista</strong>.</li>
         <li>Minima e massima previste (dalle ore) confrontate con quelle misurate.</li>
         <li>Il riepilogo del periodo mostra, per modello, la quota di fasce e di intervalli monitorati previsti correttamente e gli errori medi, e per la probabilità quante volte ha piovuto quando era bassa, media o alta: una probabilità affidabile del 30% vede pioggia circa 3 volte su 10.</li>
       </ul>

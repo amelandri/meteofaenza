@@ -950,8 +950,17 @@ button { font: inherit; color: inherit; }
 
 /* --- Pagina Verifica (verify.html, js/verify.js) ----------------------------------- */
 
-.verify .card { max-width: 760px; }
-.verify-controls { display: grid; gap: 10px; }
+.verify-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 32px; }
+.verify-controls .info-note { flex-basis: 100%; margin: 0; }
+/* Due colonne da 1100 px: riepilogo a sinistra, fisso sotto la barra in alto mentre si
+   scorrono i giorni (se è più alto dello schermo scorre con la pagina); giorni a destra. */
+.verify-layout { display: grid; gap: 0 16px; }
+#verify-summary { container: vsum / inline-size; }
+@media (min-width: 1100px) {
+  .verify-layout { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); align-items: start; }
+  .verify-side { position: sticky; top: 76px; }
+  .verify-main .vd-legend:first-child { margin-top: 0; }
+}
 .vc-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .vc-row .field-label { margin: 0; min-width: 76px; }
 .verify-controls .theme-seg { margin-top: 0; }
@@ -998,9 +1007,12 @@ button { font: inherit; color: inherit; }
   .vt thead th { font-size: .62rem; letter-spacing: 0; }
   .vt thead .lg { display: none; }
   .vt thead .sm { display: inline; }
+}
+/* Riepilogo stretto (telefono o colonna sinistra del desktop): nomi brevi dei modelli e
+   meno dettagli, così con 4 modelli sta nella larghezza senza scorrere. */
+@container vsum (max-width: 600px) {
   .vs-table { font-size: .8rem; }
   .vs-table th, .vs-table td { padding: 6px 4px; }
-  /* con 4 modelli (2I, EU e i modelli di supporto) la tabella deve stare in 390 px */
   .vs-table thead .lg, .vs-table td small.opt { display: none; }
   .vs-table thead .sm { display: inline; }
   .vs-table td small { display: block; }

@@ -54,10 +54,16 @@
       <p class="info-note" id="verify-note"></p>
     </section>
 
-    <p id="verify-status" class="verify-status" role="status">Caricamento…</p>
-
-    <section class="card" id="verify-summary" hidden></section>
-    <div id="verify-days"></div>
+    <!-- Su desktop due colonne: riepilogo a sinistra (resta visibile scorrendo), giorni a destra -->
+    <div class="verify-layout">
+      <aside class="verify-side">
+        <section class="card" id="verify-summary" hidden></section>
+      </aside>
+      <div class="verify-main">
+        <p id="verify-status" class="verify-status" role="status">Caricamento…</p>
+        <div id="verify-days"></div>
+      </div>
+    </div>
 
     <p class="info-back"><a class="btn btn-ghost" href="./">Torna alle previsioni</a></p>
   </main>
