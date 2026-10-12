@@ -83,6 +83,15 @@ function chance(ens, hours) {
   return parts.length ? Math.round((100 * parts.reduce((a, b) => a + b, 0)) / parts.length) : null;
 }
 
+// Intervalli monitorati attivi nel giorno della settimana di `day` ("YYYY-MM-DD").
+function dayWindows(watch, day) {
+  const wd = new Date(`${day}T12:00:00Z`).getUTCDay();
+  return watch.windows.filter((w) => w.days.includes(wd));
+}
+
+// Icona della bici, come nei tragitti della pagina principale.
+const BIKE_ICON = '<svg class="bike-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="5.5" cy="16.5" r="3.5"/><circle cx="18.5" cy="16.5" r="3.5"/><path d="M5.5 16.5 9 9h6l3.5 7.5M9 9l3.5 7.5L15 9M8 6.5h3M15 9l-1-2.5h2.5"/></svg>';
+
 function outcome(fc, obs, wet) {
   if (fc == null || obs == null) return null;
   const f = fc >= wet - 1e-9, o = obs >= wet - 1e-9;
@@ -96,8 +105,9 @@ const minOf = (a) => { const v = (a || []).filter((x) => x != null); return v.le
 // modello, affidabilità della probabilità.
 function summarize(days, wet) {
   const full = days.filter((d) => d.observed.complete && !d.today);
+  const watch = store.getWatch();
   const models = Object.fromEntries(ALL_MODELS.map((m) => [m.key, {
-    counts: { hit: 0, ok: 0, false: 0, miss: 0 }, rainErr: [], rainFc: 0, rainObs: 0, tmaxErr: [], tminErr: [],
+    counts: { hit: 0, ok: 0, false: 0, miss: 0 }, bike: { hit: 0, ok: 0, false: 0, miss: 0 }, rainErr: [], rainFc: 0, rainObs: 0, tmaxErr: [], tminErr: [],
   }]));
   const bins = BINS.map(([lo, hi]) => ({ lo, hi, n: 0, rained: 0 }));
   for (const d of full) {
@@ -113,6 +123,14 @@ function summarize(days, wet) {
         const b = bins.find((x) => p >= x.lo && p < x.hi);
         b.n++;
         if (o >= wet - 1e-9) b.rained++;
+      }
+    }
+    // intervalli monitorati di quel giorno della settimana
+    for (const w of dayWindows(watch, d.day)) {
+      const o = total(obs.rain, windowHours(w));
+      for (const m of ALL_MODELS) {
+        const res = outcome(total(d.models[m.key]?.rain, windowHours(w)), o, wet);
+        if (res) models[m.key].bike[res]++;
       }
     }
     for (const m of ALL_MODELS) {
@@ -149,8 +167,8 @@ function renderSummary(sum) {
   const counted = (m) => Object.values(sum.models[m.key].counts).some(Boolean);
   const shown = verifyModels().filter((m) => MODELS.includes(m) || counted(m));
   const row = (label, f, help = '') => `<tr><th scope="row">${label}${help ? `<small>${help}</small>` : ''}</th>${shown.map((m) => `<td>${f(sum.models[m.key])}</td>`).join('')}</tr>`;
-  const pct = (s) => {
-    const c = s.counts, n = c.hit + c.ok + c.false + c.miss;
+  const pct = (s, c = s.counts) => {
+    const n = c.hit + c.ok + c.false + c.miss;
     return n ? `<b>${Math.round((100 * (c.hit + c.ok)) / n)}%</b> <small class="opt">(${c.hit + c.ok} su ${n})</small>` : '—';
   };
   const err = (a, unit, dec) => (a.length ? `${fmt(absMean(a), dec)}${unit} <small>(in media ${fmtSigned(mean(a), dec)}${unit})</small>` : '—');
@@ -160,6 +178,7 @@ function renderSummary(sum) {
       <thead><tr><th></th>${shown.map((m) => `<th><i class="dot-${m.key}"></i><span class="lg">${m.name}</span><span class="sm">${m.short}</span></th>`).join('')}</tr></thead>
       <tbody>
         ${row('Fasce previste correttamente', pct, 'pioggia sì/no in ogni fascia di 6 ore')}
+        <tr class="vs-bike">${(() => { const label = `${BIKE_ICON}${esc(store.getWatch().label)}: intervalli corretti`; return `<th scope="row">${label}<small>pioggia sì/no in ogni intervallo monitorato</small></th>${shown.map((m) => `<td>${pct(sum.models[m.key], sum.models[m.key].bike)}</td>`).join('')}`; })()}</tr>
         ${row('Pioggia prevista e caduta', (s) => s.counts.hit)}
         ${row('Falsi allarmi', (s) => s.counts.false, 'pioggia prevista ma non caduta')}
         ${row('Pioggia non prevista', (s) => s.counts.miss)}
@@ -213,20 +232,28 @@ function renderDay(d, wet, todayIso) {
     return `<li><i class="dot-${m.key}"></i>${m.name}: max ${fmt(tx, 1)}°${diff(tx, obs.tMax)} · min ${fmt(tn, 1)}°${diff(tn, obs.tMin)}</li>`;
   }).join('');
 
-  // Intervalli monitorati del giorno della settimana (impostazioni dell'utente).
-  const wd = new Date(`${d.day}T12:00:00Z`).getUTCDay();
+  // Intervalli monitorati del giorno della settimana (impostazioni dell'utente): tabella come
+  // quella delle fasce, una colonna per intervallo, con esito ✓ ! ✗ per ogni modello.
   const watch = store.getWatch();
-  const wins = watch.windows.filter((w) => w.days.includes(wd)).map((w) => {
-    const hrs = windowHours(w);
-    const o = total(obs.rain, hrs);
-    const fcs = shown.map((m) => {
-      const fc = total(d.models[m.key]?.rain, hrs);
-      const res = outcome(fc, o, wet);
-      return `<span class="${res ? OUTCOME[res].cls : ''}" title="${res ? esc(OUTCOME[res].label) : ''}">${m.short} ${mm(fc)}${res ? ` ${OUTCOME[res].mark}` : ''}</span>`;
-    }).join(' · ');
-    const p = chance(d.ensemble, hrs.filter((x) => x.w > 0));
-    return `<li><b>${w.from}–${w.to}</b>: misurata ${mm(o)} mm · ${fcs}${p != null ? ` · prob. ${p}%` : ''}</li>`;
-  }).join('');
+  const wins = dayWindows(watch, d.day);
+  let bikeTable = '';
+  if (wins.length) {
+    const whead = `<tr><th></th>${wins.map((w) => `<th>${w.from}<small>${w.to}</small></th>`).join('')}</tr>`;
+    const wobs = wins.map((w) => total(obs.rain, windowHours(w)));
+    const wObsRow = `<tr class="obs"><th scope="row">Misurata</th>${wobs.map((o) => `<td>${mm(o)}</td>`).join('')}</tr>`;
+    const wModelRows = shown.map((m) => {
+      const f = d.models[m.key];
+      if (!f) return `<tr><th scope="row"><i class="dot-${m.key}"></i>${m.short}</th><td class="na" colspan="${wins.length}">previsione non disponibile</td></tr>`;
+      return `<tr><th scope="row"><i class="dot-${m.key}"></i>${m.short}</th>${wins.map((w, k) => cell(total(f.rain, windowHours(w)), wobs[k], wet)).join('')}</tr>`;
+    }).join('');
+    const wPopRow = d.ensemble
+      ? `<tr class="pop"><th scope="row">Prob.</th>${wins.map((w) => { const p = chance(d.ensemble, windowHours(w).filter((x) => x.w > 0)); return `<td>${p == null ? '—' : `${p}%`}</td>`; }).join('')}</tr>`
+      : '';
+    bikeTable = `<div class="vd-bike">
+      <h3>${BIKE_ICON}${esc(watch.label)}</h3>
+      <div class="table-wrap"><table class="vt"><thead>${whead}</thead><tbody>${wObsRow}${wModelRows}${wPopRow}</tbody></table></div>
+    </div>`;
+  }
 
   const sources = [
     ...shown.map((m) => (d.models[m.key] ? `${m.name}: run delle ${when(d.models[m.key].runInit * 1000)}` : null)),
@@ -238,7 +265,7 @@ function renderDay(d, wet, todayIso) {
     <p class="vd-obs">Misurato: pioggia <b>${mm(obs.total)} mm</b> · min <b>${fmt(obs.tMin, 1)}°</b>${obs.tMinTime ? ` (${obs.tMinTime})` : ''} · max <b>${fmt(obs.tMax, 1)}°</b>${obs.tMaxTime ? ` (${obs.tMaxTime})` : ''}</p>
     <div class="table-wrap"><table class="vt"><thead>${head}</thead><tbody>${obsRow}${modelRows}${popRow}</tbody></table></div>
     ${temps ? `<ul class="vd-list">${temps}</ul>` : ''}
-    ${wins ? `<h3>${esc(watch.label)}</h3><ul class="vd-list">${wins}</ul>` : ''}
+    ${bikeTable}
     ${sources ? `<p class="vd-src">Previsioni usate: ${sources}</p>` : ''}
   </section>`;
 }
