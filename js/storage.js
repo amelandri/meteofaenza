@@ -63,7 +63,12 @@ export const MAX_WATCH_WINDOWS = 6; // in tutto…
 export const MAX_WATCH_PER_DAY = 3; // …e al massimo 3 nello stesso giorno (una riga di blocchi)
 export const MAX_WATCH_LABEL = 24;
 export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
-export const DEFAULT_WATCH = {
+// Predefinito: nessun intervallo (al loro posto "Prossimi giorni" mostra un invito discreto
+// a definirli nelle Impostazioni).
+export const DEFAULT_WATCH = { label: 'Bike', windows: [] };
+// Intervalli predefiniti delle versioni precedenti: li ricevono, salvati una volta per
+// tutte, gli utenti che già usavano l'app senza averli mai cambiati (vedi getWatch()).
+const LEGACY_WATCH = {
   label: 'Bike',
   windows: [
     { from: '06:45', to: '08:00', days: [...ALL_DAYS] },
@@ -83,8 +88,8 @@ const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // Normalizza gli intervalli monitorati (letti dallo storage o dal modulo): etichetta non vuota,
 // intervalli validi con inizio < fine e giorni (normalizeDays), ordinati per orario, al
-// massimo MAX_WATCH_WINDOWS. Sovrapposizioni e limite per giorno li controlla il modulo.
-// Ciò che non è valido torna al valore predefinito.
+// massimo MAX_WATCH_WINDOWS (anche nessuno). Sovrapposizioni e limite per giorno li
+// controlla il modulo. Intervalli non validi vengono scartati.
 export function normalizeWatch(watch) {
   const label = typeof watch?.label === 'string' ? watch.label.trim().slice(0, MAX_WATCH_LABEL) : '';
   const windows = (Array.isArray(watch?.windows) ? watch.windows : [])
@@ -92,18 +97,32 @@ export function normalizeWatch(watch) {
     .map((w) => ({ from: w.from, to: w.to, days: normalizeDays(w.days) }))
     .sort((a, b) => a.from.localeCompare(b.from))
     .slice(0, MAX_WATCH_WINDOWS);
-  return {
-    label: label || DEFAULT_WATCH.label,
-    windows: windows.length ? windows : DEFAULT_WATCH.windows.map((w) => ({ ...w, days: [...w.days] })),
-  };
+  return { label: label || DEFAULT_WATCH.label, windows };
 }
 
-export const getWatch = () => normalizeWatch(getSettings().watch);
+// L'app è già stata usata in questo browser (dati salvati dalle versioni precedenti)?
+function hasPreviousData() {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k === KEYS.station || k?.startsWith(CACHE_PREFIX)) return true;
+    }
+  } catch { /* storage non accessibile */ }
+  return false;
+}
+
+// settings.watch assente = mai salvato: chi usava già l'app teneva gli intervalli predefiniti
+// di allora (LEGACY_WATCH) e li conserva; un nuovo utente parte senza intervalli. La scelta si
+// salva subito, così non si ripete alle visite successive.
+export function getWatch() {
+  const saved = getSettings().watch;
+  if (saved !== undefined) return normalizeWatch(saved);
+  const watch = normalizeWatch(hasPreviousData() ? LEGACY_WATCH : DEFAULT_WATCH);
+  saveSettings({ watch });
+  return watch;
+}
 export const saveWatch = (watch) => saveSettings({ watch: normalizeWatch(watch) });
-export const resetWatch = () => {
-  const { watch, ...rest } = getSettings();
-  return write(KEYS.settings, rest);
-};
+export const resetWatch = () => saveWatch(DEFAULT_WATCH);
 
 // --- Medie del periodo (climatologia, fetchNormals() di api.js) --------------------
 // Copia locale di quelle del server (che le aggiorna una volta l'anno), in meteo:normals

@@ -1089,6 +1089,8 @@ function renderDaily() {
   const hourIdx = new Map(hourly.time.map((t, i) => [t, i]));
   const nowMin = toMinutes(localDateTime(Date.now(), state.data.timezone, utcOffset).time);
   const shown = shownModels();
+  // Nessun intervallo monitorato (predefinito per i nuovi utenti): invito nella card di oggi.
+  const noWatch = BIKE_COMMUTES.every((c) => !c.windows.length);
 
   const rows = daily.time
     .map((day, d) => ({ day, d }))
@@ -1164,6 +1166,7 @@ function renderDaily() {
         <div class="day-models${shown.length === 1 ? ' single' : ''}">${cells}${renderPopRow(pops, pastUntil)}</div>
         ${delta}
         ${bikeArea(BIKE_COMMUTES.map((c) => renderBike(c, day, hourIdx, today, nowMin)).join(''))}
+        ${day === today && noWatch ? WATCH_HINT : ''}
       </div>
     </section>`;
   }).join('');
@@ -1173,6 +1176,9 @@ function renderDaily() {
   updateSunNow();
   fitBikes();
 }
+
+// Invito discreto a definire gli intervalli monitorati, al posto della riga dei tragitti.
+const WATCH_HINT = `<p class="watch-hint">${BIKE_ICON}<span>Pioverà durante i tuoi spostamenti? <a href="settings.html#watch-form">Scegli gli orari da tenere d'occhio</a></span></p>`;
 
 const bikeArea = (html) => (html.trim() ? `<div class="bike-area"><div class="bikes">${html}</div></div>` : '');
 

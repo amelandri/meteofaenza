@@ -198,7 +198,7 @@ function renderSummary(sum) {
       <thead><tr><th></th>${shown.map((m) => `<th><i class="dot-${m.key}"></i><span class="lg">${m.name}</span><span class="sm">${m.short}</span></th>`).join('')}</tr></thead>
       <tbody>
         ${row('Fasce previste correttamente', pct, 'pioggia sì/no in ogni fascia di 6 ore')}
-        <tr class="vs-bike">${(() => { const label = `${BIKE_ICON}${esc(store.getWatch().label)}: intervalli corretti`; return `<th scope="row">${label}<small>pioggia sì/no in ogni intervallo monitorato</small></th>${shown.map((m) => `<td>${pct(sum.models[m.key], sum.models[m.key].bike)}</td>`).join('')}`; })()}</tr>
+        ${!store.getWatch().windows.length ? '' : `<tr class="vs-bike">${(() => { const label = `${BIKE_ICON}${esc(store.getWatch().label)}: intervalli corretti`; return `<th scope="row">${label}<small>pioggia sì/no in ogni intervallo monitorato</small></th>${shown.map((m) => `<td>${pct(sum.models[m.key], sum.models[m.key].bike)}</td>`).join('')}`; })()}</tr>`}
         ${row('Pioggia prevista e caduta', (s) => s.counts.hit)}
         ${row('Falsi allarmi', (s) => s.counts.false, 'pioggia prevista ma non caduta')}
         ${row('Pioggia non prevista', (s) => s.counts.miss)}

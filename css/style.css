@@ -537,6 +537,11 @@ button { font: inherit; color: inherit; }
 /* --- Bike to work ---------------------------------------------------------------- */
 
 .bike-area { grid-area: bike; min-width: 0; margin-top: 10px; }
+/* Nessun intervallo monitorato: invito discreto nella card di oggi, al posto dei tragitti */
+.watch-hint { grid-area: bike; display: flex; align-items: center; gap: 6px; margin: 10px 0 0; font-size: .78rem; color: var(--muted); }
+.watch-hint .bike-ico { flex: none; width: 15px; height: 15px; opacity: .8; }
+.watch-hint a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); text-underline-offset: 2px; }
+.watch-hint a:hover { color: var(--accent); }
 /* Desktop: griglia allineata alla riga del giorno → [etichetta][colonna ICON-2I][colonna ICON-EU].
    La prima colonna è --label-w + 8 px e lo spazio tra colonne 8 px, così le colonne 2 e 3
    coincidono con i box dei modelli (.day: colonna --label-w + 16 px; .day-models: gap 8 px).
@@ -1060,6 +1065,8 @@ button { font: inherit; color: inherit; }
 .settings input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 #watch-label { width: 100%; }
 .win-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 10px; }
+.win-list:empty { margin: 0; }
+.win-empty { margin: 0 0 10px; }
 /* Ogni intervallo: orari (+ rimuovi) e sotto i 7 giorni della settimana */
 .win-row { display: grid; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: 12px; }
 .win-times { display: flex; align-items: center; gap: 6px; }

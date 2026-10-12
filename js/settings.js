@@ -1,7 +1,7 @@
 // Pagina Impostazioni: tema (automatico/chiaro/scuro, settings.theme, applicato da
 // js/theme.js), modelli mostrati (entrambi / solo ICON-2I / solo ICON-EU, settings.models,
-// letti da app.js) e intervalli monitorati (nome e al massimo 3 intervalli orari, settings.watch,
-// letti da app.js). I valori sono salvati nel localStorage.
+// letti da app.js) e intervalli monitorati (nome e fino a 6 intervalli orari, settings.watch,
+// letti da app.js; anche nessuno). I valori sono salvati nel localStorage.
 
 import * as store from './storage.js';
 
@@ -34,11 +34,10 @@ function windowRow(w = { from: '', to: '', days: store.ALL_DAYS }) {
   return li;
 }
 
-// Pulsante "Aggiungi" (fino a MAX_WATCH_WINDOWS) e "Rimuovi" (almeno un intervallo).
+// Pulsante "Aggiungi" (fino a MAX_WATCH_WINDOWS); senza intervalli la nota "nessun intervallo".
 function syncList() {
-  const rows = [...list.children];
-  addBtn.hidden = rows.length >= store.MAX_WATCH_WINDOWS;
-  for (const r of rows) r.querySelector('.win-remove').disabled = rows.length <= 1;
+  addBtn.hidden = list.children.length >= store.MAX_WATCH_WINDOWS;
+  $('#watch-empty').hidden = list.children.length > 0;
 }
 
 function fill(watch) {
@@ -65,7 +64,7 @@ function showSaved() {
 // Legge il modulo; restituisce il messaggio d'errore oppure gli intervalli da salvare.
 function readForm() {
   const label = $('#watch-label').value.trim();
-  if (!label) return { error: 'Inserisci un nome per gli intervalli.' };
+  if (!label && list.children.length) return { error: 'Inserisci un nome per gli intervalli.' };
   const windows = [];
   for (const [i, r] of [...list.children].entries()) {
     const from = r.querySelector('.win-from').value;
@@ -76,7 +75,6 @@ function readForm() {
     if (!days.length) return { error: `Intervallo ${i + 1}: scegli almeno un giorno.` };
     windows.push({ from, to, days });
   }
-  if (!windows.length) return { error: 'Serve almeno un intervallo.' };
   if (windows.length > store.MAX_WATCH_WINDOWS) return { error: `Al massimo ${store.MAX_WATCH_WINDOWS} intervalli.` };
   // Due intervalli si sovrappongono solo se hanno orari in comune in uno stesso giorno.
   const names = (days) => DAY_ORDER.filter((d) => days.includes(d)).map((d) => DAY_LONG[d]).join(', ');
@@ -107,7 +105,7 @@ addBtn.addEventListener('click', () => {
 
 list.addEventListener('click', (e) => {
   const btn = e.target.closest('.win-remove');
-  if (!btn || list.children.length <= 1) return;
+  if (!btn) return;
   btn.closest('.win-row').remove();
   syncList();
 });
