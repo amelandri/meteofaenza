@@ -1148,6 +1148,18 @@ button { font: inherit; color: inherit; }
 .toast.rich {
   white-space: normal; width: min(92vw, 380px); padding: 12px 14px; font-size: .84rem;
   box-shadow: 0 0 0 100vmax var(--tip-scrim), 0 16px 40px rgb(0 0 0 / .3), 0 3px 10px rgb(0 0 0 / .14);
+  /* Entra scorrendo dal fondo, con il velo che compare in dissolvenza. Riparte a ogni
+     apertura (da hidden); sostituendo il contenuto di un avviso già aperto non si ripete. */
+  animation: toast-in .45s cubic-bezier(.22, 1, .36, 1);
+}
+@keyframes toast-in {
+  from {
+    transform: translate(-50%, calc(100% + 20px + env(safe-area-inset-bottom)));
+    box-shadow: 0 0 0 100vmax transparent, 0 16px 40px rgb(0 0 0 / 0), 0 3px 10px rgb(0 0 0 / 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast.rich { animation: none; }
 }
 .tipcard { position: fixed; z-index: 60; width: 340px; max-width: calc(100vw - 16px); padding: 12px 14px; font-size: .82rem; pointer-events: none; }
 /* Contenuto strutturato (tipHead / tipRows / tipChance in app.js) */
