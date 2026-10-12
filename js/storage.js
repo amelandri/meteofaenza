@@ -60,7 +60,7 @@ export const saveSettings = (patch) => write(KEYS.settings, { ...getSettings(), 
 // giorno per giorno (intervalli distinti su giorni diversi).
 
 export const MAX_WATCH_WINDOWS = 6; // in tutto…
-export const MAX_WATCH_PER_DAY = 3; // …e al massimo 3 nello stesso giorno (una riga di blocchi)
+export const MAX_WATCH_PER_DAY = 4; // …e al massimo 4 nello stesso giorno (una riga di blocchi)
 export const MAX_WATCH_LABEL = 24;
 export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 // Predefinito: nessun intervallo (al loro posto "Prossimi giorni" mostra un invito discreto

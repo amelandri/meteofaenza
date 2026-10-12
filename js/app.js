@@ -768,8 +768,8 @@ const DROP = '<svg class="drop" viewBox="0 0 16 16" width="13" height="13" aria-
 // --- Tragitti in bici ("Bike") ------------------------------------------------------
 // Elenco di tragitti, ognuno con le sue finestre orarie (ora locale della località). Per
 // ogni finestra si valuta se pioverà confrontando i due modelli e la probabilità
-// dall'ensemble. Oggi c'è un'unica voce: gli "intervalli monitorati" (nome e al massimo 3
-// intervalli) scelti nella pagina Impostazioni (settings.html, salvati in settings.watch).
+// dall'ensemble. Oggi c'è un'unica voce: gli "intervalli monitorati" (nome e fino a 6
+// intervalli, al massimo 4 al giorno) scelti nella pagina Impostazioni (settings.html, salvati in settings.watch).
 let BIKE_COMMUTES = [store.getWatch()];
 const BIKE_WET_MM = 0.2; // mm nel tragitto oltre cui un modello "vede" pioggia
 // Soglie del verdetto, che combina i modelli (quelli mostrati più i modelli di supporto
@@ -1064,7 +1064,7 @@ function renderBike(commute, day, hourIdx, today, nowMin) {
       + (partial ? tipNote(`Solo ${x.mainAvail[0].m.name}: l'altro modello mostrato non copre il tragitto.`) : '')
       + tipChance(x, 'nel tragitto');
     return `<button type="button" class="bike-chip st-${x.status}${past}" data-tip="${esc(tip)}" aria-label="${esc(`Tragitto ${range}: ${st.label}. ${chancePlain(x, 'nel tragitto')}`)}">
-      <span class="bike-time">${range}</span>
+      <span class="bike-time">${x.w.from}–<wbr>${x.w.to}</span>
       <span class="bike-info">
         <span class="bike-st" aria-label="${st.label}">${st.icon ? `<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">${st.icon}</svg>` : ''}<span class="bike-st-label">${st.label}</span></span>
         ${mm ? `<span class="bike-mm">${mm}</span>` : ''}${only}

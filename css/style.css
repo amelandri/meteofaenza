@@ -564,7 +564,7 @@ button { font: inherit; color: inherit; }
 #daily.bikes-flow .bike { display: flex; align-items: center; gap: 16px; }
 #daily.bikes-flow .bike:first-child .bike-label { width: var(--label-w); }
 .bike-ico { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.bike-chips { display: flex; gap: 6px; min-width: 0; }
+.bike-chips { display: flex; gap: 5px; min-width: 0; }
 /* Dopo la misura (fitBikes): tutti i blocchi larghi quanto il più largo */
 #daily.bikes-sized .bike-chip { width: var(--bike-chip-w); }
 #daily.bikes-measure .bike-chip { width: max-content !important; flex: none; } /* solo durante la misura */
@@ -588,15 +588,15 @@ button { font: inherit; color: inherit; }
 .bike-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* Blocco compatto (desktop e mobile): orario sopra, icona dello stato + probabilità sotto.
    Testo dello stato, mm e "solo EU" sono nel dettaglio (tooltip / avviso al tocco). */
-.bike-chip { flex-direction: column; justify-content: center; gap: 2px; height: auto; min-width: 0; padding: 5px 12px; }
-.bike-info { display: inline-flex; align-items: center; gap: 6px; }
+.bike-chip { flex-direction: column; justify-content: center; gap: 1px; height: auto; min-width: 0; padding: 4px 8px; }
+.bike-info { display: inline-flex; align-items: center; gap: 4px; }
 .bike-st-label, .bike-mm, .bike-only, .bike-pop .drop { display: none; }
-.bike-pop { font-size: .76rem; font-weight: 650; }
+.bike-pop { font-size: .72rem; font-weight: 650; }
 .bike-chip.st-dry { --st: var(--good); }
 .bike-chip.st-wet { --st: var(--rain); }
 .bike-chip.st-mixed, .bike-chip.st-risk { --st: var(--mid); }
 .bike-chip.past { opacity: .45; }
-.bike-time { font-weight: 700; color: var(--text); }
+.bike-time { font-size: .74rem; font-weight: 700; letter-spacing: -.01em; color: var(--text); }
 .bike-st { display: inline-flex; align-items: center; gap: 3px; font-weight: 650; color: var(--st); }
 .bike-st svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .bike-mm { color: var(--text); }
@@ -1280,10 +1280,14 @@ body.loading #forecast { opacity: .5; }
   #daily .bike { display: contents; }
   #daily .bike-label, #daily .bike-chips { grid-column: 1; }
   #daily.bikes-sized .bike-chip { width: auto; }
-  #daily .bike-chips, #daily.bikes-sized .bike-chips { display: grid; grid-template-columns: repeat(var(--bike-max, 3), minmax(0, 1fr)); gap: 6px; margin-bottom: 4px; }
+  /* Blocchi piccoli: fino a 4 per riga (MAX_WATCH_PER_DAY) anche a 390 px */
+  #daily .bike-chips, #daily.bikes-sized .bike-chips { display: grid; grid-template-columns: repeat(var(--bike-max, 3), minmax(0, 1fr)); gap: 4px; margin-bottom: 4px; }
   .bike-label { height: auto; margin-top: 4px; }
-  .bike-chip { padding: 5px 4px; }
-  .bike-time { font-size: .72rem; }
+  .bike-chip { padding: 3px 1px; border-radius: 5px; }
+  /* Se l'orario non entra (schermi < 375 px) va a capo dopo il trattino (<wbr>) */
+  .bike-time { font-size: .66rem; letter-spacing: -.02em; white-space: normal; text-align: center; line-height: 1.2; }
+  .bike-pop { font-size: .68rem; }
+  .bike-st svg { width: 13px; height: 13px; }
 
 }
 
