@@ -31,6 +31,10 @@ const QTY = {
 };
 // Fasce di probabilità per l'affidabilità dell'ensemble.
 const BINS = [[0, 20], [20, 50], [50, 80], [80, 101]];
+// Errori gravi della probabilità: alta (≥ BAD_HIGH %) e non ha piovuto, bassa (< BAD_LOW %)
+// e ha piovuto.
+const BAD_HIGH = 70;
+const BAD_LOW = 20;
 
 const $ = (sel) => document.querySelector(sel);
 const settings = store.getSettings();
@@ -127,6 +131,9 @@ function summarize(days, wet) {
     rainErr: [], rainFc: 0, rainObs: 0, tmaxErr: [], tminErr: [],
   }]));
   const bins = BINS.map(([lo, hi]) => ({ lo, hi, n: 0, rained: 0 }));
+  // Punteggio di Brier: media di (probabilità − esito)², esito 1 se ha piovuto, 0 se no. Pesa lo
+  // scarto: 90% senza pioggia costa 0,81, 30% senza pioggia 0,09.
+  const brier = { sum: 0, n: 0, rained: 0, badHigh: 0, badLow: 0 };
   for (const d of full) {
     const obs = d.observed;
     for (const s of SLOTS) {
@@ -141,8 +148,14 @@ function summarize(days, wet) {
       const p = chance(d.ensemble, slotHours(s));
       if (p != null && o != null) {
         const b = bins.find((x) => p >= x.lo && p < x.hi);
+        const rained = o >= wet - 1e-9;
         b.n++;
-        if (o >= wet - 1e-9) b.rained++;
+        if (rained) b.rained++;
+        brier.sum += (p / 100 - (rained ? 1 : 0)) ** 2;
+        brier.n++;
+        if (rained) brier.rained++;
+        if (!rained && p >= BAD_HIGH) brier.badHigh++;
+        if (rained && p < BAD_LOW) brier.badLow++;
       }
     }
     // intervalli monitorati di quel giorno della settimana
@@ -166,7 +179,7 @@ function summarize(days, wet) {
       if (minOf(f.temp) != null && obs.tMin != null) models[m.key].tminErr.push(minOf(f.temp) - obs.tMin);
     }
   }
-  return { full: full.length, models, bins };
+  return { full: full.length, models, bins, brier };
 }
 
 // --- Rendering -----------------------------------------------------------------------
@@ -210,11 +223,30 @@ function renderSummary(sum) {
       </tbody>
     </table></div>
     <h3>Affidabilità della probabilità</h3>
+    ${brierBlock(sum.brier)}
     <p class="info-note">Una probabilità ben calibrata del 30% dovrebbe vedere pioggia in circa 3 fasce su 10.</p>
     <table class="info-table vs-table">
       <thead><tr><th>Probabilità prevista</th><th>Fasce</th><th>Ha piovuto</th></tr></thead>
       <tbody>${sum.bins.map((b) => `<tr><th scope="row">${b.lo}–${Math.min(b.hi, 100)}%</th><td>${b.n}</td><td>${b.n ? `<b>${Math.round((100 * b.rained) / b.n)}%</b> <small>(${b.rained})</small>` : '—'}</td></tr>`).join('')}</tbody>
     </table>`;
+}
+
+// Punteggio di Brier delle fasce, confrontato con quello che si otterrebbe dando a ogni fascia
+// la frequenza della pioggia nel periodo (r): r·(1 − r). "Meglio del X%" = 1 − Brier / riferimento.
+const f2 = (v) => v.toFixed(2).replace('.', ','); // fmt() arriva a un decimale
+function brierBlock(b) {
+  if (!b.n) return '';
+  const score = b.sum / b.n;
+  const r = b.rained / b.n;
+  const ref = r * (1 - r);
+  const skill = ref > 0 ? Math.round(100 * (1 - score / ref)) : null;
+  const vs = skill == null ? ''
+    : skill > 0 ? `meglio del ${skill}% rispetto a dare sempre la frequenza del periodo (piove nel ${Math.round(100 * r)}% delle fasce: ${f2(ref)})`
+    : `non meglio che dare sempre la frequenza del periodo (piove nel ${Math.round(100 * r)}% delle fasce: ${f2(ref)})`;
+  return `<table class="info-table vs-table vs-brier"><tbody>
+      <tr><th scope="row">Errore della probabilità<small>punteggio di Brier: 0 = perfetta, 0,25 = dire sempre 50%; ogni fascia pesa lo scarto al quadrato (90% senza pioggia costa 0,81, 30% senza pioggia 0,09)</small></th><td><b>${f2(score)}</b>${vs ? ` <small>${vs}</small>` : ''}</td></tr>
+      <tr><th scope="row">Errori gravi<small>probabilità ≥ ${BAD_HIGH}% senza pioggia, o &lt; ${BAD_LOW}% con pioggia</small></th><td><b>${b.badHigh + b.badLow}</b> <small>su ${b.n} fasce (${b.badHigh} alta e asciutto · ${b.badLow} bassa e pioggia)</small></td></tr>
+    </tbody></table>`;
 }
 
 // `judge` falso: si mostra solo il valore (es. il giorno di oggi non è ancora finito).
