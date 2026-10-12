@@ -21,6 +21,14 @@ const OUTCOME = {
   false: { label: 'pioggia prevista ma non caduta (falso allarme)', mark: '!', cls: 'o-mid' },
   miss: { label: 'pioggia caduta ma non prevista', mark: '✗', cls: 'o-bad' },
 };
+// Quantità molto diversa (solo se pioggia prevista e caduta): uno almeno il doppio
+// dell'altro e scarto di almeno QTY_MM, come il criterio di concordanza sulla quantità.
+const QTY_RATIO = 2;
+const QTY_MM = 2;
+const QTY = {
+  more: { label: 'molta più pioggia del previsto', mark: '↑' },
+  less: { label: 'molta meno pioggia del previsto', mark: '↓' },
+};
 // Fasce di probabilità per l'affidabilità dell'ensemble.
 const BINS = [[0, 20], [20, 50], [50, 80], [80, 101]];
 
@@ -98,6 +106,14 @@ function outcome(fc, obs, wet) {
   return f ? (o ? 'hit' : 'false') : (o ? 'miss' : 'ok');
 }
 
+// 'more' = caduta molta più pioggia del previsto, 'less' = molta meno, null altrimenti.
+function qtyOff(fc, obs, wet) {
+  if (outcome(fc, obs, wet) !== 'hit' || Math.abs(fc - obs) < QTY_MM - 1e-9) return null;
+  if (obs >= QTY_RATIO * fc) return 'more';
+  if (fc >= QTY_RATIO * obs) return 'less';
+  return null;
+}
+
 const maxOf = (a) => { const v = (a || []).filter((x) => x != null); return v.length ? Math.max(...v) : null; };
 const minOf = (a) => { const v = (a || []).filter((x) => x != null); return v.length ? Math.min(...v) : null; };
 
@@ -107,7 +123,8 @@ function summarize(days, wet) {
   const full = days.filter((d) => d.observed.complete && !d.today);
   const watch = store.getWatch();
   const models = Object.fromEntries(ALL_MODELS.map((m) => [m.key, {
-    counts: { hit: 0, ok: 0, false: 0, miss: 0 }, bike: { hit: 0, ok: 0, false: 0, miss: 0 }, rainErr: [], rainFc: 0, rainObs: 0, tmaxErr: [], tminErr: [],
+    counts: { hit: 0, ok: 0, false: 0, miss: 0 }, bike: { hit: 0, ok: 0, false: 0, miss: 0 }, qty: { more: 0, less: 0 },
+    rainErr: [], rainFc: 0, rainObs: 0, tmaxErr: [], tminErr: [],
   }]));
   const bins = BINS.map(([lo, hi]) => ({ lo, hi, n: 0, rained: 0 }));
   for (const d of full) {
@@ -115,8 +132,11 @@ function summarize(days, wet) {
     for (const s of SLOTS) {
       const o = total(obs.rain, slotHours(s));
       for (const m of ALL_MODELS) {
-        const res = outcome(total(d.models[m.key]?.rain, slotHours(s)), o, wet);
+        const fc = total(d.models[m.key]?.rain, slotHours(s));
+        const res = outcome(fc, o, wet);
         if (res) models[m.key].counts[res]++;
+        const q = qtyOff(fc, o, wet);
+        if (q) models[m.key].qty[q]++;
       }
       const p = chance(d.ensemble, slotHours(s));
       if (p != null && o != null) {
@@ -138,7 +158,7 @@ function summarize(days, wet) {
       if (!f) continue;
       const r = total(f.rain, dayHours());
       if (r != null && obs.total != null) {
-        models[m.key].rainErr.push(Math.abs(r - obs.total));
+        models[m.key].rainErr.push(r - obs.total);
         models[m.key].rainFc += r;
         models[m.key].rainObs += obs.total;
       }
@@ -182,7 +202,8 @@ function renderSummary(sum) {
         ${row('Pioggia prevista e caduta', (s) => s.counts.hit)}
         ${row('Falsi allarmi', (s) => s.counts.false, 'pioggia prevista ma non caduta')}
         ${row('Pioggia non prevista', (s) => s.counts.miss)}
-        ${row('Errore medio sulla pioggia del giorno', (s) => (s.rainErr.length ? `${fmt(mean(s.rainErr), 1)} mm` : '—'))}
+        ${row('Quantità molto diversa', (s) => (s.counts.hit ? `${s.qty.more + s.qty.less} <small class="opt">(${QTY.more.mark} ${s.qty.more} · ${QTY.less.mark} ${s.qty.less})</small>` : '—'), `fasce con pioggia prevista e caduta, ma il doppio o la metà (scarto ≥ ${fmt(QTY_MM, 0)} mm)`)}
+        ${row('Errore medio sulla pioggia del giorno', (s) => err(s.rainErr, ' mm', 1), 'in media: + troppa pioggia prevista, − troppo poca')}
         ${row('Pioggia prevista / caduta', (s) => (s.rainErr.length ? `${fmt(s.rainFc, 1)} / ${fmt(s.rainObs, 1)} mm` : '—'), 'somma dei giorni')}
         ${row('Errore medio sulla massima', (s) => err(s.tmaxErr, '°', 1), 'in media: + troppo caldo, − troppo fresco')}
         ${row('Errore medio sulla minima', (s) => err(s.tminErr, '°', 1))}
@@ -201,7 +222,10 @@ function cell(fc, obs, wet, judge = true) {
   const res = judge ? outcome(fc, obs, wet) : null;
   if (fc == null) return '<td class="na">—</td>';
   const o = res ? OUTCOME[res] : null;
-  return `<td class="${o ? o.cls : ''}" title="${o ? esc(o.label) : ''}">${mm(fc)}${o ? `<span class="o-mark" aria-hidden="true">${o.mark}</span>` : ''}</td>`;
+  const q = judge ? QTY[qtyOff(fc, obs, wet)] : null;
+  // nel tooltip esito, quantità e scarto previsto − caduto
+  const title = o ? [o.label, q?.label, obs != null && fc !== obs ? `scarto ${fmtSigned(fc - obs, 1)} mm` : null].filter(Boolean).join(' · ') : '';
+  return `<td class="${o ? o.cls : ''}${q ? ' q-off' : ''}" title="${esc(title)}">${mm(fc)}${o ? `<span class="o-mark" aria-hidden="true">${o.mark}${q ? `<span class="q-mark">${q.mark}</span>` : ''}</span>` : ''}</td>`;
 }
 
 function renderDay(d, wet, todayIso) {
@@ -324,7 +348,8 @@ $('#days-seg').addEventListener('click', (e) => {
 
 // Legenda degli esiti nella scheda dei controlli (una voce per simbolo).
 $('#verify-legend').innerHTML = Object.values(OUTCOME).filter((o, i, a) => a.findIndex((x) => x.mark === o.mark) === i)
-  .map((o) => `<li class="${o.cls}"><span class="o-mark">${o.mark}</span>${o.mark === '✓' ? 'previsione corretta' : o.label}</li>`).join('');
+  .map((o) => `<li class="${o.cls}"><span class="o-mark">${o.mark}</span>${o.mark === '✓' ? 'previsione corretta' : o.label}</li>`).join('')
+  + `<li class="q-off"><span class="o-mark q-mark">${QTY.more.mark}${QTY.less.mark}</span>caduta molta più / meno pioggia del previsto</li>`;
 
 syncControls();
 load();
