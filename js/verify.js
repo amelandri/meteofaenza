@@ -282,9 +282,7 @@ function render() {
   status.hidden = true;
   renderSummary(summarize(data.days, data.wetMm));
   const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: TZ });
-  $('#verify-days').innerHTML = `<p class="vd-legend">${Object.values(OUTCOME).filter((o, i, a) => a.findIndex((x) => x.mark === o.mark) === i)
-    .map((o) => `<span class="${o.cls}"><span class="o-mark">${o.mark}</span> ${o.mark === '✓' ? 'previsione corretta' : o.label}</span>`).join('')}</p>`
-    + data.days.map((d) => renderDay(d, data.wetMm, todayIso)).join('');
+  $('#verify-days').innerHTML = data.days.map((d) => renderDay(d, data.wetMm, todayIso)).join('');
 }
 
 async function load() {
@@ -323,6 +321,10 @@ $('#days-seg').addEventListener('click', (e) => {
   syncControls();
   load();
 });
+
+// Legenda degli esiti nella scheda dei controlli (una voce per simbolo).
+$('#verify-legend').innerHTML = Object.values(OUTCOME).filter((o, i, a) => a.findIndex((x) => x.mark === o.mark) === i)
+  .map((o) => `<li class="${o.cls}"><span class="o-mark">${o.mark}</span>${o.mark === '✓' ? 'previsione corretta' : o.label}</li>`).join('');
 
 syncControls();
 load();

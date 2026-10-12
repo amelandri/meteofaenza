@@ -952,6 +952,10 @@ button { font: inherit; color: inherit; }
 
 .verify-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 32px; }
 .verify-controls .info-note { flex-basis: 100%; margin: 0; }
+/* Legenda degli esiti nella scheda dei controlli: a destra su schermi larghi, una voce per riga */
+.verify-controls .vd-legend { list-style: none; padding: 0; margin: 0 0 0 auto; display: grid; gap: 2px; font-size: .8rem; color: var(--muted); }
+.verify-controls .vd-legend .o-mark { display: inline-block; width: 1.1em; margin: 0 4px 0 0; text-align: center; }
+@media (max-width: 760px) { .verify-controls .vd-legend { margin-left: 0; flex-basis: 100%; } }
 /* Due colonne da 1100 px: riepilogo a sinistra, fisso sotto la barra in alto mentre si
    scorrono i giorni (se è più alto dello schermo scorre con la pagina); giorni a destra. */
 .verify-layout { display: grid; gap: 0 16px; }
@@ -959,7 +963,6 @@ button { font: inherit; color: inherit; }
 @media (min-width: 1100px) {
   .verify-layout { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); align-items: start; }
   .verify-side { position: sticky; top: 76px; }
-  .verify-main .vd-legend:first-child { margin-top: 0; }
 }
 .vc-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .vc-row .field-label { margin: 0; min-width: 76px; }
@@ -1000,7 +1003,7 @@ button { font: inherit; color: inherit; }
 .vs-table tr.vs-bike th, .vs-table tr.vs-bike td { background: color-mix(in srgb, var(--accent) 6%, transparent); }
 .vs-table tr.vs-bike th .bike-ico { width: 15px; height: 15px; vertical-align: -3px; margin-right: 4px; }
 .vd-src { margin: 10px 0 0; font-size: .74rem; color: var(--muted); }
-.vd-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .8rem; color: var(--muted); margin: 18px 0 6px; }
+
 @media (max-width: 560px) {
   .vt { font-size: .76rem; }
   .vt tbody th { width: 48px; font-size: .7rem; }
