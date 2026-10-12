@@ -848,8 +848,17 @@ button { font: inherit; color: inherit; }
 .radar-outlook ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
 .radar-outlook li { display: grid; grid-template-columns: 42px minmax(0, 1fr) 118px; align-items: center; gap: 10px; font-size: .82rem; }
 .ro-t { font-variant-numeric: tabular-nums; color: var(--muted); }
-.ro-bar { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
-.ro-bar i { display: block; height: 100%; background: var(--rain); border-radius: 4px; }
+.ro-bar { position: relative; height: 10px; border-radius: 5px; background: var(--surface-2); overflow: hidden; }
+.ro-bar i { display: block; height: 100%; background: var(--rain); border-radius: 5px; }
+/* Quote 25 / 50 / 75% sopra il riempimento: linee sottili del colore della card */
+.ro-bar::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, transparent calc(25% - .5px), var(--surface) calc(25% - .5px) calc(25% + .5px), transparent calc(25% + .5px) calc(50% - .5px), var(--surface) calc(50% - .5px) calc(50% + .5px), transparent calc(50% + .5px) calc(75% - .5px), var(--surface) calc(75% - .5px) calc(75% + .5px), transparent calc(75% + .5px)); }
+.radar-outlook li.ro-scale { margin-top: -2px; }
+.ro-ticks { position: relative; height: 12px; font-size: .64rem; line-height: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ro-ticks span { position: absolute; left: calc(var(--q) * 1%); transform: translateX(-50%); }
+.ro-ticks span:first-child { transform: none; }
+.ro-ticks span:last-child { transform: translateX(-100%); }
+.ro-note { margin: 8px 0 0; font-size: .74rem; }
 .radar-outlook .lv-maybe .ro-bar i { opacity: .55; }
 .radar-outlook .lv-wet .ro-w { color: var(--rain); font-weight: 650; }
 .ro-w { color: var(--muted); }
@@ -876,6 +885,16 @@ button { font: inherit; color: inherit; }
 .radar-move svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .radar-ctrl { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 560px; margin: 0 auto; }
 .radar-ctrl .radar-range { flex: 1; min-width: 0; accent-color: var(--accent); }
+/* Linea del tempo: tacca tra immagini lette e stime (--f = frazione del cursore, corretta per
+   la larghezza del pallino --thumb) con le scritte "radar" / "stima" sotto, ai due lati */
+.radar-tl { --thumb: 16px; --at: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--f, 1)); position: relative; flex: 1; min-width: 0; }
+.radar-ctrl:has(.radar-tl-mark) { padding-bottom: 14px; } /* spazio per le scritte, senza spostare il centro del cursore */
+.radar-tl .radar-range { position: relative; z-index: 1; display: block; width: 100%; height: 20px; margin: 0; }
+.radar-tl-mark { position: absolute; top: 1px; height: 18px; left: var(--at); width: 2px; margin-left: -1px; border-radius: 1px; background: var(--muted); pointer-events: none; }
+.radar-tl-lab { position: absolute; left: 0; right: 0; top: 21px; height: 13px; font-size: .68rem; line-height: 13px; color: var(--muted); pointer-events: none; }
+.radar-tl-lab span { position: absolute; top: 0; white-space: nowrap; }
+.radar-tl-lab span:first-child { right: calc(100% - var(--at) + 5px); }
+.radar-tl-lab span:last-child { left: calc(var(--at) + 5px); }
 #radar-play .i-pause, #radar-play.on .i-play { display: none; }
 #radar-play.on .i-pause { display: block; }
 #radar-play svg path { stroke-linejoin: round; }

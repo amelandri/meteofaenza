@@ -111,7 +111,9 @@ function show(el, k, tz, off) {
   img.classList.toggle('fc', !!f.min);
   el.querySelector('.radar-badge').textContent = frameLabel(f, tz, off);
   el.querySelector('.radar-badge').classList.toggle('fc', !!f.min);
-  el.querySelector('.radar-range').value = String(k);
+  const range = el.querySelector('.radar-range');
+  range.value = String(k);
+  range.setAttribute('aria-valuetext', frameLabel(f, tz, off));
 }
 
 export function stopRadar() {
@@ -147,9 +149,14 @@ function outlook(d, tz, off) {
   const rows = steps.map((s) => {
     const word = s.frac >= d.arriveFrac ? `pioggia ${radarWords(s.mmh)}` : s.frac >= d.maybeFrac ? 'possibile' : 'asciutto';
     const lv = s.frac >= d.arriveFrac ? 'wet' : s.frac >= d.maybeFrac ? 'maybe' : 'dry';
-    return `<li class="lv-${lv}"><span class="ro-t">${localDateTime(s.at, tz, off).time}</span><span class="ro-bar"><i style="width:${Math.round(s.frac * 100)}%"></i></span><span class="ro-w">${word}</span></li>`;
+    const pct = Math.round(s.frac * 100);
+    return `<li class="lv-${lv}"><span class="ro-t">${localDateTime(s.at, tz, off).time}</span><span class="ro-bar" title="Pioggia sul ${pct}% della zona"><i style="width:${pct}%"></i></span><span class="ro-w">${word}</span></li>`;
   }).join('');
-  return `<div class="radar-outlook"><h3>Su Faenza nei prossimi 90 minuti</h3><ul>${rows}</ul></div>`;
+  // Scala sotto le barre: quote 25 / 50 / 75% (le stesse linee sono disegnate sulle barre).
+  const scale = `<li class="ro-scale" aria-hidden="true"><span></span><span class="ro-ticks">${[0, 25, 50, 75, 100].map((q) => `<span style="--q:${q}">${q}${q === 100 ? '%' : ''}</span>`).join('')}</span><span></span></li>`;
+  const pc = (f) => `${Math.round(f * 100)}%`;
+  return `<div class="radar-outlook"><h3>Su Faenza nei prossimi 90 minuti</h3><ul>${rows}${scale}</ul>
+    <p class="ro-note muted">Le barre indicano quanta parte della zona intorno a Faenza avrà pioggia secondo la stima (non è una probabilità): la zona è un cerchio che si allarga col passare dei minuti, da 3 km di raggio adesso a 12 km tra 90 minuti. Da ${pc(d.maybeFrac)} pioggia possibile, da ${pc(d.arriveFrac)} pioggia in arrivo.</p></div>`;
 }
 
 // Disegna la sezione con i dati di api/radar. `el` = corpo della sezione.
@@ -164,6 +171,10 @@ export function renderRadar(el, d, tz, off) {
   // Precarica le immagini (pochi KB ciascuna; quelle già viste arrivano dalla cache).
   for (const f of player.frames) new Image().src = f.img;
   const lastObs = player.frames.findLastIndex((f) => !f.min);
+  // Confine tra immagini lette e stime sulla linea del tempo: a metà tra l'ultima immagine
+  // letta e la prima stima, in frazione del cursore (null se non ci sono stime).
+  const max = player.frames.length - 1;
+  const split = lastObs >= 0 && lastObs < max ? (lastObs + 0.5) / max : null;
   const legend = d.legend.map((x) => `<span><i style="background:${x.color}"></i>${String(x.from).replace('.', ',')}</span>`).join('');
   const st = radarStatus(d, tz, off);
   el.innerHTML = `
@@ -182,7 +193,10 @@ export function renderRadar(el, d, tz, off) {
             <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
             <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>
           </button>
-          <input class="radar-range" type="range" min="0" max="${player.frames.length - 1}" step="1" aria-label="Momento dell'immagine">
+          <div class="radar-tl"${split != null ? ` style="--f:${split.toFixed(4)}"` : ''}>
+            <input class="radar-range" type="range" min="0" max="${player.frames.length - 1}" step="1" aria-label="Momento dell'immagine">
+            ${split != null ? '<span class="radar-tl-mark" aria-hidden="true"></span><span class="radar-tl-lab" aria-hidden="true"><span>radar</span><span>stima</span></span>' : ''}
+          </div>
         </div>
         ${outlook(d, tz, off)}
         <div class="radar-legend" aria-label="Intensità in mm/h">${legend}<span class="muted">mm/h</span></div>
