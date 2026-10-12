@@ -51,6 +51,10 @@
   --label-w: 150px; /* colonna etichetta delle righe "Adesso" e "Prossimi giorni" */
   --slot-sep: color-mix(in srgb, var(--text) 11%, transparent); /* separatore tra le fasce orarie */
   --shadow: 0 1px 2px rgb(16 24 40 / .04), 0 2px 8px rgb(16 24 40 / .05);
+  /* Avviso / riquadro del dettaglio (.toast, .tipcard): devono staccare dalle schede */
+  --tip-bg: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  --tip-border: color-mix(in srgb, var(--accent) 35%, var(--border));
+  --tip-scrim: rgb(16 24 40 / .28); /* velo sulla pagina dietro l'avviso al tocco */
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   color-scheme: light;
 }
@@ -94,6 +98,9 @@
   --moon-box: #ffd75e;
 
   --shadow: none;
+  --tip-bg: color-mix(in srgb, var(--accent) 10%, #222c3e); /* più chiaro delle schede */
+  --tip-border: color-mix(in srgb, var(--accent) 45%, var(--border));
+  --tip-scrim: rgb(0 0 0 / .5);
   color-scheme: dark;
 }
 
@@ -1125,16 +1132,23 @@ button { font: inherit; color: inherit; }
   font-size: .88rem;
   z-index: 50;
 }
-/* Avviso e riquadro del dettaglio: sul colore delle schede (non nero), con bordo e ombra. */
+/* Avviso e riquadro del dettaglio: sul colore delle schede (non nero) ma ben distinti da
+   queste: velo di --accent, bordo colorato e ombra marcata (--tip-*, più chiaro delle
+   schede nel tema scuro). */
 .toast, .tipcard {
-  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  background: var(--tip-bg);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--tip-border);
   border-radius: 12px;
-  box-shadow: 0 12px 32px rgb(0 0 0 / .18), 0 2px 6px rgb(0 0 0 / .08);
+  box-shadow: 0 16px 40px rgb(0 0 0 / .28), 0 3px 10px rgb(0 0 0 / .14);
   line-height: 1.4;
 }
-.toast.rich { white-space: normal; width: min(92vw, 380px); padding: 12px 14px; font-size: .84rem; }
+/* Dettaglio al tocco (mobile): la pagina dietro si scurisce, così l'avviso non si confonde
+   con le schede sottostanti (un tap ovunque lo chiude, quindi il velo non blocca nulla). */
+.toast.rich {
+  white-space: normal; width: min(92vw, 380px); padding: 12px 14px; font-size: .84rem;
+  box-shadow: 0 0 0 100vmax var(--tip-scrim), 0 16px 40px rgb(0 0 0 / .3), 0 3px 10px rgb(0 0 0 / .14);
+}
 .tipcard { position: fixed; z-index: 60; width: 340px; max-width: calc(100vw - 16px); padding: 12px 14px; font-size: .82rem; pointer-events: none; }
 /* Contenuto strutturato (tipHead / tipRows / tipChance in app.js) */
 .tp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
