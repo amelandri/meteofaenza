@@ -14,6 +14,7 @@ Esito e dettagli finiscono nella tabella fetch_log (e in /api/status).
 import argparse
 import fcntl
 import sys
+import traceback
 
 from . import config, db, radar, rivers, sources, verify
 
@@ -46,7 +47,10 @@ def job_forecast(conn, force=False):
     old_runs = db.get_snapshot(conn, 'runs')
     # Si tengono i metadati precedenti dei modelli che non hanno risposto.
     merged = {k: v or ((old_runs or {}).get('data') or {}).get(k) for k, v in runs.items()}
-    db.put_snapshot(conn, 'runs', merged)
+    # Si riscrive solo se cambia: l'istante dello snapshot entra nella chiave della cache di
+    # api/forecast, e riscriverlo ogni 15 minuti costringeva a ricomporre la risposta.
+    if not old_runs or old_runs['data'] != merged:
+        db.put_snapshot(conn, 'runs', merged)
 
     fc = db.get_snapshot(conn, 'forecast')
     reason = None
@@ -83,8 +87,7 @@ def job_forecast(conn, force=False):
             ens = sources.fetch_ensemble()
             issued = db.now_ms()
             db.put_snapshot(conn, 'ensemble', ens, issued)
-            utc_offset = ((db.get_snapshot(conn, 'forecast') or {}).get('data') or {}).get('utcOffset', 0)
-            added = verify.archive_ensemble(conn, ens, utc_offset, issued)
+            added = verify.archive_ensemble(conn, ens, ens['utcOffset'], issued)
             db.log(conn, 'ensemble', True, f'scaricato; archiviate {added} righe')
             notes.append(f'ensemble scaricato, {added} righe in archivio')
         except sources.SourceError as err:
@@ -128,6 +131,17 @@ def run(name, force=False):
         msg = f'librerie mancanti ({err})' if isinstance(err, ImportError) else str(err)
         db.log(conn, name, False, msg)
         print(f'{name}: errore: {msg}', file=sys.stderr)
+        return 1
+    except Exception as err:  # noqa: BLE001
+        # Errori imprevisti (database occupato, formato della fonte cambiato, …): nel registro,
+        # così api/status non continua a mostrare l'ultimo successo. Traccia completa nel log.
+        msg = f'errore imprevisto: {type(err).__name__}: {err}'
+        try:
+            conn.rollback()
+            db.log(conn, name, False, msg)
+        except Exception:  # noqa: BLE001  (database non utilizzabile: resta il log di sistema)
+            pass
+        traceback.print_exc()
         return 1
     finally:
         conn.close()

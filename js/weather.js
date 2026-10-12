@@ -103,9 +103,17 @@ export function sunEventIcon(kind, size = 18) {
 const nf = (d) => new Intl.NumberFormat('it-IT', { minimumFractionDigits: d, maximumFractionDigits: d });
 const NF0 = nf(0), NF1 = nf(1);
 
+// Valore come viene mostrato: arrotondato come Intl (metà lontano dallo zero: -2,5 → -3,
+// mentre Math.round dà -2) e senza "-0" (-0,3 → 0).
+export function roundShown(v, decimals = 0) {
+  const k = decimals ? 10 : 1;
+  const r = Math.sign(v) * Math.round(Math.abs(v) * k) / k;
+  return r === 0 ? 0 : r;
+}
+
 export function fmt(v, decimals = 0) {
   if (v == null || Number.isNaN(v)) return '—';
-  return (decimals ? NF1 : NF0).format(v);
+  return (decimals ? NF1 : NF0).format(roundShown(v, decimals));
 }
 
 export function fmtSigned(v, decimals = 1) {

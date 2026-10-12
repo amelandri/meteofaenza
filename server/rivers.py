@@ -13,6 +13,7 @@ from . import db, sources
 
 SERIES_H = 48  # ore della serie mostrata nel grafico
 TREND_MIN = 60  # minuti su cui si calcola la tendenza
+TREND_MAX_GAP_MIN = 90  # oltre: dati con un buco, niente tendenza
 
 
 def run(conn, force=False):
@@ -27,6 +28,7 @@ def run(conn, force=False):
             cur = conn.executemany('INSERT OR IGNORE INTO river_levels (station, time, value) VALUES (?, ?, ?)',
                                    [(sid, t, v) for t, v in series])
             added += cur.rowcount
+            conn.commit()  # subito: il database non resta bloccato durante il download successivo
     db.put_snapshot(conn, 'rivers', meta)
     conn.commit()
     return f'{added} livelli nuovi'
@@ -57,12 +59,14 @@ def compose(conn):
             latest = max(latest, t)
             rows = conn.execute('SELECT time, value FROM river_levels WHERE station = ? AND time >= ? ORDER BY time',
                                 (sid, t - SERIES_H * 3600000)).fetchall()
-            ref = conn.execute('SELECT value FROM river_levels WHERE station = ? AND time <= ? ORDER BY time DESC LIMIT 1',
+            ref = conn.execute('SELECT time, value FROM river_levels WHERE station = ? AND time <= ? ORDER BY time DESC LIMIT 1',
                                (sid, t - TREND_MIN * 60000)).fetchone()
-            ref_ok = ref is not None and rows and rows[0]['time'] <= t - TREND_MIN * 60000
+            # Dato di riferimento abbastanza recente (dopo un buco di ore la differenza diviso
+            # un'ora darebbe una salita/discesa rapida che non c'è); si divide per il tempo vero.
+            ref_ok = ref is not None and ref['time'] >= t - TREND_MAX_GAP_MIN * 60000
             stations.append({
                 **st, 's': s, 't': t, 'v': v, 'level': level(v, s),
-                'trend': round((v - ref['value']) * 60 / TREND_MIN, 2) if ref_ok else None,
+                'trend': round((v - ref['value']) * 3600000 / (t - ref['time']), 2) if ref_ok else None,
                 'series': [[r['time'], r['value']] for r in rows],
             })
         if stations:

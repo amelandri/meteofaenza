@@ -324,6 +324,7 @@ def run(conn, force=False):
     for t in new:
         try:
             _store_frame(conn, t, decode(sources.fetch_radar_tif(t)))
+            conn.commit()  # subito: il database non resta bloccato durante il download successivo
             got += 1
         except sources.SourceError:
             if t == last:

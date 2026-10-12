@@ -247,7 +247,9 @@ def fetch_ensemble():
             groups.append({'model': m['name'], 'members': members})
     if not groups:
         raise SourceError('ensemble senza dati')
-    return {'time': h['time'], 'groups': groups}
+    # scarto da UTC della risposta: Open-Meteo usa quello del momento della richiesta per tutte
+    # le ore (con il cambio dell'ora può differire da quello delle previsioni)
+    return {'time': h['time'], 'utcOffset': data.get('utc_offset_seconds', 0), 'groups': groups}
 
 
 # --- Medie del periodo -------------------------------------------------------------

@@ -11,6 +11,12 @@ misure della centralina per i giorni passati (api/verify).
 
 Convenzione oraria uguale a Open-Meteo e al frontend: il valore del timestamp T riguarda
 l'ora (T-1, T]; il giorno D usa i timestamp D 01:00 … D+1 00:00 (indice 0 … 23).
+
+Cambio dell'ora: Open-Meteo usa un solo scarto da UTC per tutta la risposta, quello del momento
+della richiesta (verificato: il 12/10 anche le ore dopo il 25/10 hanno +2 h). Gli orari
+archiviati si riportano quindi all'ora locale vera con lo scarto del momento del download
+(_real_label()); il giorno con 25 ore somma le due ore 02:00, quello con 23 ha l'ora 02:00
+vuota (pioggia 0).
 """
 
 import json
@@ -119,6 +125,45 @@ def _day_targets(day):
     return [(d + timedelta(hours=h)).strftime('%Y-%m-%dT%H:00') for h in range(1, 25)]
 
 
+def _offset_at(ms):
+    """Scarto da UTC (secondi) del fuso della località all'istante `ms`: quello che Open-Meteo
+    ha applicato alla risposta scaricata in quel momento."""
+    return int(datetime.fromtimestamp(ms / 1000, _tz()).utcoffset().total_seconds())
+
+
+def _real_label(label, offset_s):
+    """Orario 'YYYY-MM-DDTHH:00' con scarto fisso `offset_s` → stesso istante nell'ora locale vera."""
+    t = datetime.strptime(label, '%Y-%m-%dT%H:%M').replace(tzinfo=timezone(timedelta(seconds=offset_s)))
+    return t.astimezone(_tz()).strftime('%Y-%m-%dT%H:00')
+
+
+def _shift_label(label, hours):
+    t = datetime.strptime(label, '%Y-%m-%dT%H:%M') + timedelta(hours=hours)
+    return t.strftime('%Y-%m-%dT%H:00')
+
+
+def _day_bounds(day):
+    """(inizio, fine) del giorno locale in ms: 23, 24 o 25 ore con il cambio dell'ora."""
+    tz = _tz()
+    d = datetime.strptime(day, '%Y-%m-%d').date()
+    start = datetime(d.year, d.month, d.day, tzinfo=tz)
+    nxt = d + timedelta(days=1)
+    end = datetime(nxt.year, nxt.month, nxt.day, tzinfo=tz)
+    return int(start.timestamp() * 1000), int(end.timestamp() * 1000)
+
+
+def _existing_labels(day):
+    """Orari (fine di ogni ora reale) del giorno nell'ora locale: senza l'ora saltata a marzo."""
+    start_ms, end_ms = _day_bounds(day)
+    tz = _tz()
+    return {datetime.fromtimestamp(t / 1000, tz).strftime('%Y-%m-%dT%H:00')
+            for t in range(start_ms + 3600000, end_ms + 1, 3600000)}
+
+
+def _station_day(r):
+    return datetime.fromtimestamp(r['time'] / 1000, STATION_DAY_TZ).date() if 'time' in r else None
+
+
 def rain_step(a, b):
     """mm caduti tra due letture consecutive dai mm cumulati della centralina. Il totale
     "di oggi" della centralina NON riparte a mezzanotte (riparte a mezzanotte dell'ora solare,
@@ -129,6 +174,11 @@ def rain_step(a, b):
         return 0.0
     if vb >= va:
         return vb - va
+    # Tra le due letture la centralina ha cambiato giorno (mezzanotte dell'ora solare): è
+    # l'azzeramento anche se il calo è piccolo (es. 1,0 → 0,6 mm con pioggia subito dopo).
+    da, db_ = _station_day(a), _station_day(b)
+    if da is not None and db_ is not None and da != db_:
+        return vb
     return vb if vb < va / 2 else 0.0
 
 
@@ -199,11 +249,11 @@ def local_day(readings, start_ms, tz):
 
 def observed_day(conn, day):
     """Misure del giorno dalle letture della centralina: pioggia e temperatura orarie (24
-    valori, None dove mancano letture), totale, minima e massima. None se nessuna lettura."""
+    valori, None dove mancano letture), totale, minima e massima. None se nessuna lettura.
+    Le ore sono quelle reali del giorno (23, 24 o 25 con il cambio dell'ora), riportate ai 24
+    orari locali: le due ore 02:00 di ottobre si sommano, l'ora 02:00 di marzo vale 0."""
     tz = _tz()
-    start = datetime.strptime(day, '%Y-%m-%d').replace(tzinfo=tz)
-    start_ms = int(start.timestamp() * 1000)
-    end_ms = int((start + timedelta(days=1)).timestamp() * 1000)
+    start_ms, end_ms = _day_bounds(day)
     rows = conn.execute('SELECT data FROM station_readings WHERE time >= ? AND time < ? ORDER BY time',
                         (start_ms - NEAR_MS, end_ms + NEAR_MS)).fetchall()
     readings = [json.loads(r['data']) for r in rows]
@@ -221,16 +271,29 @@ def observed_day(conn, day):
         """mm caduti tra la lettura i e la lettura j (somma dei passi, azzeramenti compresi)."""
         return sum(rain_step(readings[k - 1], readings[k]) for k in range(i + 1, j + 1))
 
-    # Confini delle ore: la lettura più vicina a ogni ora piena, da mezzanotte a mezzanotte.
-    # Non si assume che a mezzanotte il totale della centralina riparta da zero.
-    edge = [closest(start_ms + hh * 3600000) for hh in range(25)]
-    rain = [round(between(edge[hh], edge[hh + 1]), 1) if edge[hh] is not None and edge[hh + 1] is not None else None
-            for hh in range(24)]
-    temp = [readings[edge[hh]].get('temperature') if edge[hh] is not None else None for hh in range(1, 25)]
+    # Confini delle ore reali: la lettura più vicina a ogni ora piena, da mezzanotte a
+    # mezzanotte. Non si assume che a mezzanotte il totale della centralina riparta da zero.
+    hours = (end_ms - start_ms) // 3600000
+    edge = [closest(start_ms + k * 3600000) for k in range(hours + 1)]
+    targets = _day_targets(day)
+    real = _existing_labels(day)
+    rain = [None if t in real else 0.0 for t in targets]
+    temp = [None] * 24
+    seen = [False] * 24
+    for k in range(hours):
+        label = datetime.fromtimestamp((start_ms + (k + 1) * 3600000) / 1000, tz).strftime('%Y-%m-%dT%H:00')
+        h = targets.index(label)
+        v = between(edge[k], edge[k + 1]) if edge[k] is not None and edge[k + 1] is not None else None
+        # ora 02:00 doppia (ottobre): somma; basta una parte mancante per non avere il dato
+        rain[h] = v if not seen[h] else (None if v is None or rain[h] is None else rain[h] + v)
+        seen[h] = True
+        if edge[k + 1] is not None:
+            temp[h] = readings[edge[k + 1]].get('temperature')
+    rain = [round(v, 1) if v is not None else None for v in rain]
 
     first = edge[0] if edge[0] is not None else readings.index(same_day[0])
-    last_i = edge[24] if edge[24] is not None else readings.index(same_day[-1])
-    day_done = edge[24] is not None or same_day[-1]['time'] >= end_ms - 15 * 60 * 1000
+    last_i = edge[-1] if edge[-1] is not None else readings.index(same_day[-1])
+    day_done = edge[-1] is not None or same_day[-1]['time'] >= end_ms - 15 * 60 * 1000
     t_min, t_min_time = _extreme(same_day, 'temperature', 'tMin', min, tz)
     t_max, t_max_time = _extreme(same_day, 'temperature', 'tMax', max, tz)
     return {
@@ -254,11 +317,22 @@ def _cutoff_ms(day, lead):
     return int((start - timedelta(days=lead - 1)).timestamp() * 1000)
 
 
+def _archived_range(day):
+    """Orari da chiedere all'archivio per il giorno: un'ora in più per parte, perché gli orari
+    archiviati possono avere lo scarto da UTC dell'altro lato del cambio dell'ora."""
+    targets = _day_targets(day)
+    return _shift_label(targets[0], -2), _shift_label(targets[-1], 2)
+
+
 def forecast_day(conn, day, lead):
     """Per ogni modello l'ultima previsione disponibile prima del limite (la sera prima o
-    due giorni prima), con pioggia, temperatura e codice per le 24 ore del giorno."""
+    due giorni prima), con pioggia, temperatura e codice per le 24 ore del giorno (ore locali
+    vere: vedi _real_label())."""
     cutoff = _cutoff_ms(day, lead)
     targets = _day_targets(day)
+    index = {t: k for k, t in enumerate(targets)}
+    missing = [t not in _existing_labels(day) for t in targets]
+    lo, hi = _archived_range(day)
     out = {}
     for m in sources.ALL_MODELS:
         key = m['key']
@@ -268,33 +342,61 @@ def forecast_day(conn, day, lead):
         if not row:
             out[key] = None
             continue
-        vals = {r['target']: r for r in conn.execute(
-            'SELECT target, precip, temp, code FROM forecast_archive WHERE model = ? AND run_init = ? AND target >= ? AND target <= ?',
-            (key, row['run_init'], targets[0], targets[-1]))}
+        rain, temp, code = [None] * 24, [None] * 24, [None] * 24
+        seen = [False] * 24
+        for r in conn.execute(
+                'SELECT target, issued_at, precip, temp, code FROM forecast_archive '
+                'WHERE model = ? AND run_init = ? AND target >= ? AND target <= ? ORDER BY target',
+                (key, row['run_init'], lo, hi)):
+            h = index.get(_real_label(r['target'], _offset_at(r['issued_at'])))
+            if h is None:
+                continue
+            p = r['precip']
+            # ora 02:00 doppia (ottobre): pioggia sommata, temperatura dell'ultima, codice peggiore
+            rain[h] = p if not seen[h] else (None if p is None or rain[h] is None else rain[h] + p)
+            temp[h] = r['temp']
+            code[h] = r['code'] if not seen[h] or code[h] is None or (r['code'] or 0) > code[h] else code[h]
+            seen[h] = True
+        for h in range(24):
+            if missing[h] and rain[h] is None:
+                rain[h] = 0.0  # ora saltata (marzo): nessuna pioggia
         out[key] = {
             'issuedAt': row['issued_at'], 'runInit': row['run_init'],
-            'rain': [vals[t]['precip'] if t in vals else None for t in targets],
-            'temp': [vals[t]['temp'] if t in vals else None for t in targets],
-            'code': [vals[t]['code'] if t in vals else None for t in targets],
+            'rain': [round(v, 2) if v is not None else None for v in rain], 'temp': temp, 'code': code,
         }
     return out
 
 
 def ensemble_day(conn, day, lead):
-    """Ultimo ensemble disponibile prima del limite: per gruppo maschere e scenari per ora."""
+    """Ultimo ensemble disponibile prima del limite: per gruppo maschere e scenari per ora
+    (ore locali vere: vedi _real_label())."""
     cutoff = _cutoff_ms(day, lead)
     targets = _day_targets(day)
+    index = {t: k for k, t in enumerate(targets)}
     row = conn.execute(
         'SELECT issued_at FROM ensemble_archive WHERE target = ? AND issued_at < ? ORDER BY issued_at DESC LIMIT 1',
         (f'{day}T12:00', cutoff)).fetchone()
     if not row:
         return None
+    offset = _offset_at(row['issued_at'])
+    lo, hi = _archived_range(day)
     groups = {}
     for r in conn.execute('SELECT target, grp, mask, n FROM ensemble_archive WHERE issued_at = ? AND target >= ? AND target <= ?',
-                          (row['issued_at'], targets[0], targets[-1])):
+                          (row['issued_at'], lo, hi)):
+        h = index.get(_real_label(r['target'], offset))
+        if h is None:
+            continue
         g = groups.setdefault(r['grp'], {'model': r['grp'], 'masks': [None] * 24, 'n': [0] * 24})
-        k = targets.index(r['target'])
-        g['masks'][k], g['n'][k] = r['mask'], r['n']
+        # ora 02:00 doppia (ottobre): bagnato in almeno una delle due
+        g['masks'][h] = r['mask'] | (g['masks'][h] or 0)
+        g['n'][h] = max(g['n'][h], r['n'])
+    # ora saltata (marzo): nessuno scenario bagnato
+    real = _existing_labels(day)
+    for t in targets:
+        if t not in real:
+            for g in groups.values():
+                h = index[t]
+                g['masks'][h], g['n'][h] = 0, max(g['n']) or 0
     order = [m['name'] for m in sources.ENSEMBLE_MODELS]
     return {'issuedAt': row['issued_at'], 'groups': sorted(groups.values(), key=lambda g: order.index(g['model']) if g['model'] in order else 99)}
 

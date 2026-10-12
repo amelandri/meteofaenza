@@ -198,6 +198,10 @@ class VerifyTest(unittest.TestCase):
         self.assertEqual(step(11.6, 0.0), 0.0)  # azzeramento
         self.assertEqual(step(11.6, 0.2), 0.2)  # azzeramento con pioggia subito dopo
         self.assertEqual(step(1.4, 1.3), 0.0)  # piccola correzione
+        # azzeramento riconosciuto dal cambio di giorno della centralina (01:00 con l'ora legale)
+        before = {'rainToday': 1.0, 'time': 1791500400000 - 60_000}  # 9/10 00:59 ora solare
+        after = {'rainToday': 0.6, 'time': 1791500400000 + 540_000}
+        self.assertEqual(self.verify.rain_step(before, after), 0.6)
 
     def test_coarse_blocks(self):
         """Dati ogni 3 ore (ECMWF ENS): la pioggia del blocco è divisa in tre parti uguali; uno
@@ -234,6 +238,66 @@ class VerifyTest(unittest.TestCase):
         self.assertEqual(f['eu']['rain'][6], 0.4)
         # Due giorni prima: il limite è la mezzanotte del 30, la previsione del 30 alle 9 non vale.
         self.assertIsNone(self.verify.forecast_day(self.conn, self.DAY, 2)['eu'])
+
+    def test_dst_autumn_25_hours(self):
+        """25/10/2026: 25 ore. Le due ore 02:00 si sommano, nessuna ora va persa."""
+        from datetime import datetime, timedelta, timezone
+        conn = db.connect()
+        start = datetime(2026, 10, 24, 22, tzinfo=timezone.utc)  # mezzanotte locale (CEST)
+        mm = 0.0
+        solar = timezone(timedelta(hours=1))
+        prev_day = None
+        for k in range(25 * 6 + 1):  # una lettura ogni 10 minuti, 0,2 mm all'ora
+            t = start + timedelta(minutes=10 * k, seconds=20)
+            if k:
+                mm += 0.2 / 6
+            if prev_day is not None and t.astimezone(solar).date() != prev_day:
+                mm = 0.2 / 6  # azzeramento a mezzanotte dell'ora solare, poi la pioggia continua
+            prev_day = t.astimezone(solar).date()
+            r = sources.parse_station(STATION_JS, fetched_at=1)
+            r.update(time=int(t.timestamp() * 1000), rainToday=round(mm, 3), temperature=10.0)
+            db.put_station(conn, r)
+        obs = self.verify.observed_day(conn, '2026-10-25')
+        self.assertAlmostEqual(obs['total'], 5.0, places=1)
+        self.assertAlmostEqual(obs['rain'][1], 0.4, places=1)  # le due ore 02:00
+        self.assertAlmostEqual(sum(obs['rain']), 5.0, places=1)
+        self.assertTrue(obs['complete'])
+        conn.close()
+
+    def test_dst_spring_23_hours(self):
+        """29/03/2026: 23 ore; l'ora 02:00 non esiste e vale 0."""
+        from datetime import datetime, timedelta, timezone
+        conn = db.connect()
+        start = datetime(2026, 3, 28, 23, tzinfo=timezone.utc)  # mezzanotte locale (CET)
+        mm = 0.0
+        for k in range(23 * 6 + 1):
+            t = start + timedelta(minutes=10 * k, seconds=20)
+            if k:
+                mm += 0.2 / 6
+            r = sources.parse_station(STATION_JS, fetched_at=1)
+            r.update(time=int(t.timestamp() * 1000), rainToday=round(mm, 3), temperature=10.0)
+            db.put_station(conn, r)
+        obs = self.verify.observed_day(conn, '2026-03-29')
+        self.assertEqual(obs['rain'][1], 0.0)  # ora 01–02 → etichetta 02:00, saltata
+        self.assertAlmostEqual(sum(obs['rain']), 4.6, places=1)
+        self.assertTrue(obs['complete'])
+        conn.close()
+
+    def test_forecast_across_dst(self):
+        """Previsione scaricata con l'ora legale (+2 h per tutta la risposta) per il 26/10:
+        "13:00" archiviato è in realtà le 12:00 locali (ora solare)."""
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        conn = db.connect()
+        times = [f'2026-10-{d}T{h:02d}:00' for d in (24, 25, 26) for h in range(24)] + ['2026-10-27T00:00', '2026-10-27T01:00']
+        fc = _forecast(times, ['2026-10-24', '2026-10-25', '2026-10-26'])
+        fc['hourly']['models']['eu']['precipitation'] = [1.0 if t == '2026-10-26T13:00' else 0.0 for t in times]
+        issued = int(datetime(2026, 10, 24, 9, tzinfo=ZoneInfo('Europe/Rome')).timestamp() * 1000)
+        self.verify.archive_forecast(conn, fc, {'eu': {'init': 999}}, issued)
+        f = self.verify.forecast_day(conn, '2026-10-26', 2)
+        self.assertEqual(f['eu']['rain'][11], 1.0)  # ora 11–12 locale
+        self.assertEqual(sum(f['eu']['rain']), 1.0)
+        conn.close()
 
     def test_compose(self):
         res = self.verify.compose_verify(self.conn, 120, 1)
@@ -344,6 +408,28 @@ class RiversTest(unittest.TestCase):
             self.assertEqual(lamone['level'], 1)
             self.assertEqual(d['rivers'][1]['level'], 0)
             self.assertEqual(len(x['series']), 9)
+            conn.close()
+        finally:
+            config.DB_PATH = old
+
+    def test_trend_after_gap(self):
+        """Dopo un buco di ore nei dati niente tendenza (non una falsa salita rapida)."""
+        from server import rivers
+        old = config.DB_PATH
+        config.DB_PATH = Path(_tmp.name) / 'rivers-gap.db'
+        try:
+            conn = db.connect()
+            meta = {str(st['id']): {'name': st['name'], 's': [1.0, 2.0, 3.0]}
+                    for r in sources.RIVERS for st in r['stations']}
+            db.put_snapshot(conn, 'rivers', meta)
+            t0 = 1791600000000
+            for r in sources.RIVERS:
+                for st in r['stations']:
+                    conn.execute('INSERT INTO river_levels VALUES (?, ?, ?)', (st['id'], t0, 0.5))
+                    conn.execute('INSERT INTO river_levels VALUES (?, ?, ?)', (st['id'], t0 + 5 * 3600000, 0.9))
+            conn.commit()
+            x = rivers.compose(conn)['rivers'][0]['stations'][-1]
+            self.assertIsNone(x['trend'])
             conn.close()
         finally:
             config.DB_PATH = old

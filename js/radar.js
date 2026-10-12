@@ -60,7 +60,9 @@ export function radarWindowRain(r, fromMs, toMs, now = Date.now()) {
 
 // --- Sezione "Radar" ---------------------------------------------------------------------
 
-const player = { frames: [], idx: 0, timer: null, data: null, playing: false };
+// userPaused: animazione fermata da chi guarda (pausa o cursore): le immagini nuove che arrivano
+// con le letture della centralina non la fanno ripartire; si azzera chiudendo la sezione.
+const player = { frames: [], idx: 0, timer: null, data: null, playing: false, userPaused: false };
 const STEP_MS = 550; // durata di un fotogramma
 const HOLD_MS = 1600; // pausa sull'ultima misura e alla fine
 
@@ -122,6 +124,12 @@ export function stopRadar() {
   player.playing = false;
   const b = document.querySelector('#radar-play');
   if (b) { b.setAttribute('aria-label', 'Avvia'); b.classList.remove('on'); }
+}
+
+// Sezione chiusa: animazione ferma e preferenza di pausa dimenticata.
+export function closeRadar() {
+  stopRadar();
+  player.userPaused = false;
 }
 
 function play(el, tz, off) {
@@ -204,9 +212,17 @@ export function renderRadar(el, d, tz, off) {
       </div>
     </div>`;
   show(el, lastObs, tz, off);
-  el.querySelector('#radar-play').addEventListener('click', () => (player.playing ? stopRadar() : play(el, tz, off)));
-  el.querySelector('.radar-range').addEventListener('input', (e) => { stopRadar(); show(el, Number(e.target.value), tz, off); });
-  if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) play(el, tz, off);
+  el.querySelector('#radar-play').addEventListener('click', () => {
+    player.userPaused = player.playing;
+    if (player.playing) stopRadar();
+    else play(el, tz, off);
+  });
+  el.querySelector('.radar-range').addEventListener('input', (e) => {
+    player.userPaused = true;
+    stopRadar();
+    show(el, Number(e.target.value), tz, off);
+  });
+  if (!player.userPaused && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) play(el, tz, off);
 }
 
 export const radarTime = () => player.data?.time ?? null;

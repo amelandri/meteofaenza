@@ -29,6 +29,7 @@ from urllib.parse import parse_qs, urlsplit
 from . import config, db, radar, rivers, sources, verify
 
 _cache = {}  # chiave → (corpo, etag): JSON già composto delle previsioni
+_offset_memo = (None, None)  # (download delle previsioni, utcOffset)
 _cache_lock = threading.Lock()
 
 
@@ -63,19 +64,33 @@ def compose_forecast(conn, now_ms):
     times = tuple(db.snapshot_time(conn, n) for n in ('forecast', 'ensemble', 'runs'))
     if not times[0]:
         return None
-    fc = db.get_snapshot(conn, 'forecast')
-    today = _local_today(fc['data'].get('utcOffset'), now_ms)
+    # Scarto da UTC delle previsioni salvate, ricordato per download: così a ogni richiesta
+    # non serve rileggere tutto lo snapshot solo per sapere che giorno è.
+    global _offset_memo
+    fc = None
+    if _offset_memo[0] != times[0]:
+        fc = db.get_snapshot(conn, 'forecast')
+        _offset_memo = (times[0], fc['data'].get('utcOffset'))
+    today = _local_today(_offset_memo[1], now_ms)
     ens_fresh = times[1] and now_ms - times[1] <= config.ENSEMBLE_MAX_AGE_S * 1000
     key = (times, today, bool(ens_fresh))
     with _cache_lock:
         if key in _cache:
             return _cache[key]
 
+    fc = fc or db.get_snapshot(conn, 'forecast')
     data = copy.deepcopy(fc['data'])
     ens = None
     if ens_fresh:
         e = db.get_snapshot(conn, 'ensemble')
         ens = {**e['data'], 'fetchedAt': e['fetched_at']}
+        # Ensemble scaricato dall'altro lato del cambio dell'ora: i suoi orari hanno un altro
+        # scarto da UTC (Open-Meteo usa quello del momento della richiesta) → stessi orari
+        # delle previsioni.
+        shift = ((data.get('utcOffset') or 0) - (ens.pop('utcOffset', None) or data.get('utcOffset') or 0)) // 3600
+        if shift:
+            ens['time'] = [(datetime.strptime(t, '%Y-%m-%dT%H:%M') + timedelta(hours=shift)).strftime('%Y-%m-%dT%H:00')
+                           for t in ens['time']]
     runs = (db.get_snapshot(conn, 'runs') or {}).get('data') or {}
     trim_forecast(data, ens, today)
     # Dei modelli di supporto al frontend serve solo la pioggia (verdetto dei tragitti);
@@ -94,7 +109,9 @@ def compose_forecast(conn, now_ms):
         'ensemble': ens,
     }
     body = json.dumps(out, separators=(',', ':')).encode()
-    etag = '"' + hashlib.sha1(repr(key).encode()).hexdigest()[:16] + '"'
+    # ETag dal contenuto: cambia solo se cambia la risposta (anche dopo un aggiornamento del
+    # server che ne cambia la forma), non a ogni controllo dei metadati.
+    etag = '"' + hashlib.sha1(body).hexdigest()[:16] + '"'
     with _cache_lock:
         _cache.clear()  # basta l'ultima versione
         _cache[key] = (body, etag)

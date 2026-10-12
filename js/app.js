@@ -1,12 +1,12 @@
 import { MODELS, SUPPORT_MODELS, fetchForecast, inModelDomain, fetchNormals, dayOfYear, NORMALS } from './api.js';
 import { fetchStation, STATION, STATION_STALE_MS } from './station.js';
 import { loadRivers, renderRivers, riversSummary } from './rivers.js';
-import { radarStatus, radarWindowRain, radarWords, RADAR_BIKE_MIN, loadRadar, renderRadar, stopRadar, radarTime } from './radar.js';
+import { radarStatus, radarWindowRain, radarWords, RADAR_BIKE_MIN, loadRadar, renderRadar, closeRadar, radarTime } from './radar.js';
 import * as store from './storage.js';
 import { renderChart, tipValue } from './chart.js';
 import {
   icon, describe, fmt, fmtSigned, windDir, windArrow, hourLabel, dayShort, dayRelative,
-  localNowIso, localDateTime, fmtAgo, esc, sunEventIcon, dayTitle, parts,
+  localNowIso, localDateTime, fmtAgo, esc, sunEventIcon, dayTitle, parts, roundShown,
 } from './weather.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -666,13 +666,13 @@ function renderSlots(m, slots, pastUntil) {
 // Riga della probabilità di pioggia, condivisa dai due modelli (viene dall'ensemble):
 // terzo segmento della "pillola", con una cella per fascia allineata alle fasce dei box.
 // Ogni cella: barra riempita in proporzione + percentuale; al tocco il dettaglio.
-function renderPopRow(pops, pastUntil) {
+function renderPopRow(pops, pastUntil, day) {
   const cells = SLOTS.map((s, k) => {
     const x = pops[k];
     const past = k < pastUntil ? ' past' : '';
     if (x?.pop == null) return `<div class="pop-cell na${past}">—</div>`;
     const tip = tipHead(`${s.name} · ${slotRange(s)}`) + tipChance(x, 'nella fascia') + tipNote('Dato comune ai due modelli: viene dagli ensemble.');
-    return `<div class="pop-cell${past}${x.pop >= 20 ? ' high' : ''}" data-tip="${esc(tip)}" aria-label="${esc(`${s.name}: ${chancePlain(x, 'nella fascia')}`)}">
+    return `<div class="pop-cell${past}${x.pop >= 20 ? ' high' : ''}" data-tip="${esc(tip)}" data-tip-key="slot|${day}|${k}" aria-label="${esc(`${s.name}: ${chancePlain(x, 'nella fascia')}`)}">
       <span class="pop-bar" aria-hidden="true"><i style="width:${Math.max(0, Math.min(100, x.pop))}%"></i></span>
       <span class="pop-val">${x.popExact ? '' : '~'}${fmt(x.pop)}%</span>
     </div>`;
@@ -1063,7 +1063,7 @@ function renderBike(commute, day, hourIdx, today, nowMin) {
       + tipRows(x.models.map((y) => ({ k: `${y.m.name}${y.support ? ' <small>supporto</small>' : ''}`, dot: y.m.key, v: y.mm == null ? 'n.d.' : `${fmt(y.mm, 1)} mm` })))
       + (partial ? tipNote(`Solo ${x.mainAvail[0].m.name}: l'altro modello mostrato non copre il tragitto.`) : '')
       + tipChance(x, 'nel tragitto');
-    return `<button type="button" class="bike-chip st-${x.status}${past}" data-tip="${esc(tip)}" aria-label="${esc(`Tragitto ${range}: ${st.label}. ${chancePlain(x, 'nel tragitto')}`)}">
+    return `<button type="button" class="bike-chip st-${x.status}${past}" data-tip="${esc(tip)}" data-tip-key="bike|${day}|${range}" aria-label="${esc(`Tragitto ${range}: ${st.label}. ${chancePlain(x, 'nel tragitto')}`)}">
       <span class="bike-time">${x.w.from}–<wbr>${x.w.to}</span>
       <span class="bike-info">
         <span class="bike-st" aria-label="${st.label}">${st.icon ? `<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">${st.icon}</svg>` : ''}<span class="bike-st-label">${st.label}</span></span>
@@ -1132,7 +1132,7 @@ function renderDaily() {
       }
       return `<div class="dm m-${m.key}" title="${m.name}">
         ${icon(v.code, 1, 36)}
-        <span class="temps"><span class="tv"><b>${fmt(v.tmax)}°</b>${anomaly(Math.round(v.tmax), nm?.tmax, `${m.name}: massima`)}</span><span class="tv muted">${fmt(v.tmin)}°${anomaly(Math.round(v.tmin), nm?.tmin, `${m.name}: minima`)}</span></span>
+        <span class="temps"><span class="tv"><b>${fmt(v.tmax)}°</b>${anomaly(roundShown(v.tmax), nm?.tmax, `${m.name}: massima`)}</span><span class="tv muted">${fmt(v.tmin)}°${anomaly(roundShown(v.tmin), nm?.tmin, `${m.name}: minima`)}</span></span>
         <span class="prec ${v.prec >= 0.1 ? 'wet' : ''}">${fmt(v.prec, 1)}<small> mm</small></span>
         <span class="gust muted">${fmt(v.gust)}<small> km/h</small></span>
         ${renderSlots(m, v.slots, pastUntil)}
@@ -1151,7 +1151,7 @@ function renderDaily() {
         + (ag.ok.length ? `<p class="tp-why"><span>${ag.issues.length ? 'Concordi su' : 'Concordano su'}</span>${esc(ag.ok.join(', '))}</p>` : '')
         + tipRows([{ k: 'Δ massima', v: `${fmtSigned(dmax)}°` }, { k: 'Δ pioggia del giorno', v: `${fmtSigned(dp)} mm` }])
         + tipNote('Differenze calcolate come ICON-2I − ICON-EU.');
-      delta = `<div class="dd"><button type="button" class="agree ${ag.cls}" data-tip="${esc(tip)}" aria-label="${esc(reason)}">${ag.label}<span class="agree-i" aria-hidden="true">i</span></button></div>`;
+      delta = `<div class="dd"><button type="button" class="agree ${ag.cls}" data-tip="${esc(tip)}" data-tip-key="agree|${day}" aria-label="${esc(reason)}">${ag.label}<span class="agree-i" aria-hidden="true">i</span></button></div>`;
     }
     // Ogni giorno è una card con il titolo "Oggi" / "Domani" / "Dopodomani", la data e la
     // legenda delle fonti.
@@ -1163,7 +1163,7 @@ function renderDaily() {
       </div>
       <div class="day">
         <div class="day-name">${sunTimes(daily, d, day === today)}</div>
-        <div class="day-models${shown.length === 1 ? ' single' : ''}">${cells}${renderPopRow(pops, pastUntil)}</div>
+        <div class="day-models${shown.length === 1 ? ' single' : ''}">${cells}${renderPopRow(pops, pastUntil, day)}</div>
         ${delta}
         ${bikeArea(BIKE_COMMUTES.map((c) => renderBike(c, day, hourIdx, today, nowMin)).join(''))}
         ${day === today && noWatch ? WATCH_HINT : ''}
@@ -1175,6 +1175,7 @@ function renderDaily() {
   $('#daily').innerHTML = rows;
   updateSunNow();
   fitBikes();
+  syncTipCard();
 }
 
 // Invito discreto a definire gli intervalli monitorati, al posto della riga dei tragitti.
@@ -1327,11 +1328,13 @@ function popCell(i) {
   const x = windowRainChance([{ stamp: t, weight: 1, i }]);
   // Classe "prob" (non "pop-cell": quella delle righe dei giorni è un flex e romperebbe la cella).
   if (x.pop == null) return '<td class="first num prob na">—</td>';
-  const hours = `${dayShort(t)} · ore ${String(Number(t.slice(11, 13)) - 1).padStart(2, '0')}–${t.slice(11, 13)}`;
+  // Il valore delle 00:00 riguarda le 23–24 del giorno prima.
+  const h = Number(t.slice(11, 13));
+  const hours = `${dayShort(h === 0 ? (state.data.hourly.time[i - 1] ?? t) : t)} · ore ${String((h + 23) % 24).padStart(2, '0')}–${h === 0 ? '24' : t.slice(11, 13)}`;
   const tip = tipHead(hours) + tipChance(x, "nell'ora");
   const tint = `background: color-mix(in srgb, var(--rain) ${Math.round(x.pop * 0.3)}%, transparent)`;
   const val = x.pop > 0 ? `${x.popExact ? '' : '~'}${fmt(x.pop)}<small>%</small>` : '<span class="muted">0</span>';
-  return `<td class="first num prob" style="${tint}" data-tip="${esc(tip)}" aria-label="${esc(`${hours}: ${chancePlain(x, "nell'ora")}`)}">${val}</td>`;
+  return `<td class="first num prob" style="${tint}" data-tip="${esc(tip)}" data-tip-key="hour|${t}" aria-label="${esc(`${hours}: ${chancePlain(x, "nell'ora")}`)}">${val}</td>`;
 }
 
 // Porta una scheda in cima allo schermo, sotto la barra in alto (fissa: con scrollIntoView
@@ -1351,7 +1354,7 @@ function syncRadarCollapse() {
   $('#radar-hint').textContent = open ? 'Nascondi' : 'Mostra';
   $('#radar-body').hidden = !open;
   $('#radar-card').classList.toggle('open', open);
-  if (!open) stopRadar();
+  if (!open) closeRadar();
 }
 
 async function loadRadarSection() {
@@ -1451,6 +1454,8 @@ function renderHourlyTable() {
     </thead>
     <tbody>${body}</tbody>`;
 
+  syncTipCard();
+
   const more = $('#more-btn');
   more.hidden = hourly.time.length - start <= 48;
   more.textContent = state.settings.showAllHours ? 'Mostra solo le prossime 48 ore' : 'Mostra tutte le ore';
@@ -1473,9 +1478,10 @@ function bindControls() {
       else showTipCard(el);
       return;
     }
-    const html = el.dataset.tip;
-    if (!$('#toast').hidden && $('#toast').dataset.source === html) hideToast();
-    else toast(html, 9000, html, true);
+    // Chiave stabile dell'elemento (il contenuto può cambiare a ogni lettura della centralina).
+    const key = el.dataset.tipKey || el.dataset.tip;
+    if (!$('#toast').hidden && $('#toast').dataset.source === key) hideToast();
+    else toast(el.dataset.tip, 9000, key, true);
   };
   for (const id of ['#daily', '#hourly-body']) $(id).addEventListener('click', showTip);
   // Il riquadro segue l'elemento scorrendo la pagina; si chiude se l'elemento esce dallo
@@ -1579,6 +1585,16 @@ function placeTipCard() {
   card.style.top = `${Math.max(8, top)}px`;
   card.style.left = `${left}px`;
 }
+// Dopo un nuovo disegno di "Prossimi giorni" o del dettaglio orario (letture della centralina,
+// cambio d'ora): il riquadro aperto passa all'elemento nuovo con la stessa chiave
+// (data-tip-key), con il contenuto aggiornato; se l'elemento non c'è più si chiude.
+function syncTipCard() {
+  if (!tipFor || tipFor.isConnected) return;
+  const key = tipFor.dataset.tipKey;
+  const el = key && [...document.querySelectorAll('[data-tip-key]')].find((x) => x.dataset.tipKey === key);
+  if (el) showTipCard(el);
+  else hideTipCard();
+}
 function hideTipCard() {
   tipFor?.classList.remove('tip-open');
   tipFor = null;
@@ -1596,13 +1612,20 @@ function hideToast() {
   if (el.hidden || el.classList.contains('leaving')) return;
   if (!el.classList.contains('rich') || reducedMotion.matches) { el.hidden = true; return; }
   el.classList.add('leaving');
+  let timer;
   const done = (e) => {
-    if (e.target !== el) return; // animazioni degli elementi interni
+    if (e && e.target !== el) return; // animazioni degli elementi interni
     el.removeEventListener('animationend', done);
+    el.removeEventListener('animationcancel', done);
+    clearTimeout(timer);
     // Riaperto durante l'uscita (toast() toglie .leaving): resta visibile.
     if (el.classList.contains('leaving')) { el.classList.remove('leaving'); el.hidden = true; }
   };
+  // Anche se l'animazione viene interrotta (animationcancel) o non parte: altrimenti l'avviso
+  // resterebbe visibile ma non più toccabile.
   el.addEventListener('animationend', done);
+  el.addEventListener('animationcancel', done);
+  timer = setTimeout(done, 600);
 }
 
 function setBanner(msg) {
