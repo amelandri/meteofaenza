@@ -904,7 +904,7 @@ function windowRainChance(hrs) {
   return { pop: pops.length ? Math.max(...pops) : null, popExact: false };
 }
 
-// --- Dettagli (avviso al tocco, riquadro al passaggio del mouse) ---
+// --- Dettagli (avviso al tocco, riquadro al clic del mouse) ---
 // Il contenuto è HTML strutturato (intestazione con "pillola", perché, righe allineate,
 // probabilità in evidenza, note), salvato in data-tip; testo semplice in aria-label.
 const tipHead = (title, chip = '', cls = '') => `<div class="tp-head"><b>${title}</b>${chip ? `<span class="tp-chip ${cls}">${chip}</span>` : ''}</div>`;
@@ -1056,7 +1056,7 @@ function renderBike(commute, day, hourIdx, today, nowMin) {
     const shownN = x.models.filter((y) => !y.support).length;
     const partial = x.mainAvail.length === 1 && shownN > 1;
     const only = partial ? `<span class="bike-only">solo ${x.mainAvail[0].m.short}</span>` : '';
-    // Dettaglio: riquadro al passaggio del mouse su desktop, avviso al tocco su mobile (dove mm
+    // Dettaglio: riquadro al clic su desktop, avviso al tocco su mobile (dove mm
     // e "solo EU" sono nascosti).
     const tip = tipHead(`Tragitto ${range}`, `${st.label}${mm ? ` · ${mm}` : ''}`, `st-${x.status}`)
       + (x.why ? `<p class="tp-why"><span>Perché</span>${esc(x.why)}</p>` : '')
@@ -1464,32 +1464,34 @@ function bindControls() {
 
   const showTip = (e) => {
     // Etichetta di concordanza, blocchi dei tragitti, probabilità delle fasce e celle "Prob.":
-    // al tocco il dettaglio in un avviso (con il mouse c'è già il riquadro al passaggio).
+    // al clic il dettaglio, nel riquadro accanto all'elemento con il mouse, in un avviso in
+    // basso al tocco. Secondo clic/tap sullo stesso elemento: chiude.
     const el = e.target.closest('[data-tip]');
-    if (!el || hoverTips.matches) return;
+    if (!el) return;
+    if (hoverTips.matches) {
+      if (tipFor === el) hideTipCard();
+      else showTipCard(el);
+      return;
+    }
     const html = el.dataset.tip;
-    // Secondo tap sullo stesso elemento: chiude l'avviso.
     if (!$('#toast').hidden && $('#toast').dataset.source === html) hideToast();
     else toast(html, 9000, html, true);
   };
-  for (const id of ['#daily', '#hourly-body']) {
-    $(id).addEventListener('click', showTip);
-    $(id).addEventListener('mouseover', (e) => {
-      const el = e.target.closest('[data-tip]');
-      if (el && hoverTips.matches && el !== tipFor) showHoverTip(el);
-    });
-    $(id).addEventListener('mouseout', (e) => {
-      const el = e.target.closest('[data-tip]');
-      if (el && !el.contains(e.relatedTarget)) hideHoverTip();
-    });
-  }
-  window.addEventListener('scroll', hideHoverTip, { passive: true });
+  for (const id of ['#daily', '#hourly-body']) $(id).addEventListener('click', showTip);
+  // Il riquadro segue l'elemento scorrendo la pagina; si chiude se l'elemento esce dallo
+  // schermo o non c'è più (sezione ridisegnata), al ridimensionamento e con Esc.
+  window.addEventListener('scroll', () => { if (tipFor) placeTipCard(); }, { passive: true });
+  window.addEventListener('resize', hideTipCard);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTipCard(); });
+  $('#tipcard').addEventListener('click', hideTipCard);
 
   // L'avviso si chiude toccandolo o toccando un qualsiasi altro punto della pagina.
   $('#toast').addEventListener('click', hideToast);
+  // Lo stesso vale per il riquadro aperto con il mouse.
   document.addEventListener('click', (e) => {
-    if ($('#toast').hidden || e.target.closest('#toast, [data-tip]')) return;
-    hideToast();
+    if (e.target.closest('#toast, #tipcard, [data-tip]')) return;
+    if (!$('#toast').hidden) hideToast();
+    hideTipCard();
   });
 
   $('#var-tabs').addEventListener('click', (e) => {
@@ -1552,23 +1554,33 @@ function toast(msg, ms = 4000, source = '', html = false) {
   toastTimer = setTimeout(hideToast, ms);
 }
 
-// Riquadro del dettaglio al passaggio del mouse (solo con mouse o trackpad): stesso
-// contenuto dell'avviso, accanto all'elemento (sotto, o sopra se sotto non c'è spazio).
+// Riquadro del dettaglio al clic (solo con mouse o trackpad): stesso contenuto dell'avviso,
+// accanto all'elemento (sotto, o sopra se sotto non c'è spazio). Resta aperto finché non si
+// clicca di nuovo l'elemento, il riquadro o un altro punto della pagina.
 const hoverTips = window.matchMedia('(hover: hover) and (pointer: fine)');
 let tipFor = null;
-function showHoverTip(el) {
+function showTipCard(el) {
   const card = $('#tipcard');
   card.innerHTML = el.dataset.tip;
   card.hidden = false;
+  tipFor?.classList.remove('tip-open');
   tipFor = el;
-  const r = el.getBoundingClientRect(), c = card.getBoundingClientRect();
+  el.classList.add('tip-open');
+  placeTipCard();
+}
+function placeTipCard() {
+  const card = $('#tipcard');
+  const r = tipFor.getBoundingClientRect();
+  if (!tipFor.isConnected || r.bottom < 0 || r.top > window.innerHeight) { hideTipCard(); return; }
+  const c = card.getBoundingClientRect();
   let top = r.bottom + 8;
   if (top + c.height > window.innerHeight - 8) top = r.top - c.height - 8;
   const left = Math.max(8, Math.min(r.left + r.width / 2 - c.width / 2, window.innerWidth - c.width - 8));
   card.style.top = `${Math.max(8, top)}px`;
   card.style.left = `${left}px`;
 }
-function hideHoverTip() {
+function hideTipCard() {
+  tipFor?.classList.remove('tip-open');
   tipFor = null;
   $('#tipcard').hidden = true;
 }

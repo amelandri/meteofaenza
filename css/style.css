@@ -1170,7 +1170,10 @@ button { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .toast.rich, .toast.rich.leaving { animation: none; }
 }
-.tipcard { position: fixed; z-index: 60; width: 340px; max-width: calc(100vw - 16px); padding: 12px 14px; font-size: .82rem; pointer-events: none; }
+.tipcard { position: fixed; z-index: 60; width: 340px; max-width: calc(100vw - 16px); padding: 12px 14px; font-size: .82rem; cursor: pointer; } /* un clic lo chiude */
+/* Elementi con dettaglio: si aprono al clic; quello col riquadro aperto resta evidenziato */
+[data-tip] { cursor: pointer; }
+.tip-open { outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 1px; }
 /* Contenuto strutturato (tipHead / tipRows / tipChance in app.js) */
 .tp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
 .tp-head b { font-size: .92rem; }
