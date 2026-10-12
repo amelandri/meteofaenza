@@ -1076,15 +1076,45 @@ button { font: inherit; color: inherit; }
   transform: translateX(-50%);
   /* left: 50% ridurrebbe la larghezza disponibile a metà schermo: larghezza esplicita */
   width: max-content;
-  max-width: min(92vw, 480px);
-  background: var(--text);
-  color: var(--bg);
-  padding: 10px 16px;
-  border-radius: 10px;
+  max-width: min(92vw, 420px);
+  padding: 10px 14px;
   font-size: .88rem;
-  box-shadow: 0 10px 30px rgb(0 0 0 / .25);
   z-index: 50;
 }
+/* Avviso e riquadro del dettaglio: sul colore delle schede (non nero), con bordo e ombra. */
+.toast, .tipcard {
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / .18), 0 2px 6px rgb(0 0 0 / .08);
+  line-height: 1.4;
+}
+.toast.rich { white-space: normal; width: min(92vw, 380px); padding: 12px 14px; font-size: .84rem; }
+.tipcard { position: fixed; z-index: 60; width: 340px; max-width: calc(100vw - 16px); padding: 12px 14px; font-size: .82rem; pointer-events: none; }
+/* Contenuto strutturato (tipHead / tipRows / tipChance in app.js) */
+.tp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.tp-head b { font-size: .92rem; }
+.tp-chip { flex: none; font-size: .72rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.tp-chip.st-wet { background: color-mix(in srgb, var(--rain) 18%, var(--surface)); color: var(--rain); }
+.tp-chip.st-dry, .tp-chip.ag-good { background: color-mix(in srgb, var(--good) 18%, var(--surface)); color: var(--good); }
+.tp-chip.st-risk, .tp-chip.st-mixed, .tp-chip.ag-mid { background: color-mix(in srgb, var(--mid) 22%, var(--surface)); color: color-mix(in srgb, var(--mid) 60%, var(--text)); }
+.tp-chip.ag-bad { background: color-mix(in srgb, var(--bad) 18%, var(--surface)); color: var(--bad); }
+.tp-why { margin: 0 0 8px; }
+.tp-why span { display: block; font-size: .68rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-bottom: 1px; }
+.tp-rows { display: grid; gap: 2px; margin: 0 0 8px; }
+.tp-rows div { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; }
+.tp-rows dt { color: var(--muted); }
+.tp-rows dt i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.tp-rows dt small { font-size: .7rem; opacity: .8; }
+.tp-rows dd { margin: 0; font-weight: 650; font-variant-numeric: tabular-nums; text-align: right; }
+.tp-pop { display: flex; align-items: baseline; gap: 8px; margin: 2px 0 6px; padding-top: 8px; border-top: 1px solid var(--border); }
+.tp-head + .tp-pop { border-top: 0; padding-top: 0; }
+.tp-pop b { font-size: 1.35rem; letter-spacing: -.02em; color: var(--rain); font-variant-numeric: tabular-nums; }
+.tp-pop span { color: var(--muted); }
+.tp-list { margin: 0 0 8px; padding-left: 18px; }
+.tp-list li { margin: 1px 0; }
+.tp-note { margin: 4px 0 0; font-size: .74rem; color: var(--muted); }
 
 body.loading #forecast { opacity: .5; }
 

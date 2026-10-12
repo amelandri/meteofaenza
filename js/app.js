@@ -542,7 +542,7 @@ function agreement(a, b) {
       : { cls: 'bad', label: 'Modelli discordi' };
   const lines = issues.map((x) => `• ${x.text}`);
   if (ok.length) lines.push(`${issues.length ? 'Concordi su' : 'Concordano su'}: ${ok.join(', ')}.`);
-  return { ...level, score, reason: `${level.label} (${na} vs ${nb})\n${lines.join('\n')}` };
+  return { ...level, score, issues: issues.map((x) => x.text), ok, reason: `${level.label} (${na} vs ${nb})\n${lines.join('\n')}` };
 }
 
 // Fasce orarie in cui viene suddivisa ogni giornata.
@@ -671,8 +671,8 @@ function renderPopRow(pops, pastUntil) {
     const x = pops[k];
     const past = k < pastUntil ? ' past' : '';
     if (x?.pop == null) return `<div class="pop-cell na${past}">—</div>`;
-    const tip = `Probabilità di pioggia · ${s.name} (${slotRange(s)})\n${chanceText(x, 'nella fascia')}\n(dato comune ai due modelli)`;
-    return `<div class="pop-cell${past}${x.pop >= 20 ? ' high' : ''}" title="${esc(tip)}" data-tip="${esc(tip)}">
+    const tip = tipHead(`${s.name} · ${slotRange(s)}`) + tipChance(x, 'nella fascia') + tipNote('Dato comune ai due modelli: viene dagli ensemble.');
+    return `<div class="pop-cell${past}${x.pop >= 20 ? ' high' : ''}" data-tip="${esc(tip)}" aria-label="${esc(`${s.name}: ${chancePlain(x, 'nella fascia')}`)}">
       <span class="pop-bar" aria-hidden="true"><i style="width:${Math.max(0, Math.min(100, x.pop))}%"></i></span>
       <span class="pop-val">${x.popExact ? '' : '~'}${fmt(x.pop)}%</span>
     </div>`;
@@ -904,24 +904,34 @@ function windowRainChance(hrs) {
   return { pop: pops.length ? Math.max(...pops) : null, popExact: false };
 }
 
-// Testo del dettaglio della probabilità (tragitti e dettaglio orario): scenari, quantità
-// di pioggia negli scenari bagnati e nota sull'orario approssimato.
-function chanceText(x, where) {
-  if (x.pop == null) return 'Probabilità n.d.';
-  if (!x.popExact) return `Probabilità ~${x.pop}% (stima Open-Meteo: ensemble non disponibile)`;
-  const scen = x.parts.map((p) => `${p.model} ${p.wet} su ${p.total}`).join(', ');
-  let txt = `Probabilità di pioggia ${where} ${x.pop}% (scenari con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm in un'ora: ${scen}${x.parts.length > 1 ? `; media dei ${x.parts.length} ensemble` : ''})`;
+// --- Dettagli (avviso al tocco, riquadro al passaggio del mouse) ---
+// Il contenuto è HTML strutturato (intestazione con "pillola", perché, righe allineate,
+// probabilità in evidenza, note), salvato in data-tip; testo semplice in aria-label.
+const tipHead = (title, chip = '', cls = '') => `<div class="tp-head"><b>${title}</b>${chip ? `<span class="tp-chip ${cls}">${chip}</span>` : ''}</div>`;
+const tipRows = (rows) => (rows.length ? `<dl class="tp-rows">${rows.map((r) => `<div><dt>${r.dot ? `<i class="dot-${r.dot}"></i>` : ''}${r.k}</dt><dd>${r.v}</dd></div>`).join('')}</dl>` : '');
+const tipNote = (txt) => `<p class="tp-note">${txt}</p>`;
+
+// Probabilità di pioggia (tragitti, fasce, ore): percentuale grande, scenari per ensemble,
+// quantità negli scenari bagnati, note su orario approssimato e dati vecchi.
+function tipChance(x, where) {
+  if (x.pop == null) return tipNote('Probabilità di pioggia non disponibile.');
+  const big = `<div class="tp-pop"><b>${x.popExact ? '' : '~'}${x.pop}%</b><span>probabilità di pioggia ${where}</span></div>`;
+  if (!x.popExact) return big + tipNote('Stima di Open-Meteo: gli scenari dell\'ensemble qui non arrivano.');
+  let h = big + tipRows(x.parts.map((p) => ({ k: p.model, v: `${p.wet} su ${p.total} scenari` })));
   if (x.popMembers) {
-    const amount = x.popMembers === 1 ? `${fmt(x.wetMax, 1)} mm` : `tipicamente ${fmt(x.wetTypical, 1)} mm, al massimo ${fmt(x.wetMax, 1)} mm`;
-    txt += `\n${x.popMembers === 1 ? "Nell'unico scenario" : 'Negli scenari'} con pioggia: ${amount} (${rainWords(x.wetTypical)})`;
+    h += tipRows(x.popMembers === 1
+      ? [{ k: "Nell'unico scenario con pioggia", v: `${fmt(x.wetMax, 1)} mm` }]
+      : [{ k: 'Negli scenari con pioggia', v: `${fmt(x.wetTypical, 1)} mm, max ${fmt(x.wetMax, 1)}` }]);
   }
-  if (x.coarse.length) txt += `\nOrario approssimato: ${listIt(x.coarse)} ${x.coarse.length > 1 ? 'hanno' : 'ha'} qui dati ogni 3 ore (conta la pioggia delle 3 ore)`;
+  const notes = [`Conta uno scenario se dà almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm in un'ora${x.parts.length > 1 ? `; media dei ${x.parts.length} ensemble` : ''}${x.popMembers ? `. Intensità tipica: ${rainWords(x.wetTypical)}` : ''}.`];
+  if (x.coarse.length) notes.push(`Orario approssimato: ${listIt(x.coarse)} ${x.coarse.length > 1 ? 'hanno' : 'ha'} qui dati ogni 3 ore (conta la pioggia delle 3 ore).`);
   // Il server riscarica l'ensemble ogni 3 ore: oltre 6 vuol dire che gli ultimi
   // aggiornamenti non sono riusciti (oltre 12 non lo serve più).
   const ens = state.data.ensemble;
-  if (ens.fetchedAt && Date.now() - ens.fetchedAt > 6 * 3600 * 1000) txt += `\nScenari scaricati ${fmtAgo(ens.fetchedAt)}: gli ultimi aggiornamenti dell'ensemble non sono riusciti`;
-  return txt;
+  if (ens.fetchedAt && Date.now() - ens.fetchedAt > 6 * 3600 * 1000) notes.push(`Scenari scaricati ${fmtAgo(ens.fetchedAt)}: gli ultimi aggiornamenti dell'ensemble non sono riusciti.`);
+  return h + notes.map(tipNote).join('');
 }
+const chancePlain = (x, where) => (x.pop == null ? 'Probabilità n.d.' : `Probabilità di pioggia ${where} ${x.popExact ? '' : '~'}${x.pop}%`);
 
 // Verdetto per una finestra: combina quanti modelli "vedono pioggia" (≥ BIKE_WET_MM) con
 // la probabilità dell'ensemble. Non si fa una media dei mm tra i modelli (2 e 0 mm
@@ -1046,11 +1056,14 @@ function renderBike(commute, day, hourIdx, today, nowMin) {
     const shownN = x.models.filter((y) => !y.support).length;
     const partial = x.mainAvail.length === 1 && shownN > 1;
     const only = partial ? `<span class="bike-only">solo ${x.mainAvail[0].m.short}</span>` : '';
-    const detail = x.models.map((y) => `${y.m.name}: ${y.mm == null ? 'n.d.' : `${fmt(y.mm, 1)} mm`}`).join(' · ');
-    const popTxt = chanceText(x, 'nel tragitto');
-    // Dettaglio: tooltip su desktop, avviso al tocco su mobile (dove mm e "solo EU" sono nascosti).
-    const tip = `Tragitto ${x.w.from}–${x.w.to}: ${st.label}${mm ? ` (${mm})` : ''}${x.why ? `\nPerché: ${x.why}` : ''}\n${detail}${partial ? ` (solo ${x.mainAvail[0].m.name})` : ''}\n${popTxt}`;
-    return `<button type="button" class="bike-chip st-${x.status}${past}" title="${esc(tip)}" data-tip="${esc(tip)}">
+    // Dettaglio: riquadro al passaggio del mouse su desktop, avviso al tocco su mobile (dove mm
+    // e "solo EU" sono nascosti).
+    const tip = tipHead(`Tragitto ${range}`, `${st.label}${mm ? ` · ${mm}` : ''}`, `st-${x.status}`)
+      + (x.why ? `<p class="tp-why"><span>Perché</span>${esc(x.why)}</p>` : '')
+      + tipRows(x.models.map((y) => ({ k: `${y.m.name}${y.support ? ' <small>supporto</small>' : ''}`, dot: y.m.key, v: y.mm == null ? 'n.d.' : `${fmt(y.mm, 1)} mm` })))
+      + (partial ? tipNote(`Solo ${x.mainAvail[0].m.name}: l'altro modello mostrato non copre il tragitto.`) : '')
+      + tipChance(x, 'nel tragitto');
+    return `<button type="button" class="bike-chip st-${x.status}${past}" data-tip="${esc(tip)}" aria-label="${esc(`Tragitto ${range}: ${st.label}. ${chancePlain(x, 'nel tragitto')}`)}">
       <span class="bike-time">${range}</span>
       <span class="bike-info">
         <span class="bike-st" aria-label="${st.label}">${st.icon ? `<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">${st.icon}</svg>` : ''}<span class="bike-st-label">${st.label}</span></span>
@@ -1131,7 +1144,12 @@ function renderDaily() {
       const diff = `Δ max ${fmtSigned(dmax)}° · Δ pioggia ${fmtSigned(dp)} mm`;
       // Le differenze (Δ) sono mostrate solo nel tooltip/avviso dell'etichetta.
       const reason = `${ag.reason}\n${diff} (2I − EU)`;
-      delta = `<div class="dd"><button type="button" class="agree ${ag.cls}" title="${esc(reason)}" data-reason="${esc(reason)}" aria-label="${esc(reason)}">${ag.label}<span class="agree-i" aria-hidden="true">i</span></button></div>`;
+      const tip = tipHead(`${MODELS[0].name} e ${MODELS[1].name}`, ag.label, `ag-${ag.cls}`)
+        + (ag.issues.length ? `<ul class="tp-list">${ag.issues.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : '')
+        + (ag.ok.length ? `<p class="tp-why"><span>${ag.issues.length ? 'Concordi su' : 'Concordano su'}</span>${esc(ag.ok.join(', '))}</p>` : '')
+        + tipRows([{ k: 'Δ massima', v: `${fmtSigned(dmax)}°` }, { k: 'Δ pioggia del giorno', v: `${fmtSigned(dp)} mm` }])
+        + tipNote('Differenze calcolate come ICON-2I − ICON-EU.');
+      delta = `<div class="dd"><button type="button" class="agree ${ag.cls}" data-tip="${esc(tip)}" aria-label="${esc(reason)}">${ag.label}<span class="agree-i" aria-hidden="true">i</span></button></div>`;
     }
     // Ogni giorno è una card con il titolo "Oggi" / "Domani" / "Dopodomani", la data e la
     // legenda delle fonti.
@@ -1303,10 +1321,11 @@ function popCell(i) {
   const x = windowRainChance([{ stamp: t, weight: 1, i }]);
   // Classe "prob" (non "pop-cell": quella delle righe dei giorni è un flex e romperebbe la cella).
   if (x.pop == null) return '<td class="first num prob na">—</td>';
-  const tip = `${dayShort(t)} ore ${String(Number(t.slice(11, 13)) - 1).padStart(2, '0')}–${t.slice(11, 13)}\n${chanceText(x, "nell'ora")}`;
+  const hours = `${dayShort(t)} · ore ${String(Number(t.slice(11, 13)) - 1).padStart(2, '0')}–${t.slice(11, 13)}`;
+  const tip = tipHead(hours) + tipChance(x, "nell'ora");
   const tint = `background: color-mix(in srgb, var(--rain) ${Math.round(x.pop * 0.3)}%, transparent)`;
   const val = x.pop > 0 ? `${x.popExact ? '' : '~'}${fmt(x.pop)}<small>%</small>` : '<span class="muted">0</span>';
-  return `<td class="first num prob" style="${tint}" title="${esc(tip)}" data-tip="${esc(tip)}">${val}</td>`;
+  return `<td class="first num prob" style="${tint}" data-tip="${esc(tip)}" aria-label="${esc(`${hours}: ${chancePlain(x, "nell'ora")}`)}">${val}</td>`;
 }
 
 // Porta una scheda in cima allo schermo, sotto la barra in alto (fissa: con scrollIntoView
@@ -1438,21 +1457,32 @@ function bindControls() {
   $('#retry-btn').addEventListener('click', () => load({ force: true }));
 
   const showTip = (e) => {
-    // Etichetta di concordanza, blocchi dei tragitti e celle "Prob.": dettaglio in un avviso.
-    const el = e.target.closest('.agree[data-reason], [data-tip]');
-    if (!el) return;
-    const text = el.dataset.reason || el.dataset.tip;
+    // Etichetta di concordanza, blocchi dei tragitti, probabilità delle fasce e celle "Prob.":
+    // al tocco il dettaglio in un avviso (con il mouse c'è già il riquadro al passaggio).
+    const el = e.target.closest('[data-tip]');
+    if (!el || hoverTips.matches) return;
+    const html = el.dataset.tip;
     // Secondo tap sullo stesso elemento: chiude l'avviso.
-    if (!$('#toast').hidden && $('#toast').dataset.source === text) hideToast();
-    else toast(text, 9000, text);
+    if (!$('#toast').hidden && $('#toast').dataset.source === html) hideToast();
+    else toast(html, 9000, html, true);
   };
-  $('#daily').addEventListener('click', showTip);
-  $('#hourly-body').addEventListener('click', showTip);
+  for (const id of ['#daily', '#hourly-body']) {
+    $(id).addEventListener('click', showTip);
+    $(id).addEventListener('mouseover', (e) => {
+      const el = e.target.closest('[data-tip]');
+      if (el && hoverTips.matches && el !== tipFor) showHoverTip(el);
+    });
+    $(id).addEventListener('mouseout', (e) => {
+      const el = e.target.closest('[data-tip]');
+      if (el && !el.contains(e.relatedTarget)) hideHoverTip();
+    });
+  }
+  window.addEventListener('scroll', hideHoverTip, { passive: true });
 
   // L'avviso si chiude toccandolo o toccando un qualsiasi altro punto della pagina.
   $('#toast').addEventListener('click', hideToast);
   document.addEventListener('click', (e) => {
-    if ($('#toast').hidden || e.target.closest('#toast, .agree[data-reason], [data-tip]')) return;
+    if ($('#toast').hidden || e.target.closest('#toast, [data-tip]')) return;
     hideToast();
   });
 
@@ -1504,13 +1534,36 @@ function bindControls() {
 let toastTimer;
 // `source` identifica chi ha aperto l'avviso (es. il motivo della concordanza), per poterlo
 // richiudere con un secondo tap sullo stesso elemento.
-function toast(msg, ms = 4000, source = '') {
+function toast(msg, ms = 4000, source = '', html = false) {
   const el = $('#toast');
-  el.textContent = msg;
+  if (html) el.innerHTML = msg; // contenuto generato dall'app (testi esterni già passati da esc())
+  else el.textContent = msg;
+  el.classList.toggle('rich', html);
   el.dataset.source = source;
   el.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(hideToast, ms);
+}
+
+// Riquadro del dettaglio al passaggio del mouse (solo con mouse o trackpad): stesso
+// contenuto dell'avviso, accanto all'elemento (sotto, o sopra se sotto non c'è spazio).
+const hoverTips = window.matchMedia('(hover: hover) and (pointer: fine)');
+let tipFor = null;
+function showHoverTip(el) {
+  const card = $('#tipcard');
+  card.innerHTML = el.dataset.tip;
+  card.hidden = false;
+  tipFor = el;
+  const r = el.getBoundingClientRect(), c = card.getBoundingClientRect();
+  let top = r.bottom + 8;
+  if (top + c.height > window.innerHeight - 8) top = r.top - c.height - 8;
+  const left = Math.max(8, Math.min(r.left + r.width / 2 - c.width / 2, window.innerWidth - c.width - 8));
+  card.style.top = `${Math.max(8, top)}px`;
+  card.style.left = `${left}px`;
+}
+function hideHoverTip() {
+  tipFor = null;
+  $('#tipcard').hidden = true;
 }
 
 function hideToast() {
