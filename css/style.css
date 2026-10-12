@@ -1059,7 +1059,26 @@ button { font: inherit; color: inherit; }
 
 /* --- Pagina Impostazioni (settings.html) ------------------------------------------- */
 
-.settings .card { max-width: 560px; }
+/* Due colonne da 900 px: a sinistra Aspetto e Modelli, a destra gli intervalli monitorati
+   (più spazio per l'elenco). Sotto, una colonna con gli intervalli per ultimi. */
+.settings-grid { display: grid; gap: 0 16px; max-width: 1180px; align-items: start; }
+.settings-col { min-width: 0; }
+.settings-grid > .card { min-width: 0; }
+@media (max-width: 899px) {
+  .settings-grid { max-width: 560px; }
+}
+@media (min-width: 900px) {
+  .settings-grid { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+  .settings .info-back { max-width: 1180px; }
+}
+/* Elenco degli intervalli largo (colonna destra): orari e giorni sulla stessa riga */
+#watch-form { container: watch / inline-size; }
+@container watch (min-width: 620px) {
+  #watch-form .win-row { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; }
+  #watch-form .win-times input { width: 112px; flex: none; } /* l'orario intero, con l'icona dell'orologio */
+  #watch-form .win-times label { flex: none; }
+  #watch-form .win-times { gap: 10px; }
+}
 .field { display: block; margin: 16px 0 0; padding: 0; border: 0; min-width: 0; }
 .field-label { display: block; padding: 0; margin-bottom: 6px; font-size: .78rem; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 .settings input {
