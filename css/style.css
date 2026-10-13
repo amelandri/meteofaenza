@@ -1150,6 +1150,7 @@ button { font: inherit; color: inherit; }
 .credits dt { font-weight: 650; text-transform: uppercase; letter-spacing: .04em; font-size: .68rem; padding-top: .12em; }
 .credits dd { margin: 0; }
 .footer .privacy { margin-top: 10px; }
+.footer .app-version { margin-top: 6px; font-size: .7rem; opacity: .8; font-variant-numeric: tabular-nums; }
 
 .toast {
   cursor: pointer; /* un tap lo chiude */

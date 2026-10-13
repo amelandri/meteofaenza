@@ -1691,6 +1691,24 @@ function registerServiceWorker() {
       });
     }).catch(() => { /* PWA non disponibile (es. file://) */ });
   });
+  showVersion();
+}
+
+// Versione dell'app nel piè di pagina: VERSION di sw.js, chiesta al service worker che ha
+// servito la pagina (alla prima visita, senza controller, a quello appena attivato). Non si
+// aggiorna quando subentra una versione nuova: la pagina aperta resta quella vecchia.
+function showVersion() {
+  const sw = navigator.serviceWorker;
+  sw.addEventListener('message', (event) => {
+    const v = event.data?.version;
+    const el = $('#app-version');
+    if (typeof v !== 'string' || !el || el.textContent) return;
+    el.textContent = `Versione ${v}`;
+    el.hidden = false;
+  });
+  sw.startMessages?.();
+  if (sw.controller) sw.controller.postMessage('version');
+  else sw.ready.then((reg) => reg.active?.postMessage('version')).catch(() => {});
 }
 
 // Mantiene aggiornata l'etichetta "Aggiornato x min fa" e l'ora corrente e, con l'app

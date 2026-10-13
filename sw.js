@@ -3,7 +3,7 @@
 // tiene una copia nel localStorage per l'uso offline.
 // Ad ogni modifica dei file dell'app incrementare VERSION.
 
-const VERSION = 'v176';
+const VERSION = 'v177';
 const CACHE = `meteo-shell-${VERSION}`;
 
 const SHELL = [
@@ -42,6 +42,11 @@ self.addEventListener('activate', (event) => {
       .then((keys) => Promise.all(keys.filter((k) => k.startsWith('meteo-shell-') && k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
+});
+
+// La pagina chiede la versione per mostrarla nel piè di pagina (showVersion() in app.js).
+self.addEventListener('message', (event) => {
+  if (event.data === 'version') event.source?.postMessage({ version: VERSION });
 });
 
 // Stale-while-revalidate per i file della stessa origine; le API esterne vanno in rete.
