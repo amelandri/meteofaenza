@@ -394,3 +394,16 @@ $('#verify-legend').innerHTML = [
 
 syncControls();
 load();
+
+// Ritorno alla pagina dalla cache del browser (bfcache), per esempio dopo le Impostazioni:
+// se le scelte salvate sono cambiate le si applica e si ricarica.
+window.addEventListener('pageshow', (e) => {
+  if (!e.persisted) return;
+  const s = store.getSettings();
+  const lead = [1, 2].includes(s.verifyLead) ? s.verifyLead : 1;
+  const days = [7, 30].includes(s.verifyDays) ? s.verifyDays : 7;
+  if (lead === state.lead && days === state.days) return;
+  Object.assign(state, { lead, days });
+  syncControls();
+  load();
+});

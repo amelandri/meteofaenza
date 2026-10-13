@@ -1,6 +1,7 @@
 // Pagina Impostazioni: tema (automatico/chiaro/scuro, settings.theme, applicato da
 // js/theme.js), modelli mostrati (entrambi / solo ICON-2I / solo ICON-EU, settings.models,
-// letti da app.js) e intervalli monitorati (nome e fino a 6 intervalli orari, settings.watch,
+// letti da app.js), grafico e sezioni all'apertura (app.js), scelte della Verifica
+// (verify.js) e intervalli monitorati (nome e fino a 6 intervalli orari, settings.watch,
 // letti da app.js; anche nessuno). I valori sono salvati nel localStorage. Esportazione e
 // importazione di tutte le preferenze in un file JSON.
 
@@ -139,41 +140,35 @@ $('#reset-watch').addEventListener('click', () => {
 
 fill(store.getWatch());
 
-// --- Tema: si applica e si salva subito, senza pulsante Salva ---
-const themeSeg = $('#theme-seg');
+// --- Preferenze a scelta singola (tema, modelli, grafico, sezioni, verifica) ---
+// Ogni gruppo .seg[data-pref] ha un pulsante per valore (data-value = String(valore) di
+// PREF_VALUES in storage.js); la scelta si salva subito, senza pulsante Salva. Il tema si
+// applica anche a questa pagina (vale anche se lo storage è bloccato).
+const prefGroups = [...document.querySelectorAll('.seg[data-pref]')];
 
-function syncTheme(current = window.meteoTheme?.saved() ?? 'auto') {
-  for (const b of themeSeg.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.themeChoice === current));
+function syncPrefs(settings = store.getSettings()) {
+  for (const g of prefGroups) {
+    const current = String(settings[g.dataset.pref]);
+    for (const b of g.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.value === current));
+  }
 }
 
-themeSeg.addEventListener('click', (e) => {
-  const choice = e.target.closest('button')?.dataset.themeChoice;
-  if (!store.THEMES.includes(choice)) return;
-  store.saveSettings({ theme: choice });
-  window.meteoTheme?.apply(choice); // vale per questa pagina anche se lo storage è bloccato
-  syncTheme(choice);
-});
-// Tema cambiato da un'altra scheda.
-window.addEventListener('storage', (e) => { if (e.key === 'meteo:settings') syncTheme(); });
-
-syncTheme();
-
-// --- Modelli mostrati: si salvano subito, senza pulsante Salva ---
-const modelsSeg = $('#models-seg');
-
-function syncModels(current = store.getSettings().models) {
-  for (const b of modelsSeg.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.modelsChoice === current));
+for (const g of prefGroups) {
+  const key = g.dataset.pref;
+  g.addEventListener('click', (e) => {
+    const raw = e.target.closest('button[data-value]')?.dataset.value;
+    // Il valore vero (stringa, numero o booleano) è quello di PREF_VALUES con lo stesso testo.
+    const value = store.PREF_VALUES[key]?.find((v) => String(v) === raw);
+    if (value === undefined || !store.validPref(key, value)) return;
+    store.saveSettings({ [key]: value });
+    if (key === 'theme') window.meteoTheme?.apply(value);
+    syncPrefs({ ...store.getSettings(), [key]: value });
+  });
 }
+// Preferenze cambiate da un'altra scheda (anche dalla pagina principale).
+window.addEventListener('storage', (e) => { if (e.key === 'meteo:settings') syncPrefs(); });
 
-modelsSeg.addEventListener('click', (e) => {
-  const choice = e.target.closest('button')?.dataset.modelsChoice;
-  if (!store.MODEL_VIEWS.includes(choice)) return;
-  store.saveSettings({ models: choice });
-  syncModels(choice);
-});
-window.addEventListener('storage', (e) => { if (e.key === 'meteo:settings') syncModels(); });
-
-syncModels();
+syncPrefs();
 
 // --- Esporta / importa: file JSON con le preferenze ---
 // Il file importato non è fidato: lo legge e lo filtra parseSettingsFile() di storage.js, gli
@@ -241,8 +236,7 @@ importInput.addEventListener('change', async () => {
 
   // Mostra i valori come salvati.
   window.meteoTheme?.apply(store.getSettings().theme);
-  syncTheme(store.getSettings().theme);
-  syncModels();
+  syncPrefs();
   showError('');
   fill(store.getWatch());
   const skipped = ignored.length ? ` (${ignored.length} ${ignored.length === 1 ? 'voce non riconosciuta ignorata' : 'voci non riconosciute ignorate'})` : '';

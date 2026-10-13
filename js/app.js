@@ -1741,14 +1741,23 @@ placeFooter();
 
 // Tornando dalla pagina Impostazioni la pagina può essere ripristinata dalla cache del
 // browser (bfcache) senza ricaricare i moduli: rilegge le preferenze della pagina Impostazioni
-// (intervalli monitorati e modelli mostrati) e ridisegna se sono cambiate.
+// (intervalli monitorati, modelli mostrati, grafico e sezioni) e ridisegna se sono cambiate.
+// Vale anche per i cambi fatti in un'altra scheda.
+const RELOADED_SETTINGS = ['models', 'variable', 'range', 'chartFrom', 'showAllHours', 'hourlyOpen', 'radarOpen', 'riversOpen'];
 function reloadSettings() {
   const watch = store.getWatch();
-  const models = store.getSettings().models;
-  if (JSON.stringify(watch) === JSON.stringify(BIKE_COMMUTES[0]) && models === state.settings.models) return;
+  const fresh = store.getSettings();
+  const changed = RELOADED_SETTINGS.filter((k) => fresh[k] !== state.settings[k]);
+  if (JSON.stringify(watch) === JSON.stringify(BIKE_COMMUTES[0]) && !changed.length) return;
   BIKE_COMMUTES = [watch];
-  state.settings.models = models;
+  for (const k of changed) state.settings[k] = fresh[k];
+  if (changed.includes('radarOpen')) {
+    syncRadarCollapse();
+    if (state.settings.radarOpen) loadRadarSection();
+  }
+  if (changed.includes('riversOpen')) syncRiversCollapse();
   if (state.data) render();
+  else syncHourlyCollapse();
 }
 window.addEventListener('pageshow', (e) => { if (e.persisted) reloadSettings(); });
 window.addEventListener('storage', (e) => { if (e.key === 'meteo:settings') reloadSettings(); });

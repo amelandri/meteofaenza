@@ -50,32 +50,29 @@ export const THEMES = ['auto', 'light', 'dark'];
 export const MODEL_VIEWS = ['both', 'i2i', 'eu'];
 // chartFrom: inizio del grafico "Andamento orario", "now" (ora precedente a quella attuale)
 // o "today" (mezzanotte di oggi).
-const DEFAULT_SETTINGS = { variable: 'rain', range: '72', chartFrom: 'now', showAllHours: false, hourlyOpen: false, radarOpen: false, riversOpen: false, theme: 'auto', models: 'both' };
+const DEFAULT_SETTINGS = { variable: 'rain', range: '72', chartFrom: 'now', showAllHours: false, hourlyOpen: false, radarOpen: false, riversOpen: false, theme: 'auto', models: 'both', verifyLead: 1, verifyDays: 7 };
 export const getSettings = () => ({ ...DEFAULT_SETTINGS, ...read(KEYS.settings, {}) });
 export const saveSettings = (patch) => write(KEYS.settings, { ...getSettings(), ...patch });
 
-// Valori ammessi delle altre preferenze (esportazione/importazione, vedi sotto): variable =
-// chiavi di VARIABLES in app.js, range / chartFrom = pulsanti del grafico in index.html,
-// verifyLead / verifyDays = selettori di verify.js. Se cambiano là, aggiornarli qui.
-const CHART_VARIABLES = ['rain', 'temp', 'wind', 'cloud', 'humidity', 'pressure'];
-const CHART_RANGES = ['24', '72', 'all'];
-const CHART_FROM = ['now', 'today'];
-const isBool = (v) => typeof v === 'boolean';
-const oneOf = (list) => (v) => (typeof v === 'string' || typeof v === 'number') && list.includes(v);
-// Preferenze esportabili (tranne watch, trattato a parte) con il controllo del valore.
-const SETTING_RULES = {
-  theme: oneOf(THEMES),
-  models: oneOf(MODEL_VIEWS),
-  variable: oneOf(CHART_VARIABLES),
-  range: oneOf(CHART_RANGES),
-  chartFrom: oneOf(CHART_FROM),
-  showAllHours: isBool,
-  hourlyOpen: isBool,
-  radarOpen: isBool,
-  riversOpen: isBool,
-  verifyLead: oneOf([1, 2]),
-  verifyDays: oneOf([7, 30]),
+// Valori ammessi di ogni preferenza semplice (tutte tranne watch): li usano la pagina
+// Impostazioni (un pulsante per valore) e l'importazione (valori diversi scartati).
+// variable = chiavi di VARIABLES in app.js, range / chartFrom = pulsanti del grafico in
+// index.html, verifyLead / verifyDays = selettori di verify.html: se cambiano là, aggiornarli qui.
+export const PREF_VALUES = {
+  theme: THEMES,
+  models: MODEL_VIEWS,
+  variable: ['rain', 'temp', 'wind', 'cloud', 'humidity', 'pressure'],
+  range: ['24', '72', 'all'],
+  chartFrom: ['now', 'today'],
+  showAllHours: [false, true],
+  hourlyOpen: [false, true],
+  radarOpen: [false, true],
+  riversOpen: [false, true],
+  verifyLead: [1, 2],
+  verifyDays: [7, 30],
 };
+// Confronto stretto: un oggetto, un array o "true" al posto di true non passano.
+export const validPref = (key, v) => Object.prototype.hasOwnProperty.call(PREF_VALUES, key) && PREF_VALUES[key].includes(v);
 
 // --- Intervalli monitorati (pagina Impostazioni) ---------------------------------
 // Gruppo di intervalli orari in cui l'app valuta se pioverà (oggi mostrati come tragitti
@@ -155,7 +152,7 @@ export const resetWatch = () => saveWatch(DEFAULT_WATCH);
 // --- Esportazione e importazione delle preferenze (pagina Impostazioni) -------------
 // File JSON { app, kind, version, exportedAt, settings }. Il file importato è un dato non
 // fidato: si legge solo con JSON.parse (mai eseguito), entro MAX_IMPORT_BYTES, e si tengono
-// solo le chiavi di SETTING_RULES con un valore ammesso, più watch (da controllare ancora con
+// solo le chiavi di PREF_VALUES con un valore ammesso, più watch (da controllare ancora con
 // normalizeWatch() e le regole del modulo); il resto si scarta. Le preferenze si ricostruiscono
 // in un oggetto nuovo, mai copiando quello del file.
 
@@ -168,7 +165,7 @@ const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 export function exportSettings() {
   const current = getSettings();
   const settings = {};
-  for (const [k, ok] of Object.entries(SETTING_RULES)) if (ok(current[k])) settings[k] = current[k];
+  for (const k of Object.keys(PREF_VALUES)) if (validPref(k, current[k])) settings[k] = current[k];
   settings.watch = getWatch();
   return { ...SETTINGS_FILE, exportedAt: new Date().toISOString(), settings };
 }
@@ -194,7 +191,7 @@ export function parseSettingsFile(text) {
   const ignored = [];
   for (const k of Object.keys(src)) {
     if (k === 'watch') continue;
-    if (own(SETTING_RULES, k) && SETTING_RULES[k](src[k])) settings[k] = src[k];
+    if (validPref(k, src[k])) settings[k] = src[k];
     else ignored.push(k);
   }
   if (own(src, 'watch')) {
@@ -207,7 +204,7 @@ export function parseSettingsFile(text) {
 // Salva le preferenze importate (già controllate) sopra quelle attuali.
 export function importSettings(settings) {
   const patch = {};
-  for (const k of Object.keys(SETTING_RULES)) if (own(settings, k) && SETTING_RULES[k](settings[k])) patch[k] = settings[k];
+  for (const k of Object.keys(PREF_VALUES)) if (own(settings, k) && validPref(k, settings[k])) patch[k] = settings[k];
   if (own(settings, 'watch')) patch.watch = normalizeWatch(settings.watch);
   return saveSettings(patch);
 }

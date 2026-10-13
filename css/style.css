@@ -1073,8 +1073,9 @@ button { font: inherit; color: inherit; }
 
 /* --- Pagina Impostazioni (settings.html) ------------------------------------------- */
 
-/* Due colonne da 900 px: a sinistra Aspetto e Modelli, a destra gli intervalli monitorati
-   (più spazio per l'elenco). Sotto, una colonna con gli intervalli per ultimi. */
+/* Due colonne da 900 px (.settings-col): a sinistra le preferenze di visualizzazione (Aspetto,
+   Modelli, Andamento orario, Sezioni), a destra intervalli monitorati (più spazio per
+   l'elenco), Verifica ed Esporta e importa. Sotto, una colonna sola nello stesso ordine. */
 .settings-grid { display: grid; gap: 0 16px; max-width: 1180px; align-items: start; }
 .settings-col { min-width: 0; }
 .settings-grid > .card { min-width: 0; }
@@ -1134,6 +1135,17 @@ button { font: inherit; color: inherit; }
 .io-done { margin: 14px 0 0; }
 .theme-seg { margin-top: 14px; }
 .theme-seg button { padding: 7px 14px; font-size: .9rem; white-space: nowrap; }
+/* Più preferenze nella stessa card: etichetta sopra i pulsanti (.pref) oppure, per le scelte
+   brevi (.pref-line), etichetta a sinistra e pulsanti a destra, a capo se manca spazio. */
+.pref { margin-top: 16px; }
+.pref .field-label { margin-bottom: 6px; }
+.pref-seg { max-width: 100%; }
+.pref-seg button { padding: 7px 14px; font-size: .9rem; white-space: nowrap; }
+.pref-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin-top: 12px; }
+.pref-line .field-label { margin: 0; }
+/* Molte scelte (dato del grafico): griglia di pulsanti uguali, 2 o 3 per riga. */
+.seg-wrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 2px; width: 100%; }
+.seg-wrap button { padding: 7px 8px; }
 
 /* --- Piè di pagina e notifiche --------------------------------------------------- */
 
