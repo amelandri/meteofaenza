@@ -158,6 +158,9 @@ button { font: inherit; color: inherit; }
 .brand-name { margin: 0; font-size: 1.15rem; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; white-space: nowrap; }
 .brand-sub { margin: 1px 0 0; font-size: .76rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .topbar-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+/* Menu di navigazione, uguale in tutte le pagine: la pagina attuale ha aria-current="page" */
+.topbar-nav { display: flex; align-items: center; gap: 6px; }
+.icon-btn[aria-current="page"], .icon-btn[aria-current="page"]:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 
 
 .icon-btn {
@@ -1354,6 +1357,7 @@ body.loading #forecast { opacity: .5; }
 
 @media (max-width: 560px) {
   .topbar-inner { gap: 10px; }
+  .topbar-actions, .topbar-nav { gap: 2px; }
   h1 { font-size: 1.35rem; }
   .brand-sub .coords { display: none; }
   .card { padding: 14px 12px; }
