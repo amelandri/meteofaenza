@@ -135,7 +135,7 @@ Il service worker richiede `http://localhost` o HTTPS (non funziona da `file://`
 
 ## Chiavi localStorage
 
-Prefisso `meteo:` — `settings` (con `radarOpen` / `riversOpen` = sezioni Radar / Fiumi aperte; `theme` = `auto` / `light` / `dark`, letto anche da `theme.js`; `models` = `both` / `i2i` / `eu`; `watch` = `{ label, windows: [{ from, to, days }] }` con `days` = giorni 0 (domenica) … 6 (sabato) come `parts().wd`; assente = mai salvato, vedi `getWatch()`; intervalli salvati senza `days` valgono tutti i giorni (`normalizeDays()`)), `station`, `fc:<lat>,<lon>` (lat/lon con 3 decimali, una sola voce: Faenza). All'avvio `removeLegacyKeys()` elimina `favorites`, `lastLocation`, `cacheIndex` e tutte le chiavi `fc:` di località diverse da Faenza, rimaste dalle versioni con località selezionabile.
+Prefisso `meteo:` — `settings` (con `radarOpen` / `riversOpen` = sezioni Radar / Fiumi aperte; `theme` = `auto` / `light` / `dark`, letto anche da `theme.js`; `models` = `both` / `i2i` / `eu`; `chartFrom` = `now` / `today` (inizio del grafico); `watch` = `{ label, windows: [{ from, to, days }] }` con `days` = giorni 0 (domenica) … 6 (sabato) come `parts().wd`; assente = mai salvato, vedi `getWatch()`; intervalli salvati senza `days` valgono tutti i giorni (`normalizeDays()`)), `station`, `fc:<lat>,<lon>` (lat/lon con 3 decimali, una sola voce: Faenza). All'avvio `removeLegacyKeys()` elimina `favorites`, `lastLocation`, `cacheIndex` e tutte le chiavi `fc:` di località diverse da Faenza, rimaste dalle versioni con località selezionabile.
 Se cambia la forma dei dati salvati, gestire o scartare i dati vecchi in lettura (per le previsioni: `FORECAST_SCHEMA`).
 
 ## Convenzioni di sviluppo
@@ -147,7 +147,7 @@ Se cambia la forma dei dati salvati, gestire o scartare i dati vecchi in lettura
 - Prima di inserire testo proveniente da API nell'HTML usare `esc()` (`weather.js`).
 - Layout mobile-first: verificare a 390 px di larghezza che non ci sia scroll orizzontale della pagina, e su desktop a 1200 / 1400 / 1920 px (colonna sinistra 288–468 px).
 - Le sezioni "Adesso" e "Prossimi giorni" condividono la stessa griglia (`.day` → `.day-name` + `.day-models` a due colonne, larghezza etichetta `--label-w`): le colonne ICON-2I / ICON-EU devono restare allineate verticalmente a ogni larghezza. Non dare a una sola delle due sezioni padding o colonne diverse.
-- Grafico "Andamento orario": parte dall'ora piena **precedente** a quella attuale (alle 20:32 inizia alle 19, `nowIndex() - 1`); i tab seguono l'ordine di `VARIABLES`, con **Precipitazioni per prima** (anche variabile predefinita).
+- Grafico "Andamento orario": parte dall'ora piena **precedente** a quella attuale (alle 20:32 inizia alle 19, `nowIndex() - 1`) oppure, con il selettore "Da ora" / "Da 00:00" (`#from-seg` in `.chart-ctrls`, accanto a 24 h / 72 h / Tutto; `settings.chartFrom` = `now` / `today`), dalla mezzanotte di oggi (timestamp `oggi T00:00`) per rivedere le ore già passate; l'intervallo scelto si conta dall'inizio; i tab seguono l'ordine di `VARIABLES`, con **Precipitazioni per prima** (anche variabile predefinita).
 - Nuove variabili del grafico: aggiungerle a `VARIABLES` in `app.js` (e a `HOURLY_VARS` in `api.js` se non già scaricate).
 - Rigenerare le icone PNG (Pillow) se cambia `icons/icon.svg`: 192, 512, maskable 512 (senza angoli arrotondati), apple-touch 180.
 

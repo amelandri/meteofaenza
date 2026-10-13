@@ -48,7 +48,9 @@ export const THEMES = ['auto', 'light', 'dark'];
 // models: previsioni mostrate, "both" (entrambi i modelli), "i2i" o "eu" (vedi shownModels()
 // in app.js). Non riguarda le probabilità di pioggia, sempre visibili.
 export const MODEL_VIEWS = ['both', 'i2i', 'eu'];
-const DEFAULT_SETTINGS = { variable: 'rain', range: '72', showAllHours: false, hourlyOpen: false, radarOpen: false, riversOpen: false, theme: 'auto', models: 'both' };
+// chartFrom: inizio del grafico "Andamento orario", "now" (ora precedente a quella attuale)
+// o "today" (mezzanotte di oggi).
+const DEFAULT_SETTINGS = { variable: 'rain', range: '72', chartFrom: 'now', showAllHours: false, hourlyOpen: false, radarOpen: false, riversOpen: false, theme: 'auto', models: 'both' };
 export const getSettings = () => ({ ...DEFAULT_SETTINGS, ...read(KEYS.settings, {}) });
 export const saveSettings = (patch) => write(KEYS.settings, { ...getSettings(), ...patch });
 
