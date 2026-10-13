@@ -264,8 +264,16 @@ button { font: inherit; color: inherit; }
   container-type: inline-size;
 }
 .obs-card header { display: flex; align-items: center; justify-content: space-between; gap: 2px 8px; flex-wrap: wrap; }
-/* "Centralina" è il link al sito dell'osservatorio, con l'aspetto della semplice etichetta. */
-.obs-tag { font-weight: 700; color: var(--obs); letter-spacing: .01em; text-decoration: none; }
+.obs-title { display: inline-flex; align-items: center; gap: 2px; }
+.obs-tag { font-weight: 700; color: var(--obs); letter-spacing: .01em; }
+/* Icona "i" accanto a "Centralina" e nota sulla provenienza dei dati (si apre sotto il titolo) */
+.obs-info-btn { width: 26px; height: 26px; display: inline-grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer; }
+.obs-info-btn:hover { color: var(--text); background: var(--surface); }
+.obs-info-btn[aria-expanded="true"] { color: var(--obs); background: color-mix(in srgb, var(--obs) 14%, transparent); }
+.obs-info-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.obs-info { margin: 8px 0 4px; padding: 10px 12px; border-radius: 8px; background: var(--surface); font-size: .84rem; line-height: 1.5; color: var(--muted); }
+.obs-info p { margin: 0; }
+.obs-info p + p { margin-top: 6px; }
 .obs-body { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
 /* --now-t = altezza della temperatura corrente (line-height 1): le due righe di massima e
    minima occupano in tutto la stessa altezza. Una linea del colore della card, da bordo a bordo del box (margini negativi = padding di
