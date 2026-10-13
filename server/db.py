@@ -177,7 +177,7 @@ def log(conn, job, ok, detail=''):
 def last_logs(conn):
     """Ultimo esito di ogni job e ultimo successo."""
     out = {}
-    for job in ('station', 'forecast', 'ensemble', 'normals', 'radar', 'rivers'):
+    for job in ('station', 'forecast', 'ensemble', 'normals', 'radar', 'rivers', 'backup'):
         last = conn.execute('SELECT at, ok, detail FROM fetch_log WHERE job = ? ORDER BY at DESC LIMIT 1', (job,)).fetchone()
         good = conn.execute('SELECT at FROM fetch_log WHERE job = ? AND ok = 1 ORDER BY at DESC LIMIT 1', (job,)).fetchone()
         out[job] = {

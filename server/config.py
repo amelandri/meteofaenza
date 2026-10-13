@@ -5,6 +5,7 @@ toccare il codice:
   METEO_DB    percorso del database SQLite (predefinito: <repo>/data/meteo.db)
   METEO_HOST  indirizzo su cui ascolta l'API (predefinito: 127.0.0.1, dietro nginx)
   METEO_PORT  porta dell'API (predefinito: 8085)
+  METEO_BACKUP_DIR  cartella delle copie del database (predefinito: <cartella del db>/backup)
 """
 
 import os
@@ -20,6 +21,10 @@ TIMEZONE = 'Europe/Rome'
 DB_PATH = Path(os.environ.get('METEO_DB', ROOT / 'data' / 'meteo.db'))
 HOST = os.environ.get('METEO_HOST', '127.0.0.1')
 PORT = int(os.environ.get('METEO_PORT', '8085'))
+
+# Backup notturno (job backup): copie compresse del database, restano le ultime BACKUP_KEEP.
+BACKUP_DIR = Path(os.environ.get('METEO_BACKUP_DIR', DB_PATH.parent / 'backup'))
+BACKUP_KEEP = 7
 
 # Intestazione User-Agent delle richieste alle fonti esterne.
 USER_AGENT = 'MeteoFaenza/1.0 (server privato, aggiornamenti via cron)'

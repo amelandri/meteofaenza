@@ -478,3 +478,35 @@ class RiversTest(unittest.TestCase):
             conn.close()
         finally:
             config.DB_PATH = old
+
+
+class BackupTest(unittest.TestCase):
+    """Job backup: copia compressa e leggibile, restano solo le ultime BACKUP_KEEP."""
+
+    def test_backup(self):
+        import gzip
+        import sqlite3
+        from server import jobs
+        old = (config.DB_PATH, config.BACKUP_DIR, config.BACKUP_KEEP)
+        config.DB_PATH = Path(_tmp.name) / 'backup-src.db'
+        config.BACKUP_DIR = Path(_tmp.name) / 'backup'
+        config.BACKUP_KEEP = 2
+        try:
+            conn = db.connect()
+            db.put_snapshot(conn, 'normals', {'x': 1})
+            config.BACKUP_DIR.mkdir()
+            for name in ('meteo-20260101-0450.db.gz', 'meteo-20260102-0450.db.gz'):
+                (config.BACKUP_DIR / name).write_bytes(b'')
+            jobs.job_backup(conn)
+            conn.close()
+            files = sorted(p.name for p in config.BACKUP_DIR.iterdir())
+            self.assertEqual(len(files), 2)  # la più vecchia tolta, niente file temporanei
+            self.assertEqual(files[0], 'meteo-20260102-0450.db.gz')
+            copy = Path(_tmp.name) / 'restored.db'
+            copy.write_bytes(gzip.decompress((config.BACKUP_DIR / files[1]).read_bytes()))
+            back = sqlite3.connect(copy)
+            row = back.execute("SELECT data FROM snapshots WHERE name = 'normals'").fetchone()
+            back.close()
+            self.assertIn('"x"', row[0])
+        finally:
+            config.DB_PATH, config.BACKUP_DIR, config.BACKUP_KEEP = old

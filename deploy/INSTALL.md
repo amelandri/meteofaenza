@@ -109,6 +109,33 @@ Entro 5 minuti deve comparire una riga `radar:`, entro 10 una riga `station:`, e
 | `radar` | ogni 5 minuti, 10 s dopo lo scoccare | scarica le immagini nuove del radar della Protezione Civile, calcola movimento e stima dei prossimi 90 minuti, prepara le immagini dell'animazione (richiede numpy e Pillow, passo 1) |
 | `rivers` | minuti 7, 22, 37, 52 | livelli di Lamone e Marzeno (idrometri ARPAE, portale Allerta Meteo): soglie e serie delle ultime ~2,5 giorni, salvate nel database |
 | `normals` | ogni giorno alle 4:40 | pulisce gli archivi (dati oltre 400 giorni, download dell'ensemble che la verifica non usa) e scarica le medie del periodo 1991–2020 solo se mancano o hanno più di un anno |
+| `backup` | ogni giorno alle 4:50 | copia del database in `/var/lib/meteo/backup` (vedi "Backup e ripristino") |
+
+## Backup e ripristino
+
+Tutti i dati stanno nel database `/var/lib/meteo/meteo.db`: il resto è codice (nel repository) o si ricrea da solo. Le uniche cose non recuperabili sono gli storici: letture della centralina, livelli dei fiumi e archivi della verifica.
+
+Il job `backup` copia ogni notte il database con l'API di backup di SQLite, che è sicura anche con API e job in funzione, controlla la copia e la comprime in `/var/lib/meteo/backup/meteo-AAAAMMGG-HHMM.db.gz`; restano le ultime 7 (`BACKUP_KEEP` in `server/config.py`, cartella diversa con `METEO_BACKUP_DIR`). L'esito è in `api/status` alla voce `backup`.
+
+**Non copiare il database con `cp`** mentre il servizio è attivo: il database è in modalità WAL e le ultime scritture possono stare ancora nel file `meteo.db-wal`, quindi la copia del solo `meteo.db` può risultare incompleta o danneggiata.
+
+Le copie restano sullo stesso disco: per proteggersi da un guasto del server conviene prelevarle da un'altra macchina, per esempio:
+
+```bash
+rsync -a <utente>@<server>:/var/lib/meteo/backup/ ~/backup-meteo/
+```
+
+Ripristino:
+
+```bash
+sudo systemctl stop meteo-api
+sudo crontab -u meteo -r                         # ferma i job (si reinstallano al passo 6)
+cd /var/lib/meteo
+sudo rm -f meteo.db-wal meteo.db-shm
+gunzip -c backup/meteo-<data>.db.gz | sudo -u meteo tee meteo.db > /dev/null
+sudo crontab -u meteo /opt/meteo/deploy/crontab
+sudo systemctl start meteo-api
+```
 
 ## 7. nginx
 
@@ -173,7 +200,7 @@ sudo systemctl restart meteo-api                 # solo se è cambiato qualcosa 
 | Stato dei dati | `curl -s http://127.0.0.1:8085/api/status` |
 | Forzare l'aggiornamento delle previsioni | `sudo -u meteo env METEO_DB=/var/lib/meteo/meteo.db sh -c 'cd /opt/meteo && python3 -B -m server.jobs forecast --force'` |
 | Riavviare l'API | `sudo systemctl restart meteo-api` |
-| Backup del database | `sudo -u meteo python3 -c "import sqlite3; s=sqlite3.connect('/var/lib/meteo/meteo.db'); s.backup(sqlite3.connect('/var/lib/meteo/backup.db'))"` |
+| Backup del database (subito) | `sudo -u meteo env METEO_DB=/var/lib/meteo/meteo.db sh -c 'cd /opt/meteo && python3 -B -m server.jobs backup'` |
 
 Il database è piccolo: qualche centinaio di KB per previsioni e medie, più circa 1 KB per ogni lettura della centralina (conservate per circa 400 giorni).
 

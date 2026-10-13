@@ -5,7 +5,8 @@
   python3 -m server.jobs normals  [--force] medie del periodo (controllo giornaliero)
   python3 -m server.jobs radar    [--force] radar della Protezione Civile (ogni 5 minuti)
   python3 -m server.jobs rivers           livelli di Lamone e Marzeno (ogni 15 minuti)
-  python3 -m server.jobs all                tutti, forzati (prima installazione)
+  python3 -m server.jobs backup             copia del database (ogni notte)
+  python3 -m server.jobs all                tutti, forzati, tranne backup (prima installazione)
 
 Ogni job prende un lock: se il precedente è ancora in corso, quello nuovo esce subito.
 Esito e dettagli finiscono nella tabella fetch_log (e in /api/status).
@@ -13,8 +14,14 @@ Esito e dettagli finiscono nella tabella fetch_log (e in /api/status).
 
 import argparse
 import fcntl
+import gzip
+import os
+import shutil
+import sqlite3
 import sys
 import traceback
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from . import config, db, radar, rivers, sources, verify
 
@@ -114,7 +121,43 @@ def job_radar(conn, force=False):
     return detail
 
 
-JOBS = {'station': job_station, 'forecast': job_forecast, 'normals': job_normals, 'radar': job_radar, 'rivers': rivers.run}
+def job_backup(conn, force=False):
+    """Copia coerente del database con l'API di backup di SQLite (sicura con API e job in
+    funzione: un cp del solo file perderebbe le scritture ancora nel WAL), controllata e
+    compressa in BACKUP_DIR; restano le ultime BACKUP_KEEP copie."""
+    folder = config.BACKUP_DIR
+    folder.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(ZoneInfo(config.TIMEZONE)).strftime('%Y%m%d-%H%M')
+    final = folder / f'meteo-{stamp}.db.gz'
+    tmp_db = folder / '.backup.db'
+    tmp_gz = folder / '.backup.db.gz'
+    try:
+        tmp_db.unlink(missing_ok=True)  # resto di un tentativo interrotto
+        dest = sqlite3.connect(tmp_db)
+        try:
+            conn.backup(dest)
+            check = dest.execute('PRAGMA quick_check').fetchone()[0]
+        finally:
+            dest.close()
+        if check != 'ok':
+            raise RuntimeError(f'copia non valida: {check}')
+        with open(tmp_db, 'rb') as src, gzip.open(tmp_gz, 'wb') as out:
+            shutil.copyfileobj(src, out)
+        os.replace(tmp_gz, final)  # la copia compare solo se completa
+    finally:
+        tmp_db.unlink(missing_ok=True)
+        tmp_gz.unlink(missing_ok=True)
+    old = sorted(folder.glob('meteo-*.db.gz'))[:-config.BACKUP_KEEP]
+    for path in old:
+        path.unlink()
+    size = final.stat().st_size / 1e6
+    return f'{final.name} ({size:.1f} MB); {len(old)} copie vecchie tolte'
+
+
+JOBS = {'station': job_station, 'forecast': job_forecast, 'normals': job_normals, 'radar': job_radar, 'rivers': rivers.run,
+        'backup': job_backup}
+# Esclusi da "all" (prima installazione): non scaricano dati.
+NOT_IN_ALL = {'backup'}
 
 
 def run(name, force=False):
@@ -158,7 +201,7 @@ def main(argv=None):
     p.add_argument('--force', action='store_true', help='scarica anche se i dati sono aggiornati')
     args = p.parse_args(argv)
     if args.job == 'all':
-        return max(run(name, force=True) for name in JOBS)
+        return max(run(name, force=True) for name in JOBS if name not in NOT_IN_ALL)
     return run(args.job, args.force)
 
 

@@ -19,6 +19,11 @@ SHELL=/bin/sh
 # riprova il giorno dopo).
 40 4 * * *  cd /opt/meteo && python3 -m server.jobs normals 2>&1 | logger -t meteo
 
+# Backup del database: dopo la manutenzione degli archivi, copia coerente (API di backup di
+# SQLite, non cp) compressa in /var/lib/meteo/backup; restano le ultime 7. Per una copia
+# fuori dal server basta prelevare l'ultimo file di quella cartella (rsync/scp).
+50 4 * * *  cd /opt/meteo && python3 -m server.jobs backup 2>&1 | logger -t meteo
+
 # Radar della Protezione Civile: un'immagine ogni 5 minuti, pubblicata ~7–8 minuti dopo.
 # Il job gira ogni 5 minuti, 10 s dopo lo scoccare: finisce prima che l'app chieda la
 # misura della centralina (45 s dopo), che porta con sé il riepilogo del radar.
