@@ -2,6 +2,9 @@
 <html lang="it">
 <head>
   <meta charset="utf-8">
+  <!-- La pagina importa file scelti dall'utente: solo script e stili dei nostri file, niente
+       codice inline né risorse esterne, anche se un testo riuscisse a entrare nell'HTML. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Impostazioni – Meteo Faenza</title>
   <meta name="description" content="Impostazioni di Meteo Faenza: tema, modelli mostrati e intervalli orari monitorati">
@@ -56,6 +59,18 @@
         <button type="button" data-models-choice="i2i">ICON-2I</button>
         <button type="button" data-models-choice="eu">ICON-EU</button>
       </div>
+    </section>
+
+    <section class="card">
+      <h2>Esporta e importa</h2>
+      <p class="info-note">Salva tutte le impostazioni (tema, modelli, intervalli monitorati, scelte dei grafici e della verifica) in un file JSON, per ripristinarle o portarle su un altro dispositivo. Importando un file, le impostazioni che contiene sostituiscono quelle attuali; le voci non riconosciute vengono ignorate.</p>
+      <div class="form-actions io-actions">
+        <button id="export-settings" type="button" class="btn btn-ghost">Esporta</button>
+        <button id="import-settings" type="button" class="btn btn-ghost">Importa…</button>
+        <input id="import-file" type="file" accept=".json,application/json" hidden>
+      </div>
+      <p id="io-error" class="form-error" role="alert" hidden></p>
+      <p id="io-done" class="form-saved io-done" role="status" hidden></p>
     </section>
     </div>
 

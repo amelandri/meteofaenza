@@ -1,7 +1,8 @@
 // Pagina Impostazioni: tema (automatico/chiaro/scuro, settings.theme, applicato da
 // js/theme.js), modelli mostrati (entrambi / solo ICON-2I / solo ICON-EU, settings.models,
 // letti da app.js) e intervalli monitorati (nome e fino a 6 intervalli orari, settings.watch,
-// letti da app.js; anche nessuno). I valori sono salvati nel localStorage.
+// letti da app.js; anche nessuno). I valori sono salvati nel localStorage. Esportazione e
+// importazione di tutte le preferenze in un file JSON.
 
 import * as store from './storage.js';
 
@@ -75,7 +76,14 @@ function readForm() {
     if (!days.length) return { error: `Intervallo ${i + 1}: scegli almeno un giorno.` };
     windows.push({ from, to, days });
   }
-  if (windows.length > store.MAX_WATCH_WINDOWS) return { error: `Al massimo ${store.MAX_WATCH_WINDOWS} intervalli.` };
+  const error = windowsError(windows);
+  return error ? { error } : { watch: { label, windows } };
+}
+
+// Regole sull'insieme degli intervalli (modulo e file importati): numero massimo, nessuna
+// sovrapposizione nello stesso giorno, al massimo MAX_WATCH_PER_DAY per giorno.
+function windowsError(windows) {
+  if (windows.length > store.MAX_WATCH_WINDOWS) return `Al massimo ${store.MAX_WATCH_WINDOWS} intervalli.`;
   // Due intervalli si sovrappongono solo se hanno orari in comune in uno stesso giorno.
   const names = (days) => DAY_ORDER.filter((d) => days.includes(d)).map((d) => DAY_LONG[d]).join(', ');
   for (let i = 0; i < windows.length; i++) {
@@ -83,16 +91,16 @@ function readForm() {
       const a = windows[i], b = windows[j];
       const common = a.days.filter((d) => b.days.includes(d));
       if (common.length && a.from < b.to && b.from < a.to) {
-        return { error: `Gli intervalli ${a.from}–${a.to} e ${b.from}–${b.to} si sovrappongono (${names(common)}).` };
+        return `Gli intervalli ${a.from}–${a.to} e ${b.from}–${b.to} si sovrappongono (${names(common)}).`;
       }
     }
   }
   for (const d of DAY_ORDER) {
     if (windows.filter((w) => w.days.includes(d)).length > store.MAX_WATCH_PER_DAY) {
-      return { error: `${d === 0 ? 'La' : 'Il'} ${DAY_LONG[d]} ha più di ${store.MAX_WATCH_PER_DAY} intervalli: al massimo ${store.MAX_WATCH_PER_DAY} per giorno.` };
+      return `${d === 0 ? 'La' : 'Il'} ${DAY_LONG[d]} ha più di ${store.MAX_WATCH_PER_DAY} intervalli: al massimo ${store.MAX_WATCH_PER_DAY} per giorno.`;
     }
   }
-  return { watch: { label, windows } };
+  return null;
 }
 
 addBtn.addEventListener('click', () => {
@@ -166,3 +174,77 @@ modelsSeg.addEventListener('click', (e) => {
 window.addEventListener('storage', (e) => { if (e.key === 'meteo:settings') syncModels(); });
 
 syncModels();
+
+// --- Esporta / importa: file JSON con le preferenze ---
+// Il file importato non è fidato: lo legge e lo filtra parseSettingsFile() di storage.js, gli
+// intervalli devono rispettare le stesse regole del modulo, e nulla del file finisce in
+// innerHTML (messaggi con textContent, conferma con confirm()).
+
+function showIo(error, done = '') {
+  const err = $('#io-error');
+  err.textContent = error || '';
+  err.hidden = !error;
+  const ok = $('#io-done');
+  ok.textContent = done;
+  ok.hidden = !done;
+}
+
+$('#export-settings').addEventListener('click', () => {
+  const data = store.exportSettings();
+  const blob = new Blob([`${JSON.stringify(data, null, 2)}\n`], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `meteo-faenza-impostazioni-${data.exportedAt.slice(0, 10)}.json`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  showIo('', 'File esportato.');
+});
+
+const importInput = $('#import-file');
+$('#import-settings').addEventListener('click', () => importInput.click());
+importInput.addEventListener('change', async () => {
+  const file = importInput.files?.[0];
+  importInput.value = ''; // così si può riscegliere lo stesso file
+  if (!file) return;
+  showIo('');
+  if (file.size > store.MAX_IMPORT_BYTES) { showIo('Il file è troppo grande per essere un file di impostazioni.'); return; }
+  let text;
+  try {
+    text = await file.text();
+  } catch {
+    showIo('Impossibile leggere il file.');
+    return;
+  }
+  const { error, settings, ignored } = store.parseSettingsFile(text);
+  if (error) { showIo(error); return; }
+
+  if (settings.watch) {
+    const raw = settings.watch.windows ?? [];
+    if (!Array.isArray(raw) || raw.length > store.MAX_WATCH_WINDOWS) { showIo(`Il file contiene troppi intervalli (al massimo ${store.MAX_WATCH_WINDOWS}).`); return; }
+    const watch = store.normalizeWatch(settings.watch);
+    if (watch.windows.length !== raw.length) { showIo('Il file contiene intervalli non validi: importazione annullata.'); return; }
+    const problem = windowsError(watch.windows);
+    if (problem) { showIo(`Intervalli nel file: ${problem}`); return; }
+    settings.watch = watch;
+  }
+  if (!Object.keys(settings).length) { showIo('Il file non contiene impostazioni riconosciute.'); return; }
+
+  const n = settings.watch?.windows.length;
+  const summary = settings.watch
+    ? `${n ? `${n} ${n === 1 ? 'intervallo' : 'intervalli'} "${settings.watch.label}"` : 'nessun intervallo'}`
+    : 'intervalli attuali invariati';
+  if (!window.confirm(`Sostituire le impostazioni con quelle del file?\n(${summary})`)) return;
+  if (!store.importSettings(settings)) { showIo('Impossibile salvare: lo storage del browser non è disponibile.'); return; }
+
+  // Mostra i valori come salvati.
+  window.meteoTheme?.apply(store.getSettings().theme);
+  syncTheme(store.getSettings().theme);
+  syncModels();
+  showError('');
+  fill(store.getWatch());
+  const skipped = ignored.length ? ` (${ignored.length} ${ignored.length === 1 ? 'voce non riconosciuta ignorata' : 'voci non riconosciute ignorate'})` : '';
+  showIo('', `Impostazioni importate${skipped}.`);
+});

@@ -54,6 +54,29 @@ const DEFAULT_SETTINGS = { variable: 'rain', range: '72', chartFrom: 'now', show
 export const getSettings = () => ({ ...DEFAULT_SETTINGS, ...read(KEYS.settings, {}) });
 export const saveSettings = (patch) => write(KEYS.settings, { ...getSettings(), ...patch });
 
+// Valori ammessi delle altre preferenze (esportazione/importazione, vedi sotto): variable =
+// chiavi di VARIABLES in app.js, range / chartFrom = pulsanti del grafico in index.html,
+// verifyLead / verifyDays = selettori di verify.js. Se cambiano là, aggiornarli qui.
+const CHART_VARIABLES = ['rain', 'temp', 'wind', 'cloud', 'humidity', 'pressure'];
+const CHART_RANGES = ['24', '72', 'all'];
+const CHART_FROM = ['now', 'today'];
+const isBool = (v) => typeof v === 'boolean';
+const oneOf = (list) => (v) => (typeof v === 'string' || typeof v === 'number') && list.includes(v);
+// Preferenze esportabili (tranne watch, trattato a parte) con il controllo del valore.
+const SETTING_RULES = {
+  theme: oneOf(THEMES),
+  models: oneOf(MODEL_VIEWS),
+  variable: oneOf(CHART_VARIABLES),
+  range: oneOf(CHART_RANGES),
+  chartFrom: oneOf(CHART_FROM),
+  showAllHours: isBool,
+  hourlyOpen: isBool,
+  radarOpen: isBool,
+  riversOpen: isBool,
+  verifyLead: oneOf([1, 2]),
+  verifyDays: oneOf([7, 30]),
+};
+
 // --- Intervalli monitorati (pagina Impostazioni) ---------------------------------
 // Gruppo di intervalli orari in cui l'app valuta se pioverà (oggi mostrati come tragitti
 // in bici). Salvato in settings.watch come { label, windows: [{ from, to, days }] }: orari
@@ -92,10 +115,13 @@ const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 // intervalli validi con inizio < fine e giorni (normalizeDays), ordinati per orario, al
 // massimo MAX_WATCH_WINDOWS (anche nessuno). Sovrapposizioni e limite per giorno li
 // controlla il modulo. Intervalli non validi vengono scartati.
+// Nel nome si tolgono i caratteri di controllo e di formato (a capo, direzione del testo…).
+// Gli orari devono essere stringhe: RegExp.test() converte, e ['07:00'] passerebbe il test.
+const isHHMM = (v) => typeof v === 'string' && HHMM.test(v);
 export function normalizeWatch(watch) {
-  const label = typeof watch?.label === 'string' ? watch.label.trim().slice(0, MAX_WATCH_LABEL) : '';
+  const label = typeof watch?.label === 'string' ? watch.label.replace(/[\p{Cc}\p{Cf}]/gu, '').trim().slice(0, MAX_WATCH_LABEL) : '';
   const windows = (Array.isArray(watch?.windows) ? watch.windows : [])
-    .filter((w) => HHMM.test(w?.from) && HHMM.test(w?.to) && w.from < w.to)
+    .filter((w) => isHHMM(w?.from) && isHHMM(w?.to) && w.from < w.to)
     .map((w) => ({ from: w.from, to: w.to, days: normalizeDays(w.days) }))
     .sort((a, b) => a.from.localeCompare(b.from))
     .slice(0, MAX_WATCH_WINDOWS);
@@ -125,6 +151,66 @@ export function getWatch() {
 }
 export const saveWatch = (watch) => saveSettings({ watch: normalizeWatch(watch) });
 export const resetWatch = () => saveWatch(DEFAULT_WATCH);
+
+// --- Esportazione e importazione delle preferenze (pagina Impostazioni) -------------
+// File JSON { app, kind, version, exportedAt, settings }. Il file importato è un dato non
+// fidato: si legge solo con JSON.parse (mai eseguito), entro MAX_IMPORT_BYTES, e si tengono
+// solo le chiavi di SETTING_RULES con un valore ammesso, più watch (da controllare ancora con
+// normalizeWatch() e le regole del modulo); il resto si scarta. Le preferenze si ricostruiscono
+// in un oggetto nuovo, mai copiando quello del file.
+
+export const SETTINGS_FILE = { app: 'meteo-faenza', kind: 'settings', version: 1 };
+export const MAX_IMPORT_BYTES = 16 * 1024;
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+
+export function exportSettings() {
+  const current = getSettings();
+  const settings = {};
+  for (const [k, ok] of Object.entries(SETTING_RULES)) if (ok(current[k])) settings[k] = current[k];
+  settings.watch = getWatch();
+  return { ...SETTINGS_FILE, exportedAt: new Date().toISOString(), settings };
+}
+
+// Legge il testo di un file esportato: { settings, ignored } (chiavi scartate) o { error }.
+// settings.watch, se c'è, è ancora quello del file: lo controlla chi importa.
+export function parseSettingsFile(text) {
+  if (typeof text !== 'string' || text.length > MAX_IMPORT_BYTES) return { error: 'Il file è troppo grande per essere un file di impostazioni.' };
+  let data;
+  try {
+    data = JSON.parse(text, (k, v) => (UNSAFE_KEYS.has(k) ? undefined : v));
+  } catch {
+    return { error: 'Il file non è un JSON valido.' };
+  }
+  if (!isObject(data) || data.app !== SETTINGS_FILE.app || data.kind !== SETTINGS_FILE.kind || !isObject(data.settings)) {
+    return { error: 'Il file non contiene impostazioni di Meteo Faenza.' };
+  }
+  if (!Number.isInteger(data.version) || data.version < 1 || data.version > SETTINGS_FILE.version) {
+    return { error: 'Il file è di una versione dell\'app non supportata.' };
+  }
+  const src = data.settings;
+  const settings = {};
+  const ignored = [];
+  for (const k of Object.keys(src)) {
+    if (k === 'watch') continue;
+    if (own(SETTING_RULES, k) && SETTING_RULES[k](src[k])) settings[k] = src[k];
+    else ignored.push(k);
+  }
+  if (own(src, 'watch')) {
+    if (isObject(src.watch)) settings.watch = { label: src.watch.label, windows: src.watch.windows };
+    else ignored.push('watch');
+  }
+  return { settings, ignored };
+}
+
+// Salva le preferenze importate (già controllate) sopra quelle attuali.
+export function importSettings(settings) {
+  const patch = {};
+  for (const k of Object.keys(SETTING_RULES)) if (own(settings, k) && SETTING_RULES[k](settings[k])) patch[k] = settings[k];
+  if (own(settings, 'watch')) patch.watch = normalizeWatch(settings.watch);
+  return saveSettings(patch);
+}
 
 // --- Medie del periodo (climatologia, fetchNormals() di api.js) --------------------
 // Copia locale di quelle del server (che le aggiorna una volta l'anno), in meteo:normals

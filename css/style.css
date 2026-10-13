@@ -1130,6 +1130,8 @@ button { font: inherit; color: inherit; }
 .form-error { margin: 14px 0 0 !important; color: var(--bad); font-size: .88rem; font-weight: 600; }
 .form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 18px; }
 .form-saved { color: var(--good); font-weight: 650; font-size: .9rem; }
+.io-actions { margin-top: 14px; }
+.io-done { margin: 14px 0 0; }
 .theme-seg { margin-top: 14px; }
 .theme-seg button { padding: 7px 14px; font-size: .9rem; white-space: nowrap; }
 
