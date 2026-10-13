@@ -69,7 +69,6 @@ const state = {
   station: store.getStation(), // ultima misura della centralina (anche da cache)
   normals: store.getNormals(LOCATION), // medie del periodo 1991–2020 (anche da cache)
   stationLoading: false,
-  obsInfoOpen: false, // nota sulla centralina aperta (solo in memoria: resta aperta ai ridisegni)
 };
 
 // La misura della centralina si aggiorna solo ai minuti 0, 10, 20, 30, 40, 50 (più un
@@ -420,11 +419,7 @@ function renderObservation() {
   return `<div class="day obs-row">
     <div class="day-name"><b class="now-hour">${when}</b><span class="muted small">Misurato${stale ? ' · <span class="obs-stale">non aggiornato</span>' : ''}</span><span class="muted small">prossima lettura ${localDateTime(nextStationSlot() - STATION_SLOT_DELAY_MS, timezone, utcOffset).time}</span></div>
     <article class="obs-card">
-      <header><span class="obs-title"><span class="obs-tag">Centralina</span><button type="button" class="obs-info-btn" data-obs-info aria-controls="obs-info" aria-expanded="${state.obsInfoOpen}" title="Da dove vengono questi dati" aria-label="Informazioni sulla centralina">${INFO_ICON}</button></span>${rainNow}</header>
-      <div id="obs-info" class="obs-info"${state.obsInfoOpen ? '' : ' hidden'}>
-        <p>Le misure di questo riquadro vengono dalla centralina dell'Osservatorio Meteorologico "E. Torricelli" di Faenza e sono pubblicate sul suo sito, <a href="${STATION.site}" target="_blank" rel="noopener">meteofaenza.it</a>. Il server di Meteo Faenza le legge ogni 10 minuti dal sito e le mostra così come sono; ricalcola solo i valori del giorno (pioggia, minima, massima, raffica) a partire dalla mezzanotte.</p>
-        <p>Meteo Faenza è un progetto personale e indipendente: non è in alcun modo collegato all'Osservatorio, né da esso approvato o sostenuto. Per i dati ufficiali e per qualsiasi segnalazione sulle misure fate riferimento al <a href="${STATION.site}" target="_blank" rel="noopener">sito dell'Osservatorio</a>. <a href="info.html#centralina">Come vengono usate le misure</a></p>
-      </div>
+      <header><span class="obs-title"><span class="obs-tag">Centralina</span><button type="button" class="obs-info-btn" data-tip="${esc(obsTip())}" data-tip-key="obs-info" title="Da dove vengono questi dati" aria-label="Informazioni sulla centralina: misure dell'Osservatorio Meteorologico E. Torricelli di Faenza (meteofaenza.it); Meteo Faenza non è collegato all'Osservatorio">${INFO_ICON}</button></span>${rainNow}</header>
       <div class="obs-body">
         <div class="obs-main">
           <div class="now-temp">${fmt(st.temperature, 1)}<span>°C</span></div>
@@ -442,8 +437,13 @@ function renderObservation() {
   </div>`;
 }
 
-// Icona "i" accanto a "Centralina": apre la nota sulla provenienza dei dati.
+// Icona "i" accanto a "Centralina": al clic il dettaglio sulla provenienza dei dati, nello
+// stesso riquadro / avviso degli altri dettagli (data-tip).
 const INFO_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7.5v.5"/></svg>';
+const obsTip = () => tipHead('Centralina', 'Osservatorio Torricelli')
+  + `<p class="tp-why"><span>Da dove vengono i dati</span>Le misure di questo riquadro vengono dalla centralina dell'Osservatorio Meteorologico "E. Torricelli" di Faenza e sono pubblicate sul suo sito, <a href="${STATION.site}" target="_blank" rel="noopener">meteofaenza.it</a>. Il server di Meteo Faenza le legge ogni 10 minuti e le mostra così come sono; ricalcola solo i valori del giorno (pioggia, minima, massima, raffica) a partire dalla mezzanotte.</p>`
+  + `<p class="tp-why"><span>Progetto indipendente</span>Meteo Faenza è un progetto personale: non è in alcun modo collegato all'Osservatorio, né da esso approvato o sostenuto. Per i dati ufficiali e per qualsiasi segnalazione sulle misure fate riferimento al <a href="${STATION.site}" target="_blank" rel="noopener">sito dell'Osservatorio</a>.</p>`
+  + tipNote('<a href="info.html#centralina">Come vengono usate le misure</a>');
 
 // Riga del radar in fondo al box della centralina (riepilogo arrivato con la misura): al
 // tocco apre la sezione Radar.
@@ -458,6 +458,7 @@ function radarRow(tz, off) {
 function renderNow() {
   $('#now').innerHTML = renderObservation()
     || `<p class="muted">Dati della centralina non disponibili${navigator.onLine ? '' : ' offline'}.</p>`;
+  syncTipCard(); // dettaglio della centralina aperto: passa all'icona appena ridisegnata
 }
 
 // Valuta quanto i due modelli concordano su una giornata. Ogni criterio aggiunge punti di
@@ -1547,7 +1548,7 @@ function bindControls() {
     if (!$('#toast').hidden && $('#toast').dataset.source === key) hideToast();
     else toast(tipContent(el), 9000, key, true);
   };
-  for (const id of ['#daily', '#hourly-body']) $(id).addEventListener('click', showTip);
+  for (const id of ['#now', '#daily', '#hourly-body']) $(id).addEventListener('click', showTip);
   // Il riquadro segue l'elemento scorrendo la pagina; si chiude se l'elemento esce dallo
   // schermo o non c'è più (sezione ridisegnata), al ridimensionamento e con Esc.
   // Al massimo una volta per fotogramma: placeTipCard() misura gli elementi (layout forzato).
@@ -1600,14 +1601,6 @@ function bindControls() {
     syncRiversCollapse();
   });
   // Riga del radar nel box Adesso: apre la sezione e ci porta.
-  // Icona "i" della centralina: apre / chiude la nota senza ridisegnare il box.
-  $('#now').addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-obs-info]');
-    if (!btn) return;
-    state.obsInfoOpen = !state.obsInfoOpen;
-    btn.setAttribute('aria-expanded', String(state.obsInfoOpen));
-    $('#obs-info').hidden = !state.obsInfoOpen;
-  });
   $('#now').addEventListener('click', (e) => {
     if (!e.target.closest('[data-open-radar]')) return;
     if (!state.settings.radarOpen) setRadarOpen(true);
