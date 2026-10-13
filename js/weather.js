@@ -86,6 +86,20 @@ export function icon(code, isDay = 1, size = 32, title = '') {
   return `<svg class="wi" viewBox="0 0 32 32" width="${size}" height="${size}" role="img" aria-label="${t}"><title>${t}</title>${iconBody(kind, !!isDay)}</svg>`;
 }
 
+// Esiti della verifica: l'icona della pioggia delle previsioni con un distintivo in alto a
+// destra. 'x' = prevista ma non caduta, '!' = caduta ma non prevista, 'up' / 'down' = caduta
+// molta più / meno del previsto. Colori in style.css (.wi-mark.mk-*).
+const MARK_GLYPH = {
+  x: '<path d="M21.9 4.9l5.6 5.6M27.5 4.9l-5.6 5.6"/>',
+  '!': '<path d="M24.7 3.9v4.6"/><circle class="dot" cx="24.7" cy="11.3" r="1.15"/>',
+  up: '<path d="M24.7 11.6V4.2M21.8 7l2.9-2.9L27.6 7"/>',
+  down: '<path d="M24.7 4v7.4M21.8 8.6l2.9 2.9 2.9-2.9"/>',
+};
+export function rainMarkIcon(mark, size = 22, title = '') {
+  const t = title ? `<title>${title}</title>` : '';
+  return `<svg class="wi wi-mark mk-${mark === '!' ? 'warn' : mark}" viewBox="0 0 32 32" width="${size}" height="${size}" ${title ? `role="img" aria-label="${title}"` : 'aria-hidden="true"'}>${t}${iconBody('rain', true)}<circle class="badge" cx="24.7" cy="7.7" r="7.4"/><g class="glyph">${MARK_GLYPH[mark]}</g></svg>`;
+}
+
 // Icona alba/tramonto: mezzo sole sull'orizzonte, raggi e freccia su/giù.
 export function sunEventIcon(kind, size = 18) {
   const rise = kind === 'rise';

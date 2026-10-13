@@ -5,7 +5,7 @@
 
 import { MODELS, SUPPORT_MODELS, getJSON } from './api.js';
 import * as store from './storage.js';
-import { fmt, fmtSigned, esc, dayTitle, localDateTime } from './weather.js';
+import { fmt, fmtSigned, esc, dayTitle, localDateTime, rainMarkIcon } from './weather.js';
 
 const SLOTS = [
   { from: 0, name: 'Notte', short: 'Notte' },
@@ -15,20 +15,24 @@ const SLOTS = [
 ];
 const TZ = 'Europe/Rome';
 // Esito di una previsione di pioggia (soglia: wetMm del server, 0,2 mm come nell'app).
+// `icon`: esito disegnato con rainMarkIcon() (pioggia + X rossa / punto esclamativo); senza,
+// il segno di spunta.
 const OUTCOME = {
   hit: { label: 'pioggia prevista e caduta', mark: '✓', cls: 'o-good' },
   ok: { label: 'nessuna pioggia, come previsto', mark: '✓', cls: 'o-good' },
-  false: { label: 'pioggia prevista ma non caduta (falso allarme)', mark: '!', cls: 'o-mid' },
-  miss: { label: 'pioggia caduta ma non prevista', mark: '✗', cls: 'o-bad' },
+  false: { label: 'pioggia prevista ma non caduta (falso allarme)', icon: 'x', cls: 'o-bad' },
+  miss: { label: 'pioggia caduta ma non prevista', icon: '!', cls: 'o-mid' },
 };
 // Quantità molto diversa (solo se pioggia prevista e caduta): uno almeno il doppio
 // dell'altro e scarto di almeno QTY_MM, come il criterio di concordanza sulla quantità.
 const QTY_RATIO = 2;
 const QTY_MM = 2;
 const QTY = {
-  more: { label: 'molta più pioggia del previsto', mark: '↑' },
-  less: { label: 'molta meno pioggia del previsto', mark: '↓' },
+  more: { label: 'molta più pioggia del previsto', icon: 'up' },
+  less: { label: 'molta meno pioggia del previsto', icon: 'down' },
 };
+// Segno dell'esito: spunta (testo) o icona della pioggia con il distintivo.
+const outcomeMark = (o, size = 22) => (o.icon ? rainMarkIcon(o.icon, size) : o.mark);
 // Fasce di probabilità per l'affidabilità dell'ensemble.
 const BINS = [[0, 20], [20, 50], [50, 80], [80, 101]];
 // Errori gravi della probabilità: alta (≥ BAD_HIGH %) e non ha piovuto, bassa (< BAD_LOW %)
@@ -213,9 +217,9 @@ function renderSummary(sum) {
         ${row('Fasce previste correttamente', pct, 'pioggia sì/no in ogni fascia di 6 ore')}
         ${!store.getWatch().windows.length ? '' : `<tr class="vs-bike">${(() => { const label = `${BIKE_ICON}${esc(store.getWatch().label)}: intervalli corretti`; return `<th scope="row">${label}<small>pioggia sì/no in ogni intervallo monitorato</small></th>${shown.map((m) => `<td>${pct(sum.models[m.key], sum.models[m.key].bike)}</td>`).join('')}`; })()}</tr>`}
         ${row('Pioggia prevista e caduta', (s) => s.counts.hit)}
-        ${row('Falsi allarmi', (s) => s.counts.false, 'pioggia prevista ma non caduta')}
-        ${row('Pioggia non prevista', (s) => s.counts.miss)}
-        ${row('Quantità molto diversa', (s) => (s.counts.hit ? `${s.qty.more + s.qty.less} <small class="opt">(${QTY.more.mark} ${s.qty.more} · ${QTY.less.mark} ${s.qty.less})</small>` : '—'), `fasce con pioggia prevista e caduta, ma il doppio o la metà (scarto ≥ ${fmt(QTY_MM, 0)} mm)`)}
+        ${row(`${outcomeMark(OUTCOME.false, 18)}Falsi allarmi`, (s) => s.counts.false, 'pioggia prevista ma non caduta')}
+        ${row(`${outcomeMark(OUTCOME.miss, 18)}Pioggia non prevista`, (s) => s.counts.miss)}
+        ${row(`${outcomeMark(QTY.more, 18)}Quantità molto diversa`, (s) => (s.counts.hit ? `${s.qty.more + s.qty.less} <small class="opt q-split">(${outcomeMark(QTY.more, 15)} ${s.qty.more} · ${outcomeMark(QTY.less, 15)} ${s.qty.less})</small>` : '—'), `fasce con pioggia prevista e caduta, ma il doppio o la metà (scarto ≥ ${fmt(QTY_MM, 0)} mm)`)}
         ${row('Errore medio sulla pioggia del giorno', (s) => err(s.rainErr, ' mm', 1), 'in media: + troppa pioggia prevista, − troppo poca')}
         ${row('Pioggia prevista / caduta', (s) => (s.rainErr.length ? `${fmt(s.rainFc, 1)} / ${fmt(s.rainObs, 1)} mm` : '—'), 'somma dei giorni')}
         ${row('Errore medio sulla massima', (s) => err(s.tmaxErr, '°', 1), 'in media: + troppo caldo, − troppo fresco')}
@@ -257,7 +261,9 @@ function cell(fc, obs, wet, judge = true) {
   const q = judge ? QTY[qtyOff(fc, obs, wet)] : null;
   // nel tooltip esito, quantità e scarto previsto − caduto
   const title = o ? [o.label, q?.label, obs != null && fc !== obs ? `scarto ${fmtSigned(fc - obs, 1)} mm` : null].filter(Boolean).join(' · ') : '';
-  return `<td class="${o ? o.cls : ''}${q ? ' q-off' : ''}" title="${esc(title)}">${mm(fc)}${o ? `<span class="o-mark" aria-hidden="true">${o.mark}${q ? `<span class="q-mark">${q.mark}</span>` : ''}</span>` : ''}</td>`;
+  // Quantità molto diversa: al posto della spunta la pioggia con la freccia su / giù.
+  const shown = q || o;
+  return `<td class="${o ? o.cls : ''}${q ? ' q-off' : ''}" title="${esc(title)}">${mm(fc)}${shown ? `<span class="o-mark" aria-hidden="true">${outcomeMark(shown)}</span>` : ''}</td>`;
 }
 
 function renderDay(d, wet, todayIso) {
@@ -379,9 +385,12 @@ $('#days-seg').addEventListener('click', (e) => {
 });
 
 // Legenda degli esiti nella scheda dei controlli (una voce per simbolo).
-$('#verify-legend').innerHTML = Object.values(OUTCOME).filter((o, i, a) => a.findIndex((x) => x.mark === o.mark) === i)
-  .map((o) => `<li class="${o.cls}"><span class="o-mark">${o.mark}</span>${o.mark === '✓' ? 'previsione corretta' : o.label}</li>`).join('')
-  + `<li class="q-off"><span class="o-mark q-mark">${QTY.more.mark}${QTY.less.mark}</span>caduta molta più / meno pioggia del previsto</li>`;
+$('#verify-legend').innerHTML = [
+  `<li class="o-good"><span class="o-mark">✓</span>previsione corretta</li>`,
+  `<li class="o-bad"><span class="o-mark">${outcomeMark(OUTCOME.false)}</span>pioggia prevista ma non caduta</li>`,
+  `<li class="o-mid"><span class="o-mark">${outcomeMark(OUTCOME.miss)}</span>pioggia caduta ma non prevista</li>`,
+  `<li class="q-off"><span class="o-mark q-pair">${outcomeMark(QTY.more)}${outcomeMark(QTY.less)}</span>caduta molta più / meno pioggia del previsto</li>`,
+].join('');
 
 syncControls();
 load();

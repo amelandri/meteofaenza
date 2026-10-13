@@ -765,6 +765,13 @@ button { font: inherit; color: inherit; }
 .wi-drop { stroke: var(--rain); stroke-width: 2; stroke-linecap: round; }
 .wi-drop.heavy { stroke-width: 2.4; }
 .wi-flake { fill: var(--rain); opacity: .8; }
+/* Esiti della verifica (rainMarkIcon()): pioggia + distintivo con bordo del colore della scheda */
+.wi-mark .badge { fill: var(--mk); stroke: var(--surface); stroke-width: 1.6; }
+.wi-mark .glyph { fill: none; stroke: var(--surface); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.wi-mark .glyph .dot { fill: var(--surface); stroke: none; }
+.wi-mark.mk-x { --mk: var(--bad); }
+.wi-mark.mk-warn { --mk: var(--mid); }
+.wi-mark.mk-up, .wi-mark.mk-down { --mk: var(--rain); }
 .wi-bolt { fill: var(--sun); }
 .wi-fog line { stroke: color-mix(in srgb, var(--muted) 70%, transparent); stroke-width: 2.6; stroke-linecap: round; } /* senza nuvola: grigio leggibile in entrambi i temi */
 
@@ -985,7 +992,8 @@ button { font: inherit; color: inherit; }
 .verify-controls .info-note { flex-basis: 100%; margin: 0; }
 /* Legenda degli esiti nella scheda dei controlli: a destra su schermi larghi, una voce per riga */
 .verify-controls .vd-legend { list-style: none; padding: 0; margin: 0 0 0 auto; display: grid; gap: 2px; font-size: .8rem; color: var(--muted); }
-.verify-controls .vd-legend .o-mark { display: inline-block; width: 1.1em; margin: 0 4px 0 0; text-align: center; }
+.verify-controls .vd-legend li { display: flex; align-items: center; }
+.verify-controls .vd-legend .o-mark { display: inline-flex; justify-content: center; gap: 1px; min-width: 46px; margin: 0 4px 0 0; } /* spunta e icone in colonna */
 @media (max-width: 760px) { .verify-controls .vd-legend { margin-left: 0; flex-basis: 100%; } }
 /* Due colonne da 1100 px: riepilogo a sinistra, fisso sotto la barra in alto mentre si
    scorrono i giorni (se è più alto dello schermo scorre con la pagina); giorni a destra. */
@@ -1025,10 +1033,13 @@ button { font: inherit; color: inherit; }
 .o-mid .o-mark, .vd-list .o-mid { color: var(--mid); }
 .o-bad .o-mark, .vd-list .o-bad { color: var(--bad); }
 .o-bad-t { color: var(--bad); }
-/* Pioggia prevista e caduta ma in quantità molto diversa: freccia e bordo arancio sulla cella */
-.q-mark { color: var(--mid); font-weight: 700; }
-.vt .q-off { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--mid) 70%, transparent); }
-.verify-controls .vd-legend .q-mark { width: auto; min-width: 1.1em; letter-spacing: -.1em; }
+/* Pioggia prevista e caduta ma in quantità molto diversa: pioggia con freccia e bordo azzurro */
+.vt .q-off { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rain) 60%, transparent); }
+/* Esiti disegnati con rainMarkIcon() (falso allarme, pioggia non prevista, quantità) */
+.o-mark .wi-mark { vertical-align: -6px; }
+.vt .o-mark .wi-mark { margin-left: 1px; }
+.vs-table th .wi-mark { vertical-align: -3px; margin-right: 5px; }
+.vs-table .q-split .wi-mark { vertical-align: -2px; }
 .vd-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; font-size: .86rem; }
 .verify-day h3 { margin: 12px 0 0; font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 /* Intervalli monitorati (Bike): titolo evidente e tabella con lo stesso stile delle fasce */
