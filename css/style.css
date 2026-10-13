@@ -106,7 +106,7 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; scrollbar-gutter: stable; } /* spazio della barra di scorrimento sempre riservato: la barra in alto non si sposta quando la pagina si allunga (es. Verifica al caricamento dei dati) */
 
 body {
   margin: 0;
