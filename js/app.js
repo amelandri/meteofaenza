@@ -967,6 +967,30 @@ function bikeVerdict(wet, total, pop, single = "l'unico modello disponibile") {
   return { status: 'mixed', why: `${models}, ${p}` };
 }
 
+// Temperatura media prevista da un modello nell'intervallo. A differenza della pioggia la
+// temperatura del timestamp è istantanea: si interpola tra le ore e si fa la media di un
+// campione ogni TEMP_STEP_MIN minuti (estremi compresi). null se manca un'ora.
+const TEMP_STEP_MIN = 10;
+function windowTemp(day, w, hourIdx, key) {
+  const t = state.data.hourly.models[key]?.temperature_2m;
+  if (!t) return null;
+  const at = (h) => {
+    const i = hourIdx.get(h >= 24 ? `${nextDate(day)}T00:00` : `${day}T${String(h).padStart(2, '0')}:00`);
+    return i == null ? null : t[i];
+  };
+  const a = toMinutes(w.from), b = toMinutes(w.to);
+  let sum = 0, n = 0;
+  for (let m = a; ; m = Math.min(m + TEMP_STEP_MIN, b)) {
+    const h = Math.floor(m / 60), f = (m - h * 60) / 60;
+    const t0 = at(h), t1 = f ? at(h + 1) : t0;
+    if (t0 == null || t1 == null) return null;
+    sum += t0 + (t1 - t0) * f;
+    n++;
+    if (m >= b) break;
+  }
+  return sum / n;
+}
+
 function bikeWindow(day, w, hourIdx) {
   const { hourly } = state.data;
   const hrs = windowHours(day, w).map((x) => ({ ...x, i: hourIdx.get(x.stamp) }));
@@ -978,22 +1002,26 @@ function bikeWindow(day, w, hourIdx) {
   };
   // I modelli mostrati sempre (anche "n.d." oltre l'orizzonte), quelli di supporto solo dove
   // coprono il tragitto (prime ~48 ore).
-  const main = shown.map((m) => ({ m, mm: mmOf(m) }));
+  const main = shown.map((m) => ({ m, mm: mmOf(m), temp: windowTemp(day, w, hourIdx, m.key) }));
   const support = SUPPORT_MODELS.map((m) => ({ m, mm: mmOf(m), support: true })).filter((x) => x.mm != null);
   const mainAvail = main.filter((x) => x.mm != null);
+  // Temperatura media del tragitto: media dei modelli mostrati che lo coprono (i modelli di
+  // supporto arrivano all'app solo con la pioggia).
+  const temps = main.map((x) => x.temp).filter((v) => v != null);
+  const temp = temps.length ? temps.reduce((a, b) => a + b, 0) / temps.length : null;
   const models = [...main, ...support];
   const avail = [...mainAvail, ...support];
   const chance = windowRainChance(hrs);
   const { pop } = chance;
   // Nessun modello mostrato copre il tragitto: niente verdetto, resta la probabilità.
-  if (!mainAvail.length) return { w, status: 'na', why: `${shown.map((m) => m.name).join(' e ')} oltre l'orizzonte`, models, avail, mainAvail, ...chance };
+  if (!mainAvail.length) return { w, status: 'na', why: `${shown.map((m) => m.name).join(' e ')} oltre l'orizzonte`, models, avail, mainAvail, temp, ...chance };
 
   const wet = avail.filter((x) => x.mm >= BIKE_WET_MM).length;
   // Con un solo modello (mostrato e senza supporto) si nomina quello; con entrambi mostrati
   // ma uno solo disponibile (fine orizzonte) "l'unico modello disponibile".
   const { status, why } = bikeVerdict(wet, avail.length, pop, shown.length === 1 ? shown[0].name : undefined);
   const mms = avail.map((x) => x.mm);
-  return { w, status, why, wet, models, avail, mainAvail, ...chance, mean: mms.reduce((a, b) => a + b, 0) / mms.length, min: Math.min(...mms), max: Math.max(...mms) };
+  return { w, status, why, wet, models, avail, mainAvail, temp, ...chance, mean: mms.reduce((a, b) => a + b, 0) / mms.length, min: Math.min(...mms), max: Math.max(...mms) };
 }
 
 // Icone dello stato (16×16, tratto): sole = asciutto, nuvola = rischio,
@@ -1064,17 +1092,20 @@ function renderBike(commute, day, hourIdx, today, nowMin) {
     const only = partial ? `<span class="bike-only">solo ${x.mainAvail[0].m.short}</span>` : '';
     // Dettaglio: riquadro al clic su desktop, avviso al tocco su mobile (dove mm
     // e "solo EU" sono nascosti).
-    const tip = tipHead(`Tragitto ${range}`, `${st.label}${mm ? ` · ${mm}` : ''}`, `st-${x.status}`)
+    const temp = x.temp != null ? `${fmt(x.temp)}°` : '';
+    const tip = tipHead(`Tragitto ${range}`, `${st.label}${mm ? ` · ${mm}` : ''}${temp ? ` · ${temp}` : ''}`, `st-${x.status}`)
       + (x.why ? `<p class="tp-why"><span>Perché</span>${esc(x.why)}</p>` : '')
-      + tipRows(x.models.map((y) => ({ k: `${y.m.name}${y.support ? ' <small>supporto</small>' : ''}`, dot: y.m.key, v: y.mm == null ? 'n.d.' : `${fmt(y.mm, 1)} mm` })))
+      + tipRows(x.models.map((y) => ({ k: `${y.m.name}${y.support ? ' <small>supporto</small>' : ''}`, dot: y.m.key, v: [y.mm == null ? 'n.d.' : `${fmt(y.mm, 1)} mm`, y.temp != null ? `${fmt(y.temp, 1)}°` : ''].filter(Boolean).join(' · ') })))
+      + (temp ? tipNote(`Temperatura media prevista nel tragitto: ${fmt(x.temp, 1)}°${x.models.filter((y) => y.temp != null).length > 1 ? ' (media dei modelli)' : ''}.`) : '')
       + (partial ? tipNote(`Solo ${x.mainAvail[0].m.name}: l'altro modello mostrato non copre il tragitto.`) : '')
       + tipChance(x, 'nel tragitto');
-    return `<button type="button" class="bike-chip st-${x.status}${past}" data-tip="${esc(tip)}" data-tip-key="bike|${day}|${range}" aria-label="${esc(`Tragitto ${range}: ${st.label}. ${chancePlain(x, 'nel tragitto')}`)}">
+    return `<button type="button" class="bike-chip st-${x.status}${past}" data-tip="${esc(tip)}" data-tip-key="bike|${day}|${range}" aria-label="${esc(`Tragitto ${range}: ${st.label}${temp ? `, ${temp}` : ''}. ${chancePlain(x, 'nel tragitto')}`)}">
       <span class="bike-time">${x.w.from}–<wbr>${x.w.to}</span>
       <span class="bike-info">
         <span class="bike-st" aria-label="${st.label}">${st.icon ? `<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">${st.icon}</svg>` : ''}<span class="bike-st-label">${st.label}</span></span>
         ${mm ? `<span class="bike-mm">${mm}</span>` : ''}${only}
         ${x.pop != null ? `<span class="bike-pop">${DROP}${x.popExact ? '' : '~'}${fmt(x.pop)}%</span>` : ''}
+        ${temp ? `<span class="bike-temp" title="Temperatura media prevista">${temp}</span>` : ''}
       </span>
     </button>`;
   }).join('');

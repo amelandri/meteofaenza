@@ -624,6 +624,8 @@ button { font: inherit; color: inherit; }
 .bike-only { color: var(--muted); font-size: .72rem; }
 .bike-pop { display: inline-flex; align-items: center; gap: 2px; color: var(--muted); }
 .bike-pop .drop { fill: var(--rain); width: 11px; height: 11px; }
+/* Temperatura media prevista nel tragitto, dopo la probabilità */
+.bike-temp { font-size: .72rem; font-weight: 650; color: var(--text); }
 
 /* --- Grafico ------------------------------------------------------------------- */
 
@@ -1357,6 +1359,8 @@ body.loading #forecast { opacity: .5; }
   /* Se l'orario non entra (schermi < 375 px) va a capo dopo il trattino (<wbr>) */
   .bike-time { font-size: .66rem; letter-spacing: -.02em; white-space: normal; text-align: center; line-height: 1.2; }
   .bike-pop { font-size: .68rem; }
+  .bike-temp { font-size: .68rem; }
+  .bike-info { flex-wrap: wrap; justify-content: center; column-gap: 4px; row-gap: 0; } /* se non c'è spazio la temperatura va sotto */
   .bike-st svg { width: 13px; height: 13px; }
 
 }
