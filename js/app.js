@@ -193,9 +193,7 @@ async function load({ force = false } = {}) {
 
 function setLoading(on) {
   state.loading = on;
-  $('#refresh-btn').classList.toggle('spinning', on);
   if (state.data) renderHeader();
-  $('#refresh-btn').disabled = on;
   document.body.classList.toggle('loading', on && !state.data);
 }
 
@@ -1492,7 +1490,6 @@ function renderHourlyTable() {
 // --- Controlli -----------------------------------------------------------------------
 
 function bindControls() {
-  $('#refresh-btn').addEventListener('click', () => { load({ force: true }); loadStation(); });
   $('#retry-btn').addEventListener('click', () => load({ force: true }));
 
   const showTip = (e) => {

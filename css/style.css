@@ -159,8 +159,6 @@ button { font: inherit; color: inherit; }
 .brand-sub { margin: 1px 0 0; font-size: .76rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .topbar-actions { display: flex; align-items: center; gap: 6px; flex: none; }
 /* Menu di navigazione, uguale in tutte le pagine: la pagina attuale ha aria-current="page" */
-.topbar-nav { display: flex; align-items: center; gap: 6px; }
-.icon-btn[aria-current="page"], .icon-btn[aria-current="page"]:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 
 
 .icon-btn {
@@ -175,8 +173,19 @@ button { font: inherit; color: inherit; }
 .icon-btn:hover { background: var(--surface-2); color: var(--text); }
 .icon-btn:disabled { cursor: default; }
 .icon-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-.icon-btn.spinning svg { animation: spin .9s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Menu di navigazione, uguale in tutte le pagine (la pagina attuale ha aria-current="page"):
+   da 900 px icona ed etichetta, sotto solo l'icona (etichetta nel title e in aria-label). */
+.topbar-nav { display: flex; align-items: center; gap: 4px; }
+.topbar-nav .icon-btn { text-decoration: none; }
+.topbar-nav .icon-btn[aria-current="page"],
+.topbar-nav .icon-btn[aria-current="page"]:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.nav-label { display: none; }
+@media (min-width: 900px) {
+  .topbar-nav .icon-btn { width: auto; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px 0 10px; font-size: .93rem; font-weight: 500; white-space: nowrap; }
+  .topbar-nav .icon-btn[aria-current="page"] { font-weight: 600; }
+  .nav-label { display: inline; }
+}
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -1371,10 +1380,6 @@ body.loading #forecast { opacity: .5; }
   .hourly td .wi { width: 20px; height: 20px; }
   .hourly .wind-arrow { width: 10px; height: 10px; }
   .hourly tbody .mm, .hourly td.prob small { display: none; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .icon-btn.spinning svg { animation: none; }
 }
 
 /* --- Fasce: layout affiancato --------------------------------------------------
