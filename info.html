@@ -254,14 +254,89 @@
 
     <section class="card" id="verifica">
       <h2>La verifica delle previsioni</h2>
-      <p>La pagina <a href="verify.html">Verifica</a> confronta, per i giorni passati, le previsioni con quello che è successo davvero secondo la centralina. Il server conserva ogni previsione scaricata e le letture della centralina ogni 10 minuti, da cui ricava la pioggia caduta ora per ora, da mezzanotte a mezzanotte. La centralina azzera i millimetri "di oggi" alla mezzanotte dell'ora solare (con l'ora legale all'01:00): la verifica, come l'app, conta invece da mezzanotte a mezzanotte, quindi il totale mostrato sul sito della centralina può essere diverso.</p>
+      <p>La pagina <a href="verify.html">Verifica</a> mette a confronto, giorno per giorno, quello che i modelli avevano previsto con quello che è successo davvero secondo la centralina. Serve a capire di quale modello fidarsi di più, in quali situazioni sbaglia e quanto è affidabile la probabilità di pioggia.</p>
+
+      <h3>Quale previsione si giudica</h3>
       <ul>
-        <li>Si verifica la previsione disponibile <strong>il giorno prima alle 23</strong> (l'ultima scaricata entro quell'ora) oppure quella di <strong>due giorni prima</strong>, sempre alle 23. Per ICON-2I, che esce due volte al giorno, è di solito il run delle 12 UTC (disponibile verso le 16): la pioggia prevista nei run precedenti e poi spostata non conta.</li>
-        <li>Per ogni fascia di 6 ore e, in una tabella a parte, per ogni intervallo monitorato (Bike): pioggia misurata, pioggia prevista da ciascun modello (anche ICON-D2 e AROME, quando c'è la loro previsione) con l'esito (✓ corretta, pioggia con la X rossa = falso allarme, pioggia con il punto esclamativo = pioggia non prevista), e probabilità. Una previsione è <strong>corretta</strong> se prevede pioggia (almeno 0,2 mm) quando piove o niente pioggia quando non piove; altrimenti è un <strong>falso allarme</strong> o una <strong>pioggia non prevista</strong>. Se la pioggia è prevista e caduta ma in quantità molto diversa (una almeno il doppio dell'altra, con almeno 2 mm di scarto) al posto della spunta c'è la pioggia con una freccia: in su se ne è caduta molta più del previsto, in giù se molta meno. Al passaggio del mouse ogni cella mostra lo scarto in mm tra previsto e caduto.</li>
-        <li>Minima e massima previste (dalle ore) confrontate con quelle misurate.</li>
-        <li>Il riepilogo del periodo mostra, per modello, la quota di fasce e di intervalli monitorati previsti correttamente, le fasce con quantità molto diversa e gli errori medi (sulla pioggia del giorno anche la tendenza: + se il modello ne prevede troppa, − se troppo poca), e per la probabilità quante volte ha piovuto quando era bassa, media o alta: una probabilità affidabile del 30% vede pioggia circa 3 volte su 10. Per la probabilità c'è anche un punteggio complessivo, il <strong>punteggio di Brier</strong>: per ogni fascia si calcola lo scarto tra la probabilità e quello che è successo (1 se ha piovuto, 0 se no) e lo si eleva al quadrato, così gli sbagli netti pesano molto di più di quelli lievi (90% e asciutto costa 0,81, 30% e asciutto 0,09, 10% e asciutto 0,01). Più è basso meglio è: 0 è perfetto, 0,25 è quello che si otterrebbe dicendo sempre 50%. È confrontato con il punteggio che si otterrebbe dando a ogni fascia la frequenza della pioggia nel periodo, e accanto sono contati gli errori gravi (probabilità almeno del 70% senza pioggia, o sotto il 20% con pioggia).</li>
+        <li>Per ogni modello si prende la previsione disponibile <strong>il giorno prima alle 23</strong>, cioè l'ultima scaricata entro quell'ora: è quella che si sarebbe guardata la sera prima. In alternativa si può scegliere quella di <strong>due giorni prima</strong>, sempre alle 23, per vedere quanto peggiora la previsione allontanandosi nel tempo.</li>
+        <li>ICON-2I esce solo due volte al giorno: alle 23 la previsione disponibile è di solito quella del run delle 12 UTC, pubblicata verso le 16. Se un run precedente prevedeva pioggia in un'altra ora e poi l'ha spostata, conta solo l'ultima versione.</li>
+        <li>Oltre a ICON-2I e ICON-EU sono verificati anche i modelli di supporto ICON-D2 e AROME, quando avevano una previsione per quel giorno (arrivano a circa 48 ore). Per la probabilità si usano gli ensemble disponibili alla stessa ora.</li>
       </ul>
-      <p class="info-note">Il giorno di oggi è mostrato come "in corso": le fasce già trascorse si possono già giudicare, il totale del giorno e le temperature no. La verifica è disponibile dai giorni in cui il server era attivo.</p>
+
+      <h3>Cosa si misura</h3>
+      <p>Il server conserva le letture della centralina ogni 10 minuti e ne ricava la pioggia caduta ora per ora, da mezzanotte a mezzanotte, oltre a minima e massima del giorno. La centralina azzera i suoi millimetri "di oggi" alla mezzanotte dell'ora solare (con l'ora legale all'01:00): la verifica conta invece da mezzanotte a mezzanotte, come l'app, quindi il totale del giorno può essere diverso da quello del sito della centralina. Nei giorni del cambio dell'ora (23 o 25 ore) previsioni e misure vengono allineate sull'ora reale.</p>
+
+      <h3>Come si giudica una fascia</h3>
+      <p>Per ogni fascia di 6 ore la pagina mostra la pioggia misurata, quella prevista da ogni modello e la probabilità. Si considera "pioggia" da <strong>0,2 mm</strong> in su, la stessa soglia usata dall'app. Ogni previsione riceve un esito:</p>
+      <table class="info-table info-icon-table">
+        <thead><tr><th>Esito</th><th>Quando</th><th>Esempio (previsto → misurato)</th></tr></thead>
+        <tbody>
+          <tr><td class="info-icons o-good"><span class="o-mark">✓</span></td><td><strong>Corretta</strong>: pioggia prevista ed è piovuto, oppure nessuna pioggia prevista e non è piovuto</td><td>1,5 → 2,0 mm · 0,0 → 0,0 mm</td></tr>
+          <tr><td class="info-icons"><span class="info-mark" data-mark="x" data-title="Falso allarme"></span></td><td><strong>Falso allarme</strong>: pioggia prevista, ma non è piovuto</td><td>9,0 → 0,0 mm</td></tr>
+          <tr><td class="info-icons"><span class="info-mark" data-mark="!" data-title="Pioggia non prevista"></span></td><td><strong>Pioggia non prevista</strong>: è piovuto, ma il modello non lo prevedeva</td><td>0,0 → 4,2 mm</td></tr>
+          <tr><td class="info-icons"><span class="info-mark" data-mark="up" data-title="Molta più pioggia del previsto"></span><span class="info-mark" data-mark="down" data-title="Molta meno pioggia del previsto"></span></td><td><strong>Quantità molto diversa</strong>: pioggia prevista e caduta, ma una almeno il doppio dell'altra con almeno 2 mm di scarto. Freccia in su: ne è caduta molta più del previsto; in giù: molta meno. Il "sì/no" è giusto, quindi conta come corretta</td><td>1,0 → 6,0 mm (su) · 8,0 → 2,5 mm (giù)</td></tr>
+        </tbody>
+      </table>
+      <p>Il colore della cella ripete l'esito (verde corretta, rosso falso allarme, ambra pioggia non prevista; bordo azzurro per la quantità). Passando con il mouse su una cella si vede lo scarto in millimetri tra previsto e caduto. Sotto la tabella ci sono massima e minima previste (ricavate dai valori orari) accanto a quelle misurate, con lo scarto.</p>
+      <p>Se nelle <a href="settings.html">Impostazioni</a> hai definito degli intervalli monitorati, ogni giorno ha anche una tabella con gli intervalli di quel giorno della settimana, giudicati con le stesse regole: è la verifica più vicina all'uso reale, perché dice se il verdetto sul tragitto sarebbe stato giusto.</p>
+      <p class="info-note">Il giorno di oggi è mostrato come "in corso": le fasce già trascorse si giudicano, il totale del giorno e le temperature no. Il riepilogo usa solo i giorni completi. La verifica è disponibile dai giorni in cui il server era attivo.</p>
+
+      <h3>Il riepilogo del periodo</h3>
+      <p>In cima alla pagina, per gli ultimi 7 o 30 giorni completi, un riepilogo per modello:</p>
+      <table class="info-table">
+        <thead><tr><th>Riga</th><th>Cosa dice</th></tr></thead>
+        <tbody>
+          <tr><td>Fasce previste correttamente</td><td>la quota di fasce con esito corretto. Attenzione: le fasce asciutte sono la maggioranza, quindi anche un modello che non prevede quasi mai pioggia ottiene una quota alta. Va letta insieme alle righe successive</td></tr>
+          <tr><td>Intervalli corretti</td><td>la stessa quota sugli intervalli monitorati (solo se ne hai definiti)</td></tr>
+          <tr><td>Pioggia prevista e caduta</td><td>quante volte il modello ha "preso" la pioggia</td></tr>
+          <tr><td>Falsi allarmi · Pioggia non prevista</td><td>i due modi di sbagliare: troppo pessimista o troppo ottimista</td></tr>
+          <tr><td>Quantità molto diversa</td><td>fasce in cui la pioggia c'era, ma molta più o molta meno del previsto</td></tr>
+          <tr><td>Errore medio sulla pioggia del giorno</td><td>di quanti millimetri sbaglia in media il totale del giorno; tra parentesi la tendenza: + se ne prevede troppa, − se troppo poca</td></tr>
+          <tr><td>Pioggia prevista / caduta</td><td>le somme sul periodo, per vedere se un modello esagera o sottostima</td></tr>
+          <tr><td>Errore medio su massima e minima</td><td>di quanti gradi sbaglia in media; tra parentesi la tendenza (+ troppo caldo, − troppo fresco). La centralina misura in continuo, i modelli danno valori orari: una piccola tendenza a "troppo fresco" sulla massima e "troppo caldo" sulla minima è normale</td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="affidabilita">Quanto ci si può fidare della probabilità</h3>
+      <p>Una probabilità non si può giudicare su una sola fascia: se l'app dice 30% e non piove, non ha sbagliato, perché 30% vuol dire proprio "più probabile che non piova". Si giudica su tante fasce insieme: una probabilità <strong>affidabile</strong> (si dice anche "ben calibrata") del 30% vede piovere in circa 3 fasce su 10, una del 70% in circa 7 su 10. Per questo la pagina Verifica raggruppa le fasce per probabilità prevista e conta quante volte ha piovuto davvero. Un esempio su 30 giorni (120 fasce):</p>
+      <table class="info-table">
+        <thead><tr><th>Probabilità prevista</th><th>Fasce</th><th>Ha piovuto</th><th>Come si legge</th></tr></thead>
+        <tbody>
+          <tr><td>0–20%</td><td>80</td><td>6 (8%)</td><td>affidabile: con probabilità bassa piove raramente</td></tr>
+          <tr><td>20–50%</td><td>20</td><td>7 (35%)</td><td>affidabile: dentro la fascia</td></tr>
+          <tr><td>50–80%</td><td>12</td><td>3 (25%)</td><td>troppo pessimista: piove meno di quanto annunciato</td></tr>
+          <tr><td>80–100%</td><td>8</td><td>8 (100%)</td><td>affidabile, forse anche prudente</td></tr>
+        </tbody>
+      </table>
+      <p>Se la quota della colonna "Ha piovuto" cade dentro la fascia di probabilità (o vicino), la probabilità è affidabile; se è sotto, l'app allarma troppo; se è sopra, la pioggia arriva più spesso di quanto annunciato. Con poche fasce in un gruppo (meno di una decina) la quota cambia molto anche per un solo giorno: meglio guardare il periodo di 30 giorni.</p>
+
+      <h3 id="brier">Il punteggio di Brier</h3>
+      <p>La tabella sopra dice <em>dove</em> la probabilità sbaglia; il <strong>punteggio di Brier</strong> riassume <em>quanto</em> sbaglia, in un solo numero. Per ogni fascia si confronta la probabilità (da 0 a 1) con quello che è successo (1 se ha piovuto, 0 se no), si eleva al quadrato la differenza e si fa la media su tutte le fasce. Elevare al quadrato fa pesare molto di più gli sbagli netti di quelli lievi: un 90% senza pioggia costa 81 volte un 10% senza pioggia.</p>
+      <table class="info-table">
+        <thead><tr><th>Probabilità prevista</th><th>Costo se ha piovuto</th><th>Costo se non ha piovuto</th></tr></thead>
+        <tbody>
+          <tr><td>0%</td><td>1,00</td><td>0,00</td></tr>
+          <tr><td>10%</td><td>0,81</td><td>0,01</td></tr>
+          <tr><td>30%</td><td>0,49</td><td>0,09</td></tr>
+          <tr><td>50%</td><td>0,25</td><td>0,25</td></tr>
+          <tr><td>70%</td><td>0,09</td><td>0,49</td></tr>
+          <tr><td>90%</td><td>0,01</td><td>0,81</td></tr>
+          <tr><td>100%</td><td>0,00</td><td>1,00</td></tr>
+        </tbody>
+      </table>
+      <p>Un esempio su una giornata: notte 10% e asciutto (0,01), mattina 30% e asciutto (0,09), pomeriggio 80% e pioggia (0,04), sera 60% e asciutto (0,36). Il punteggio è la media: (0,01 + 0,09 + 0,04 + 0,36) / 4 = <strong>0,125</strong>. Quasi tutto il costo viene dalla sera, l'unica previsione davvero sbagliata.</p>
+      <p>Più il punteggio è basso, meglio è: <strong>0</strong> è una previsione perfetta (sempre 0% quando non piove e 100% quando piove), <strong>0,25</strong> è quello che si otterrebbe dicendo sempre 50%, cioè senza sapere niente. Da solo però il numero dice poco, perché dipende dal tempo che ha fatto: in un periodo quasi sempre asciutto è facile avere un punteggio basso. Per questo la pagina lo confronta con un riferimento semplice, <strong>dare a ogni fascia la frequenza della pioggia nel periodo</strong>:</p>
+      <p>Il punteggio del riferimento è la frequenza per il suo complemento: se piove nel 20% delle fasce, 0,2 × 0,8 = 0,16. Il risultato "meglio del X%" è 1 − (punteggio dell'app / riferimento).</p>
+      <table class="info-table">
+        <thead><tr><th>Piove nel</th><th>Riferimento / app</th><th>Risultato</th></tr></thead>
+        <tbody>
+          <tr><td>20% delle fasce</td><td>0,16 / 0,12</td><td>meglio del 25%</td></tr>
+          <tr><td>20% delle fasce</td><td>0,16 / 0,16</td><td>non meglio del riferimento: la probabilità non aggiunge informazione</td></tr>
+          <tr><td>5% delle fasce</td><td>0,048 / 0,038</td><td>meglio del 20%: punteggio basso, ma solo un po' meglio del riferimento</td></tr>
+        </tbody>
+      </table>
+      <p>Accanto al punteggio sono contati gli <strong>errori gravi</strong>: fasce con probabilità almeno del 70% rimaste asciutte, o sotto il 20% in cui è piovuto. Sono le previsioni che avrebbero fatto prendere una decisione sbagliata (lasciare a casa la bici, o uscire senza ombrello).</p>
+      <p class="info-note">Le quattro fasce di uno stesso giorno non sono indipendenti (una perturbazione ne bagna spesso più d'una): con 7 giorni (28 fasce) il confronto cambia molto da una settimana all'altra, con 30 giorni è molto più stabile. Il calcolo usa le fasce di 6 ore, non gli intervalli monitorati, che sono pochi e brevi.</p>
     </section>
 
     <section class="card" id="limiti">
@@ -288,12 +363,15 @@
     </dl>
   </footer>
   <script type="module">
-    // Icone della tabella "Le icone delle fasce": disegnate dalla stessa funzione dell'app.
-    import { icon, describe } from './js/weather.js';
+    // Icone delle tabelle "Le icone delle fasce" e degli esiti della verifica: disegnate dalle
+    // stesse funzioni dell'app.
+    import { icon, describe, rainMarkIcon } from './js/weather.js';
     for (const el of document.querySelectorAll('.info-ico')) {
       const code = Number(el.dataset.code), day = el.dataset.day === '1';
       el.innerHTML = icon(code, day ? 1 : 0, 30, `${describe(code)} (${day ? 'giorno' : 'notte'})`);
     }
+    // Esiti della verifica: le stesse icone della pagina Verifica.
+    for (const el of document.querySelectorAll('.info-mark')) el.innerHTML = rainMarkIcon(el.dataset.mark, 30, el.dataset.title);
   </script>
 </body>
 </html>

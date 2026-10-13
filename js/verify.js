@@ -228,7 +228,7 @@ function renderSummary(sum) {
     </table></div>
     <h3>Affidabilità della probabilità</h3>
     ${brierBlock(sum.brier)}
-    <p class="info-note">Una probabilità ben calibrata del 30% dovrebbe vedere pioggia in circa 3 fasce su 10.</p>
+    <p class="info-note">Una probabilità ben calibrata del 30% dovrebbe vedere pioggia in circa 3 fasce su 10. <a href="info.html#affidabilita">Esempi</a></p>
     <table class="info-table vs-table">
       <thead><tr><th>Probabilità prevista</th><th>Fasce</th><th>Ha piovuto</th></tr></thead>
       <tbody>${sum.bins.map((b) => `<tr><th scope="row">${b.lo}–${Math.min(b.hi, 100)}%</th><td>${b.n}</td><td>${b.n ? `<b>${Math.round((100 * b.rained) / b.n)}%</b> <small>(${b.rained})</small>` : '—'}</td></tr>`).join('')}</tbody>
@@ -248,7 +248,7 @@ function brierBlock(b) {
     : skill > 0 ? `meglio del ${skill}% rispetto a dare sempre la frequenza del periodo (piove nel ${Math.round(100 * r)}% delle fasce: ${f2(ref)})`
     : `non meglio che dare sempre la frequenza del periodo (piove nel ${Math.round(100 * r)}% delle fasce: ${f2(ref)})`;
   return `<table class="info-table vs-table vs-brier"><tbody>
-      <tr><th scope="row">Errore della probabilità<small>punteggio di Brier: 0 = perfetta, 0,25 = dire sempre 50%; ogni fascia pesa lo scarto al quadrato (90% senza pioggia costa 0,81, 30% senza pioggia 0,09)</small></th><td><b>${f2(score)}</b>${vs ? ` <small>${vs}</small>` : ''}</td></tr>
+      <tr><th scope="row">Errore della probabilità<small>punteggio di Brier: 0 = perfetta, 0,25 = dire sempre 50%; ogni fascia pesa lo scarto al quadrato (90% senza pioggia costa 0,81, 30% senza pioggia 0,09). <a href="info.html#brier">Come si legge</a></small></th><td><b>${f2(score)}</b>${vs ? ` <small>${vs}</small>` : ''}</td></tr>
       <tr><th scope="row">Errori gravi<small>probabilità ≥ ${BAD_HIGH}% senza pioggia, o &lt; ${BAD_LOW}% con pioggia</small></th><td><b>${b.badHigh + b.badLow}</b> <small>su ${b.n} fasce (${b.badHigh} alta e asciutto · ${b.badLow} bassa e pioggia)</small></td></tr>
     </tbody></table>`;
 }

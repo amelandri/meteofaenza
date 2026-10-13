@@ -817,6 +817,8 @@ button { font: inherit; color: inherit; }
 /* giorno e notte affiancati anche su mobile (doppia classe: batte .info-table td:first-child,
    che su mobile riattiva l'a capo) */
 .info-table.info-icon-table td.info-icons { width: 1%; white-space: nowrap; }
+.info-icons .o-mark { margin: 0; font-size: 1.4rem; font-weight: 700; line-height: 30px; } /* spunta grande come le icone degli esiti */
+.info-mark + .info-mark { margin-left: 2px; }
 .info-ico { display: inline-flex; padding: 3px 5px; background: var(--surface-2); }
 .info-ico:first-child { border-radius: 8px 0 0 8px; margin-right: 1px; }
 .info-ico:last-child { border-radius: 0 8px 8px 0; }
