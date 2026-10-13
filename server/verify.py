@@ -27,7 +27,10 @@ from . import config, db, sources
 
 WET_MM = 0.2  # come BIKE_WET_MM / ENSEMBLE_WET_MM del frontend
 NEAR_MS = 8 * 60 * 1000  # una lettura vale per un orario se è entro 8 minuti
-LEADS = {1: 'la sera prima', 2: 'due giorni prima'}
+LEADS = {1: 'il giorno prima alle 23', 2: 'due giorni prima alle 23'}
+# Ora locale del giorno prima (o di due giorni prima) a cui si prende la previsione da verificare:
+# l'ultima disponibile a quell'ora.
+CUTOFF_HOUR = 23
 
 
 def _tz():
@@ -119,14 +122,15 @@ def archive_ensemble(conn, ens, utc_offset, issued_at):
 
 def thin_ensemble_archive(conn, now_ms=None):
     """Toglie i download dell'ensemble che la verifica non userà mai. ensemble_day() prende
-    l'ultimo download prima di una mezzanotte locale (la sera prima / due giorni prima): per
-    ogni giorno passato basta l'ultimo download di quel giorno. Degli 8 al giorno ne resta 1.
-    Restituisce il numero di download tolti."""
+    l'ultimo download prima delle CUTOFF_HOUR (23) del giorno prima o di due giorni prima: per
+    ogni giorno passato basta l'ultimo download prima delle 23 (quelli dalle 23 in poi contano
+    per il giorno dopo). Degli 8 al giorno ne resta 1. Restituisce il numero di download tolti."""
     tz = _tz()
     today = datetime.fromtimestamp((now_ms or db.now_ms()) / 1000, tz).date()
     last = {}
     for (t,) in conn.execute('SELECT DISTINCT issued_at FROM ensemble_archive ORDER BY issued_at'):
-        d = datetime.fromtimestamp(t / 1000, tz).date()
+        local = datetime.fromtimestamp(t / 1000, tz)
+        d = local.date() + timedelta(days=1 if local.hour >= CUTOFF_HOUR else 0)
         if d < today:
             last.setdefault(d, []).append(t)
     drop = [t for ts in last.values() for t in ts[:-1]]
@@ -330,9 +334,9 @@ def observed_day(conn, day):
 # --- Previsioni del giorno ---------------------------------------------------------
 
 def _cutoff_ms(day, lead):
-    """Ultimo istante utile per la previsione: mezzanotte del giorno meno (lead-1) giorni."""
-    start = datetime.strptime(day, '%Y-%m-%d').replace(tzinfo=_tz())
-    return int((start - timedelta(days=lead - 1)).timestamp() * 1000)
+    """Ultimo istante utile per la previsione: le CUTOFF_HOUR (23) locali di `lead` giorni prima."""
+    d = datetime.strptime(day, '%Y-%m-%d').date() - timedelta(days=lead)
+    return int(datetime(d.year, d.month, d.day, CUTOFF_HOUR, tzinfo=_tz()).timestamp() * 1000)
 
 
 def _archived_range(day):
@@ -343,8 +347,8 @@ def _archived_range(day):
 
 
 def forecast_day(conn, day, lead):
-    """Per ogni modello l'ultima previsione disponibile prima del limite (la sera prima o
-    due giorni prima), con pioggia, temperatura e codice per le 24 ore del giorno (ore locali
+    """Per ogni modello l'ultima previsione disponibile prima del limite (il giorno prima o
+    due giorni prima, alle 23), con pioggia, temperatura e codice per le 24 ore del giorno (ore locali
     vere: vedi _real_label())."""
     cutoff = _cutoff_ms(day, lead)
     targets = _day_targets(day)

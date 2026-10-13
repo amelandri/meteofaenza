@@ -1,5 +1,5 @@
-// Pagina Verifica: per i giorni passati confronta pioggia e temperature previste (la sera
-// prima o due giorni prima) con quelle misurate dalla centralina. I dati arrivano dal server
+// Pagina Verifica: per i giorni passati confronta pioggia e temperature previste (il giorno
+// prima o due giorni prima, alle 23) con quelle misurate dalla centralina. I dati arrivano dal server
 // (api/verify, vedi server/verify.py); qui si calcolano fasce, intervalli monitorati ed esiti.
 // Convenzione oraria come nell'app: l'indice h (0…23) è la pioggia dell'ora (h, h+1].
 
@@ -346,8 +346,8 @@ async function load() {
   status.hidden = false;
   status.textContent = 'Caricamento…';
   $('#verify-note').textContent = state.lead === 1
-    ? "Si verifica l'ultima previsione disponibile prima della mezzanotte del giorno (la sera prima)."
-    : "Si verifica l'ultima previsione disponibile prima della mezzanotte del giorno precedente (due giorni prima).";
+    ? "Si verifica l'ultima previsione disponibile il giorno prima alle 23."
+    : "Si verifica l'ultima previsione disponibile due giorni prima alle 23.";
   try {
     state.data = await getJSON(`api/verify?days=${state.days}&lead=${state.lead}`);
     render();

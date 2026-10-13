@@ -236,8 +236,30 @@ class VerifyTest(unittest.TestCase):
         f = self.verify.forecast_day(self.conn, self.DAY, 1)
         self.assertEqual(f['eu']['runInit'], 200)
         self.assertEqual(f['eu']['rain'][6], 0.4)
-        # Due giorni prima: il limite è la mezzanotte del 30, la previsione del 30 alle 9 non vale.
+        # Due giorni prima: il limite sono le 23 del 29, la previsione del 30 alle 9 non vale.
         self.assertIsNone(self.verify.forecast_day(self.conn, self.DAY, 2)['eu'])
+
+    def test_cutoff_at_23(self):
+        """Il giorno prima conta la previsione disponibile alle 23: una scaricata alle 23:30
+        non vale."""
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        old = config.DB_PATH
+        config.DB_PATH = Path(_tmp.name) / 'cutoff.db'
+        try:
+            conn = db.connect()
+            times = [f'2026-10-0{d}T{h:02d}:00' for d in (4, 5) for h in range(24)] + ['2026-10-06T00:00']
+            ms = lambda h, m: int(datetime(2026, 10, 4, h, m, tzinfo=ZoneInfo('Europe/Rome')).timestamp() * 1000)  # noqa: E731
+            for init, at, mm in ((300, ms(16, 0), 1.0), (400, ms(23, 30), 5.0)):
+                fc = _forecast(times, ['2026-10-04', '2026-10-05'])
+                fc['hourly']['models']['eu']['precipitation'] = [mm] * len(times)
+                self.verify.archive_forecast(conn, fc, {'eu': {'init': init}}, at)
+            f = self.verify.forecast_day(conn, '2026-10-05', 1)
+            self.assertEqual(f['eu']['runInit'], 300)
+            self.assertEqual(f['eu']['rain'][12], 1.0)
+            conn.close()
+        finally:
+            config.DB_PATH = old
 
     def test_dst_autumn_25_hours(self):
         """25/10/2026: 25 ore. Le due ore 02:00 si sommano, nessuna ora va persa."""
@@ -300,8 +322,8 @@ class VerifyTest(unittest.TestCase):
         conn.close()
 
     def test_thin_ensemble_archive(self):
-        """Dei giorni passati resta solo l'ultimo download dell'ensemble (quello che la verifica
-        usa); quelli di oggi restano tutti."""
+        """Dei giorni passati resta solo l'ultimo download dell'ensemble prima delle 23 (quello
+        che la verifica usa); quelli di oggi restano tutti."""
         from datetime import datetime
         from zoneinfo import ZoneInfo
         old = config.DB_PATH
@@ -309,7 +331,8 @@ class VerifyTest(unittest.TestCase):
         try:
             conn = db.connect()
             ms = lambda d, h: int(datetime(2026, 10, d, h, tzinfo=ZoneInfo('Europe/Rome')).timestamp() * 1000)  # noqa: E731
-            issued = [ms(10, 3), ms(10, 21), ms(11, 3), ms(11, 15), ms(12, 3), ms(12, 9)]
+            # 10/10 alle 23: conta già per il giorno dopo (limite delle 23 dell'11)
+            issued = [ms(10, 3), ms(10, 21), ms(10, 23), ms(11, 15), ms(12, 3), ms(12, 9)]
             for t in issued:
                 conn.execute('INSERT INTO ensemble_archive VALUES (?, ?, ?, ?, ?)', (t, '2026-10-13T12:00', 'X', 1, 1))
             conn.commit()
