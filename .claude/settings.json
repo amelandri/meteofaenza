@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -m unittest *)",
+      "Bash(python3 -m server.jobs *)",
+      "Bash(python3 -m server.api *)",
+      "Bash(METEO_DB=* python3 -m server.jobs *)",
+      "Bash(node --check *)"
+    ]
+  }
+}
