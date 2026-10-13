@@ -1246,7 +1246,9 @@ body.loading #forecast { opacity: .5; }
 .col-main { min-width: 0; }
 @media (min-width: 1200px) {
   :root { --page-w: 1920px; }
-  .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); gap: 16px; align-items: start; }
+  /* Colonna sinistra almeno 420 px (circa 2/7: ~540 px a 1920), così le temperature con lo
+     scarto dalla media stanno su una riga (vedi @container side 400–560 px) */
+  .layout { display: grid; grid-template-columns: minmax(420px, 2fr) minmax(0, 5fr); gap: 16px; align-items: start; }
   /* Piè di pagina spostato nella colonna sinistra da placeFooter() (app.js) */
   .col-side > .footer { max-width: none; padding: 4px 4px 0; }
 }
@@ -1322,6 +1324,17 @@ body.loading #forecast { opacity: .5; }
   .bike-pop { font-size: .68rem; }
   .bike-st svg { width: 13px; height: 13px; }
 
+}
+
+/* Colonna compatta ma non stretta (desktop, 400–560 px): lo scarto dalla media accanto alla
+   temperatura ("21° +1°") invece che sotto; colonna delle temperature più larga, uguale nei
+   box e nella riga della probabilità. */
+@container side (min-width: 400px) and (max-width: 560px) {
+  .dm, .pop-row { grid-template-columns: 62px minmax(0, 1fr); }
+  /* griglia valore | scarto: valori allineati a destra, scarti in colonna */
+  .dm .temps { display: grid; grid-template-columns: auto auto; justify-content: start; justify-items: end; align-items: baseline; column-gap: 3px; min-width: 0; }
+  .dm .tv { display: contents; }
+  .dm .tv .anom { justify-self: start; margin-bottom: 0; }
 }
 
 @media (max-width: 560px) {
