@@ -1314,7 +1314,6 @@ function renderChartSection() {
     legend = `Tratteggio: previsione corretta con la centralina (alle ${fixes[0].fix.time} misurato − previsto: ${diffs}), correzione dimezzata ogni ${TEMP_FIX_HALF_H} ore. `;
   }
   if (normals.length) legend += `Puntini grigi: massima e minima medie del periodo (${NORMALS.from}–${NORMALS.to}, ${NORMALS.name}). `;
-  if (cfg.pop) legend = `Barre: pioggia in mm (${shown.map((m) => m.name).join(', ')}) · area azzurra: probabilità di pioggia (scenari ${listIt(state.data.ensemble?.groups.map((g) => g.model) || []) || 'ensemble'} con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm, scala a destra) · striscia sotto il grafico: verdetto di ogni ora (verde asciutto, ambra rischio o incerto, blu pioggia), con i modelli anche di supporto, la probabilità e per oggi centralina e radar; toccala per il dettaglio. `;
   for (const m of shown) {
     if (!inModelDomain(m, state.loc.lat, state.loc.lon)) note.push(`${m.name} non copre questa località.`);
     else {
@@ -1322,7 +1321,18 @@ function renderChartSection() {
       if (last >= 0 && last < end - 1) note.push(`${m.name} disponibile fino a ${dayShort(hourly.time[last])} ore ${hourLabel(hourly.time[last])}.`);
     }
   }
-  $('#chart-note').textContent = legend + note.join(' ');
+  // Precipitazioni: legenda strutturata, una riga per elemento (barre, area, striscia), così
+  // si capisce che area (solo ensemble) e striscia (verdetto) dicono cose diverse.
+  $('#chart-note').innerHTML = cfg.pop
+    ? rainLegend(shown) + (note.length ? `<span class="cl-note">${esc(note.join(' '))}</span>` : '')
+    : esc(legend + note.join(' '));
+}
+
+function rainLegend(shown) {
+  const ens = listIt(state.data.ensemble?.groups.map((g) => g.model) || []) || 'ensemble';
+  return `<span class="cl-row"><span class="cl-key">${shown.map((m) => `<i class="sw cl-bar s-${m.key}"></i>${m.short}`).join(' ')}</span>pioggia prevista dai modelli (mm, scala a sinistra)</span>`
+    + `<span class="cl-row"><span class="cl-key"><i class="sw cl-area"></i>Probabilità</span>quota di scenari degli ensemble (${esc(ens)}) con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm nell'ora (%, scala a destra)</span>`
+    + `<span class="cl-row"><span class="cl-key"><i class="sw vsw st-dry"></i><i class="sw vsw st-mixed"></i><i class="sw vsw st-wet"></i>Verdetto</span>striscia sotto il grafico (asciutto · rischio o incerto · pioggia): unisce probabilità, modelli (anche ICON-D2 e AROME) e, per oggi, centralina e radar. Tocca un'ora per il perché</span>`;
 }
 
 // Cella della probabilità oraria: stesso calcolo del verdetto (scenari dell'ensemble con
