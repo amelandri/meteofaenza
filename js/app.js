@@ -793,6 +793,11 @@ function nextDate(day) {
   d.setUTCDate(d.getUTCDate() + 1);
   return d.toISOString().slice(0, 10);
 }
+function prevDate(day) {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
 
 // Ore dell'API che coprono la finestra, con il peso della sovrapposizione.
 // In Open-Meteo pioggia e probabilità si riferiscono all'ora PRECEDENTE il timestamp:
@@ -1054,13 +1059,62 @@ function applyRainNow(x, rn, nowMin) {
 function applyRadar(x, day, nowMin) {
   if (x.status === 'na' || x.rainNow || toMinutes(x.w.from) - nowMin > RADAR_BIKE_MIN || nowMin >= toMinutes(x.w.to)) return x;
   const { utcOffset, timezone } = state.data;
-  const ms = (hhmm) => Date.parse(`${day}T${hhmm}:00Z`) - utcOffset * 1000;
+  // dai minuti, così vale anche "24:00" (ultima ora della striscia del grafico)
+  const ms = (hhmm) => Date.parse(`${day}T00:00:00Z`) + toMinutes(hhmm) * 60000 - utcOffset * 1000;
   const s = radarWindowRain(state.station?.radar, ms(x.w.from), ms(x.w.to));
   if (!s) return x;
   const forecast = `previsione: ${BIKE_STATUS[x.status].label.toLowerCase()}${x.why ? `, ${x.why}` : ''}`;
   return {
     ...x, status: 'wet', rainNow: true,
     why: `il radar vede arrivare pioggia ${radarWords(s.mmh)} verso le ${localDateTime(s.at, timezone, utcOffset).time}; ${forecast}`,
+  };
+}
+
+// mm da mostrare con il verdetto: media se tutti i modelli vedono pioggia, altrimenti
+// l'intervallo min–max. Con la pioggia in corso i mm previsti dai modelli (anche 0) non
+// descrivono il verdetto: restano nel dettaglio per modello.
+function verdictMm(x) {
+  if (x.rainNow || x.status === 'na') return '';
+  const mmRange = `${x.min < 0.05 ? '0' : fmt(x.min, 1)}–${fmt(x.max, 1)} mm`;
+  if (x.status === 'wet') return x.wet === x.avail.length ? `${fmt(x.mean, 1)} mm` : mmRange;
+  return x.status === 'mixed' ? mmRange : '';
+}
+
+// "solo EU": uno dei modelli mostrati non copre l'intervallo (non se se ne mostra uno solo).
+const verdictPartial = (x) => x.mainAvail.length === 1 && x.models.filter((y) => !y.support).length > 1;
+
+// Dettaglio di un verdetto (tragitto o ora della striscia del grafico): stato, perché, mm e
+// temperatura per modello, probabilità con gli scenari.
+function verdictTip(x, title, where) {
+  const st = BIKE_STATUS[x.status];
+  const mm = verdictMm(x);
+  const temp = x.temp != null ? `${fmt(x.temp)}°` : '';
+  return tipHead(title, `${st.label}${mm ? ` · ${mm}` : ''}${temp ? ` · ${temp}` : ''}`, `st-${x.status}`)
+    + (x.why ? `<p class="tp-why"><span>Perché</span>${esc(x.why)}</p>` : '')
+    + tipRows(x.models.map((y) => ({ k: `${y.m.name}${y.support ? ' <small>supporto</small>' : ''}`, dot: y.m.key, v: [y.mm == null ? 'n.d.' : `${fmt(y.mm, 1)} mm`, y.temp != null ? `${fmt(y.temp, 1)}°` : ''].filter(Boolean).join(' · ') })))
+    + (temp ? tipNote(`Temperatura media prevista ${where}: ${fmt(x.temp, 1)}°${x.models.filter((y) => y.temp != null).length > 1 ? ' (media dei modelli)' : ''}.`) : '')
+    + (verdictPartial(x) ? tipNote(`Solo ${x.mainAvail[0].m.name}: l'altro modello mostrato non copre l'intervallo.`) : '')
+    + tipChance(x, where);
+}
+
+// Verdetto di una singola ora del grafico (timestamp T = ora (T-1, T]) con le regole dei
+// tragitti: modelli mostrati e di supporto, probabilità, e per oggi pioggia in corso e radar.
+function hourVerdict(t, ctx) {
+  const h = Number(t.slice(11, 13));
+  const day = h === 0 ? prevDate(t.slice(0, 10)) : t.slice(0, 10);
+  const w = { from: `${String((h + 23) % 24).padStart(2, '0')}:00`, to: h === 0 ? '24:00' : t.slice(11, 16) };
+  const x = bikeWindow(day, w, ctx.hourIdx);
+  if (day !== ctx.today) return x;
+  return applyRadar(applyRainNow(x, stationRainNow(), ctx.nowMin), day, ctx.nowMin);
+}
+
+// Indice delle ore, giorno e minuto attuali nel fuso della località (per i verdetti).
+function verdictCtx() {
+  const { hourly, utcOffset, timezone } = state.data;
+  return {
+    hourIdx: new Map(hourly.time.map((t, i) => [t, i])),
+    today: localNowIso(utcOffset).slice(0, 10),
+    nowMin: toMinutes(localDateTime(Date.now(), timezone, utcOffset).time),
   };
 }
 
@@ -1079,27 +1133,13 @@ function renderBike(commute, day, hourIdx, today, nowMin) {
     const st = BIKE_STATUS[x.status];
     const past = day === today && toMinutes(x.w.to) <= nowMin ? ' past' : '';
     const range = `${x.w.from}–${x.w.to}`;
-    let mm = '';
-    // Media dei mm solo se tutti i modelli vedono pioggia, altrimenti l'intervallo min–max.
-    const mmRange = `${x.min < 0.05 ? '0' : fmt(x.min, 1)}–${fmt(x.max, 1)} mm`;
-    // Con la pioggia in corso i mm previsti dai modelli (anche 0) non descrivono il verdetto:
-    // restano nel dettaglio per modello.
-    if (x.rainNow) mm = '';
-    else if (x.status === 'wet') mm = x.wet === x.avail.length ? `${fmt(x.mean, 1)} mm` : mmRange;
-    else if (x.status === 'mixed') mm = mmRange;
-    // "solo EU": uno dei modelli mostrati non copre il tragitto (non se se ne mostra uno solo).
-    const shownN = x.models.filter((y) => !y.support).length;
-    const partial = x.mainAvail.length === 1 && shownN > 1;
+    const mm = verdictMm(x);
+    const partial = verdictPartial(x);
     const only = partial ? `<span class="bike-only">solo ${x.mainAvail[0].m.short}</span>` : '';
     // Dettaglio: riquadro al clic su desktop, avviso al tocco su mobile (dove mm
     // e "solo EU" sono nascosti).
     const temp = x.temp != null ? `${fmt(x.temp)}°` : '';
-    const tip = tipHead(`Tragitto ${range}`, `${st.label}${mm ? ` · ${mm}` : ''}${temp ? ` · ${temp}` : ''}`, `st-${x.status}`)
-      + (x.why ? `<p class="tp-why"><span>Perché</span>${esc(x.why)}</p>` : '')
-      + tipRows(x.models.map((y) => ({ k: `${y.m.name}${y.support ? ' <small>supporto</small>' : ''}`, dot: y.m.key, v: [y.mm == null ? 'n.d.' : `${fmt(y.mm, 1)} mm`, y.temp != null ? `${fmt(y.temp, 1)}°` : ''].filter(Boolean).join(' · ') })))
-      + (temp ? tipNote(`Temperatura media prevista nel tragitto: ${fmt(x.temp, 1)}°${x.models.filter((y) => y.temp != null).length > 1 ? ' (media dei modelli)' : ''}.`) : '')
-      + (partial ? tipNote(`Solo ${x.mainAvail[0].m.name}: l'altro modello mostrato non copre il tragitto.`) : '')
-      + tipChance(x, 'nel tragitto');
+    const tip = verdictTip(x, `Tragitto ${range}`, 'nel tragitto');
     return `<button type="button" class="bike-chip st-${x.status}${past}" data-tip="${esc(tip)}" data-tip-key="bike|${day}|${range}" aria-label="${esc(`Tragitto ${range}: ${st.label}${temp ? `, ${temp}` : ''}. ${chancePlain(x, 'nel tragitto')}`)}">
       <span class="bike-time">${x.w.from}–<wbr>${x.w.to}</span>
       <span class="bike-info">
@@ -1331,8 +1371,21 @@ function renderChartSection() {
     });
   }
 
+  // Striscia del verdetto (solo Precipitazioni): per ogni ora Asciutto / Rischio / Incerto /
+  // Pioggia con le regole dei tragitti; il dettaglio si costruisce al clic (tipContent()).
+  const nowHour = localNowIso(state.data.utcOffset);
+  let verdicts = null;
+  if (cfg.pop) {
+    const ctx = verdictCtx();
+    verdicts = times.map((t) => hourVerdict(t, ctx));
+  }
+  const strip = verdicts?.map((x, k) => (x.status === 'na' ? null : {
+    status: x.status, key: `verdict|${times[k]}`, past: times[k] <= nowHour,
+    label: `${dayShort(times[k])} · ore ${hourSpan(times[k])}: ${BIKE_STATUS[x.status].label}`,
+  }));
+
   renderChart($('#chart'), {
-    times, series, unit: cfg.unit, decimals: cfg.decimals, yFloor: cfg.yFloor, yCeil: cfg.yCeil,
+    times, series, strip, unit: cfg.unit, decimals: cfg.decimals, yFloor: cfg.yFloor, yCeil: cfg.yCeil,
     y2: cfg.pop ? { max: 100, ticks: [0, 25, 50, 75, 100], unit: '%' } : null,
     minSpan: cfg.minSpan, nowIso: localNowIso(state.data.utcOffset),
     // alba e tramonto di ogni giorno: barra giorno/notte sotto il grafico
@@ -1347,9 +1400,12 @@ function renderChartSection() {
       // Δ solo con entrambi i modelli (le prime due serie sono ICON-2I e ICON-EU).
       const a = series[0].values[i], b = shown.length > 1 ? series[1].values[i] : null;
       const diff = a != null && b != null ? `<div class="tip-diff muted">Δ 2I − EU: ${fmtSigned(a - b, cfg.decimals)} ${cfg.unit}</div>` : '';
-      return `<div class="tip-head">${dayShort(times[i])} · ${hourLabel(times[i])}</div>${rows}${diff}`;
+      const v = verdicts?.[i];
+      const verdict = v && v.status !== 'na' ? `<div class="tip-row"><i class="sw vsw st-${v.status}"></i>Verdetto<b>${BIKE_STATUS[v.status].label}</b></div>` : '';
+      return `<div class="tip-head">${dayShort(times[i])} · ${hourLabel(times[i])}</div>${rows}${verdict}${diff}`;
     },
   });
+  syncTipCard(); // dettaglio di un'ora della striscia aperto: passa alla striscia ridisegnata
 
   const note = [];
   let legend = cfg.series.some((s) => s.dash) ? 'Linea continua: velocità media · tratteggio: raffiche. ' : '';
@@ -1358,7 +1414,7 @@ function renderChartSection() {
     legend = `Tratteggio: previsione corretta con la centralina (alle ${fixes[0].fix.time} misurato − previsto: ${diffs}), correzione dimezzata ogni ${TEMP_FIX_HALF_H} ore. `;
   }
   if (normals.length) legend += `Puntini grigi: massima e minima medie del periodo (${NORMALS.from}–${NORMALS.to}, ${NORMALS.name}). `;
-  if (cfg.pop) legend = `Barre: pioggia in mm (${shown.map((m) => m.name).join(', ')}) · area azzurra: probabilità di pioggia (scenari ${listIt(state.data.ensemble?.groups.map((g) => g.model) || []) || 'ensemble'} con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm, scala a destra). `;
+  if (cfg.pop) legend = `Barre: pioggia in mm (${shown.map((m) => m.name).join(', ')}) · area azzurra: probabilità di pioggia (scenari ${listIt(state.data.ensemble?.groups.map((g) => g.model) || []) || 'ensemble'} con almeno ${fmt(ENSEMBLE_WET_MM, 1)} mm, scala a destra) · striscia sotto il grafico: verdetto di ogni ora (verde asciutto, ambra rischio o incerto, blu pioggia), con i modelli anche di supporto, la probabilità e per oggi centralina e radar; toccala per il dettaglio. `;
   for (const m of shown) {
     if (!inModelDomain(m, state.loc.lat, state.loc.lon)) note.push(`${m.name} non copre questa località.`);
     else {
@@ -1390,6 +1446,12 @@ function hourRange(i) {
   return `${dayShort(h === 0 ? (state.data.hourly.time[i - 1] ?? t) : t)} · ore ${String((h + 23) % 24).padStart(2, '0')}–${h === 0 ? '24' : t.slice(11, 13)}`;
 }
 
+// "13–14" per il timestamp delle 14:00 (pioggia dell'ora precedente; 00:00 → "23–24").
+function hourSpan(t) {
+  const h = Number(t.slice(11, 13));
+  return `${String((h + 23) % 24).padStart(2, '0')}–${h === 0 ? '24' : t.slice(11, 13)}`;
+}
+
 function hourTip(t) {
   const i = state.data.hourly.time.indexOf(t);
   if (i < 0) return '';
@@ -1400,6 +1462,10 @@ function hourTip(t) {
 function tipContent(el) {
   if (el.dataset.tip) return el.dataset.tip;
   const key = el.dataset.tipKey || '';
+  if (key.startsWith('verdict|')) {
+    const t = key.slice(8);
+    return verdictTip(hourVerdict(t, verdictCtx()), `${dayShort(t)} · ore ${hourSpan(t)}`, "nell'ora");
+  }
   return key.startsWith('hour|') ? hourTip(key.slice(5)) : '';
 }
 
@@ -1548,7 +1614,7 @@ function bindControls() {
     if (!$('#toast').hidden && $('#toast').dataset.source === key) hideToast();
     else toast(tipContent(el), 9000, key, true);
   };
-  for (const id of ['#now', '#daily', '#hourly-body']) $(id).addEventListener('click', showTip);
+  for (const id of ['#now', '#daily', '#chart', '#hourly-body']) $(id).addEventListener('click', showTip);
   // Il riquadro segue l'elemento scorrendo la pagina; si chiude se l'elemento esce dallo
   // schermo o non c'è più (sezione ridisegnata), al ridimensionamento e con Esc.
   // Al massimo una volta per fotogramma: placeTipCard() misura gli elementi (layout forzato).

@@ -5,6 +5,9 @@
 // Opzionale `daylight` ([{ rise, set }] in ora locale "YYYY-MM-DDTHH:MM", un elemento per
 // giorno): barra giorno/notte sopra l'area del grafico, sotto i nomi dei giorni, con un
 // pallino (e tooltip) per ogni alba e tramonto.
+// Opzionale `strip` (un elemento per ora: { status, key, label, past } o null): striscia di
+// caselle colorate tra l'area del grafico e le ore (verdetto di ogni ora, vedi app.js); ogni
+// casella ha data-tip vuoto e data-tip-key, il dettaglio lo costruisce app.js al clic.
 
 import { parts, dayShort, fmt, sunEventIcon } from './weather.js';
 
@@ -21,7 +24,7 @@ function niceStep(range, targetTicks) {
 export function renderChart(el, opts) {
   const {
     times, series, unit = '', nowIso = null,
-    yFloor = null, yCeil = null, minSpan = 4, tooltip, y2: right = null, daylight = null,
+    yFloor = null, yCeil = null, minSpan = 4, tooltip, y2: right = null, daylight = null, strip = null,
   } = opts;
   const dayBar = !!daylight?.length;
 
@@ -31,7 +34,8 @@ export function renderChart(el, opts) {
 
   const W = Math.max(280, el.clientWidth);
   const H = W < 520 ? 220 : 270;
-  const pad = { l: 40, r: right ? 36 : 10, t: dayBar ? 36 : 24, b: 26 }; // in alto spazio per la barra giorno/notte
+  const stripH = strip?.some(Boolean) ? 13 : 0; // striscia del verdetto sotto l'area del grafico
+  const pad = { l: 40, r: right ? 36 : 10, t: dayBar ? 36 : 24, b: 26 + stripH }; // in alto spazio per la barra giorno/notte
   const plotW = W - pad.l - pad.r;
   const plotH = H - pad.t - pad.b;
   const step = plotW / n;
@@ -153,11 +157,22 @@ export function renderChart(el, opts) {
     for (const { rise, set } of daylight) html += marker(rise, 'rise') + marker(set, 'set');
   }
 
+  // --- Striscia del verdetto ------------------------------------------------------
+  // Una casella per ora, larga quanto la colonna (meno 1 px di spazio), subito sotto l'area
+  // del grafico: fuori dall'area attiva (.hit), così il clic apre il dettaglio dell'ora.
+  if (stripH) {
+    const sy = pad.t + plotH + 3, sh = 8, gap = step > 4 ? 1 : 0;
+    strip.forEach((c, i) => {
+      if (!c) return;
+      html += `<rect class="vcell st-${c.status}${c.past ? ' past' : ''}" data-tip="" data-tip-key="${c.key}" role="button" aria-label="${c.label}" x="${(pad.l + step * i + gap / 2).toFixed(1)}" y="${sy}" width="${Math.max(1, step - gap).toFixed(1)}" height="${sh}" rx="${step > 6 ? 2 : 0}"/>`;
+    });
+  }
+
   // --- Etichette orarie ----------------------------------------------------------
   const every = [1, 2, 3, 6, 12, 24].find((k) => step * k >= 34) || 24;
   for (let i = 0; i < n; i++) {
     if (hours[i] % every === 0) {
-      html += `<line class="xtick" x1="${x(i)}" x2="${x(i)}" y1="${pad.t + plotH}" y2="${pad.t + plotH + 4}"/>`;
+      html += `<line class="xtick" x1="${x(i)}" x2="${x(i)}" y1="${pad.t + plotH + stripH}" y2="${pad.t + plotH + stripH + 4}"/>`;
       html += `<text class="tick" x="${x(i)}" y="${H - 8}" text-anchor="middle">${String(hours[i]).padStart(2, '0')}</text>`;
     }
   }
