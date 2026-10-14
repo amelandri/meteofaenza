@@ -2,11 +2,14 @@
 
   python3 -m server.jobs station            centralina (ogni 10 minuti)
   python3 -m server.jobs forecast [--force] previsioni ed ensemble (controllo ogni 15 minuti)
-  python3 -m server.jobs normals  [--force] medie del periodo (controllo giornaliero)
+  python3 -m server.jobs normals  [--force] esiti della verifica, pulizia degli archivi e medie
+                                            del periodo (giornaliero)
   python3 -m server.jobs radar    [--force] radar della Protezione Civile (ogni 5 minuti)
   python3 -m server.jobs rivers           livelli di Lamone e Marzeno (ogni 15 minuti)
+  python3 -m server.jobs verify   [--force] solo gli esiti della verifica (a mano; --force li
+                                            rielabora tutti dove ci sono ancora le misure)
   python3 -m server.jobs backup             copia del database (ogni notte)
-  python3 -m server.jobs all                tutti, forzati, tranne backup (prima installazione)
+  python3 -m server.jobs all                tutti, forzati, tranne verify e backup (prima installazione)
 
 Ogni job prende un lock: se il precedente è ancora in corso, quello nuovo esce subito.
 Esito e dettagli finiscono nella tabella fetch_log (e in /api/status).
@@ -104,15 +107,25 @@ def job_forecast(conn, force=False):
 
 
 def job_normals(conn, force=False):
-    """Job giornaliero: manutenzione degli archivi (prima, così avviene anche se il download
-    delle medie non riesce) e medie del periodo se mancano o sono vecchie."""
+    """Job giornaliero: esiti della verifica dei giorni conclusi (prima della pulizia, così si
+    calcolano finché ci sono le misure), manutenzione degli archivi (prima del download, così
+    avviene anche se non riesce) e medie del periodo se mancano o sono vecchie."""
+    saved = verify.store_days(conn)
     db.prune_archives(conn)
     thinned = verify.thin_ensemble_archive(conn)
+    done = f'{saved} esiti della verifica salvati; archivi puliti ({thinned} download dell\'ensemble tolti)'
     at = db.snapshot_time(conn, 'normals')
     if not force and at and db.now_ms() - at < config.NORMALS_MAX_AGE_S * 1000:
-        return f'medie già presenti; archivi puliti ({thinned} download dell\'ensemble tolti)'
+        return f'medie già presenti; {done}'
     db.put_snapshot(conn, 'normals', sources.fetch_normals())
-    return f'medie scaricate; archivi puliti ({thinned} download dell\'ensemble tolti)'
+    return f'medie scaricate; {done}'
+
+
+def job_verify(conn, force=False):
+    """Esiti della verifica dei giorni conclusi che mancano (lo fa anche il job normals ogni
+    giorno). Con --force rielabora tutti i giorni di cui ci sono ancora le misure, per esempio
+    dopo un cambio delle regole."""
+    return f'{verify.store_days(conn, force)} giorni salvati'
 
 
 def job_radar(conn, force=False):
@@ -155,9 +168,9 @@ def job_backup(conn, force=False):
 
 
 JOBS = {'station': job_station, 'forecast': job_forecast, 'normals': job_normals, 'radar': job_radar, 'rivers': rivers.run,
-        'backup': job_backup}
+        'verify': job_verify, 'backup': job_backup}
 # Esclusi da "all" (prima installazione): non scaricano dati.
-NOT_IN_ALL = {'backup'}
+NOT_IN_ALL = {'backup', 'verify'}
 
 
 def run(name, force=False):

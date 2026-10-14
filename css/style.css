@@ -1064,11 +1064,6 @@ button { font: inherit; color: inherit; }
 .vd-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; font-size: .86rem; }
 .verify-day h3 { margin: 12px 0 0; font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 /* Intervalli monitorati (Bike): titolo evidente e tabella con lo stesso stile delle fasce */
-.vd-bike { margin-top: 18px; }
-.vd-bike h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; color: var(--text); font-size: 1.02rem; font-weight: 700; text-transform: none; letter-spacing: -.005em; }
-.vd-bike h3 .bike-ico { width: 22px; height: 22px; color: var(--accent); stroke-width: 1.8; }
-.vs-table tr.vs-bike th, .vs-table tr.vs-bike td { background: color-mix(in srgb, var(--accent) 6%, transparent); }
-.vs-table tr.vs-bike th .bike-ico { width: 15px; height: 15px; vertical-align: -3px; margin-right: 4px; }
 .vd-src { margin: 10px 0 0; font-size: .74rem; color: var(--muted); }
 
 @media (max-width: 560px) {

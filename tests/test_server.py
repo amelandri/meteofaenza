@@ -349,6 +349,58 @@ class VerifyTest(unittest.TestCase):
         self.assertEqual(res['lead'], 1)
         self.assertIn(self.DAY, [d['day'] for d in res['days']])
 
+    def test_outcomes(self):
+        v = self.verify
+        self.assertEqual([v.outcome(1.0, 2.0), v.outcome(0.0, 0.1), v.outcome(0.2, 0.0), v.outcome(0.1, 0.4)],
+                         ['hit', 'ok', 'false', 'miss'])
+        self.assertIsNone(v.outcome(None, 1.0))
+        self.assertEqual(v.qty_off(1.0, 6.0), 'more')
+        self.assertEqual(v.qty_off(8.0, 2.5), 'less')
+        self.assertIsNone(v.qty_off(1.0, 2.5))  # scarto sotto i 2 mm
+        self.assertIsNone(v.qty_off(0.0, 6.0))  # non è "prevista e caduta"
+        # due gruppi: 2 su 4 bagnati in almeno un'ora, 1 su 2; media 50% e 50% → 50
+        ens = {'groups': [{'masks': [0b0001, 0b0010], 'n': [4, 4]}, {'masks': [0b01, 0], 'n': [2, 2]}]}
+        self.assertEqual(v.chance(ens, [0, 1]), 50)
+        self.assertIsNone(v.chance({'groups': [{'masks': [0, None], 'n': [4, 0]}]}, [0, 1]))
+
+    def test_store_days(self):
+        """Gli esiti dei giorni conclusi si salvano una volta (verify_days) e api/verify li
+        legge senza ricalcolarli; --force li rielabora; oltre VERIFY_KEEP_DAYS si tolgono."""
+        import json
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        times = [f'2026-09-30T{h:02d}:00' for h in range(24)] + [f'2026-10-01T{h:02d}:00' for h in range(24)] + ['2026-10-02T00:00']
+        fc = _forecast(times, ['2026-09-30', '2026-10-01'])
+        fc['hourly']['models']['eu']['precipitation'] = [0.4] * len(times)
+        issued = int(datetime(2026, 9, 30, 9, tzinfo=ZoneInfo('Europe/Rome')).timestamp() * 1000)
+        self.verify.archive_forecast(self.conn, fc, {'i2i': {'init': 100}, 'eu': {'init': 200}}, issued)
+        now = int(datetime(2026, 10, 3, 12, tzinfo=ZoneInfo('Europe/Rome')).timestamp() * 1000)
+        self.conn.execute('DELETE FROM verify_days')
+        self.assertGreaterEqual(self.verify.store_days(self.conn, now_ms=now), 2)  # 1/10 con anticipo 1 e 2 (e altri giorni dei test)
+        self.assertEqual({r[0] for r in self.conn.execute('SELECT lead FROM verify_days WHERE day = ?', (self.DAY,))}, {1, 2})
+        self.assertEqual(self.verify.store_days(self.conn, now_ms=now), 0)  # già salvati
+        row = self.conn.execute("SELECT data FROM verify_days WHERE day = ? AND lead = 1", (self.DAY,)).fetchone()
+        d = json.loads(row['data'])
+        # sera senza misura: nei dati di prova manca la lettura delle 00:00 del giorno dopo
+        self.assertEqual(d['observed']['slots'], [0.0, 0.5, 1.0, None])
+        eu = d['models']['eu']
+        self.assertEqual([c['res'] for c in eu['slots']], ['false', 'hit', 'hit', None])
+        self.assertEqual(eu['day'], {'fc': 9.6, 'res': 'hit', 'qty': 'less'})
+        # api/verify legge l'esito salvato, non lo ricalcola
+        d['models']['eu']['day']['res'] = 'segno'
+        self.conn.execute("UPDATE verify_days SET data = ? WHERE day = ? AND lead = 1", (json.dumps(d), self.DAY))
+        self.conn.commit()
+        res = self.verify.compose_verify(self.conn, 120, 1)
+        self.assertEqual(next(x for x in res['days'] if x['day'] == self.DAY)['models']['eu']['day']['res'], 'segno')
+        self.assertGreaterEqual(self.verify.store_days(self.conn, force=True, now_ms=now), 2)
+        row = self.conn.execute("SELECT data FROM verify_days WHERE day = ? AND lead = 1", (self.DAY,)).fetchone()
+        self.assertEqual(json.loads(row['data'])['models']['eu']['day']['res'], 'hit')
+        # pulizia: oltre i due anni l'esito si toglie
+        self.conn.execute("INSERT INTO verify_days VALUES ('2020-01-01', 1, 0, '{}')")
+        db.prune_archives(self.conn)
+        self.assertIsNone(self.conn.execute("SELECT 1 FROM verify_days WHERE day = '2020-01-01'").fetchone())
+        self.assertIsNotNone(self.conn.execute('SELECT 1 FROM verify_days WHERE day = ?', (self.DAY,)).fetchone())
+
 
 try:
     import numpy as np  # noqa: F401  (numpy e Pillow servono solo al radar)

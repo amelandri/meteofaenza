@@ -1,7 +1,7 @@
 // Pagina Verifica: per i giorni passati confronta pioggia e temperature previste (il giorno
 // prima o due giorni prima, alle 23) con quelle misurate dalla centralina. I dati arrivano dal server
-// (api/verify, vedi server/verify.py); qui si calcolano fasce, intervalli monitorati ed esiti.
-// Convenzione oraria come nell'app: l'indice h (0…23) è la pioggia dell'ora (h, h+1].
+// (api/verify, vedi server/verify.py) con gli esiti già calcolati per fasce e giorno (salvati
+// sul server per i giorni conclusi); qui si fanno solo il riepilogo del periodo e le tabelle.
 
 import { MODELS, SUPPORT_MODELS, getJSON } from './api.js';
 import * as store from './storage.js';
@@ -14,7 +14,7 @@ const SLOTS = [
   { from: 18, name: 'Sera', short: 'Sera' },
 ];
 const TZ = 'Europe/Rome';
-// Esito di una previsione di pioggia (soglia: wetMm del server, 0,2 mm come nell'app).
+// Esito di una previsione di pioggia (calcolato dal server con soglia wetMm, 0,2 mm come nell'app).
 // `icon`: esito disegnato con rainMarkIcon() (pioggia + X rossa / punto esclamativo); senza,
 // il segno di spunta.
 const OUTCOME = {
@@ -24,8 +24,7 @@ const OUTCOME = {
   miss: { label: 'pioggia caduta ma non prevista', icon: '!', cls: 'o-mid' },
 };
 // Quantità molto diversa (solo se pioggia prevista e caduta): uno almeno il doppio
-// dell'altro e scarto di almeno QTY_MM, come il criterio di concordanza sulla quantità.
-const QTY_RATIO = 2;
+// dell'altro e scarto di almeno QTY_MM (QTY_RATIO / QTY_MM di server/verify.py).
 const QTY_MM = 2;
 const QTY = {
   more: { label: 'molta più pioggia del previsto', icon: 'up' },
@@ -56,82 +55,14 @@ const shownModels = () => {
 const verifyModels = () => [...shownModels(), ...SUPPORT_MODELS];
 const ALL_MODELS = [...MODELS, ...SUPPORT_MODELS];
 
-// --- Calcoli -------------------------------------------------------------------------
+// --- Riepilogo -------------------------------------------------------------------------
 
-// Somma dei valori agli indici (con peso), null se ne manca anche uno.
-function total(arr, hours) {
-  if (!arr) return null;
-  let s = 0;
-  for (const { h, w } of hours) {
-    if (arr[h] == null) return null;
-    s += arr[h] * w;
-  }
-  return Math.round(s * 10) / 10;
-}
-const slotHours = (s) => Array.from({ length: 6 }, (_, k) => ({ h: s.from + k, w: 1 }));
-const dayHours = () => Array.from({ length: 24 }, (_, h) => ({ h, w: 1 }));
-
-// Ore (indice e quota di sovrapposizione) di un intervallo "HH:MM"–"HH:MM", come windowHours()
-// dell'app.
-function windowHours(w) {
-  const toMin = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
-  const a = toMin(w.from), b = toMin(w.to), out = [];
-  for (let h = Math.floor(a / 60); h * 60 < b && h < 24; h++) {
-    const overlap = Math.min(b, (h + 1) * 60) - Math.max(a, h * 60);
-    if (overlap > 0) out.push({ h, w: overlap / 60 });
-  }
-  return out;
-}
-
-// Quota di scenari con almeno wetMm in almeno un'ora (OR delle maschere), media dei gruppi
-// che coprono tutte le ore: come windowRainChance() dell'app (le ore parziali contano intere).
-function chance(ens, hours) {
-  if (!ens) return null;
-  const parts = [];
-  for (const g of ens.groups) {
-    if (hours.some(({ h }) => !g.n[h])) continue;
-    let mask = 0n;
-    for (const { h } of hours) mask |= BigInt(g.masks[h]);
-    let wet = 0;
-    for (; mask; mask >>= 1n) wet += Number(mask & 1n);
-    parts.push(wet / Math.min(...hours.map(({ h }) => g.n[h])));
-  }
-  return parts.length ? Math.round((100 * parts.reduce((a, b) => a + b, 0)) / parts.length) : null;
-}
-
-// Intervalli monitorati attivi nel giorno della settimana di `day` ("YYYY-MM-DD").
-function dayWindows(watch, day) {
-  const wd = new Date(`${day}T12:00:00Z`).getUTCDay();
-  return watch.windows.filter((w) => w.days.includes(wd));
-}
-
-// Icona della bici, come nei tragitti della pagina principale.
-const BIKE_ICON = '<svg class="bike-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="5.5" cy="16.5" r="3.5"/><circle cx="18.5" cy="16.5" r="3.5"/><path d="M5.5 16.5 9 9h6l3.5 7.5M9 9l3.5 7.5L15 9M8 6.5h3M15 9l-1-2.5h2.5"/></svg>';
-
-function outcome(fc, obs, wet) {
-  if (fc == null || obs == null) return null;
-  const f = fc >= wet - 1e-9, o = obs >= wet - 1e-9;
-  return f ? (o ? 'hit' : 'false') : (o ? 'miss' : 'ok');
-}
-
-// 'more' = caduta molta più pioggia del previsto, 'less' = molta meno, null altrimenti.
-function qtyOff(fc, obs, wet) {
-  if (outcome(fc, obs, wet) !== 'hit' || Math.abs(fc - obs) < QTY_MM - 1e-9) return null;
-  if (obs >= QTY_RATIO * fc) return 'more';
-  if (fc >= QTY_RATIO * obs) return 'less';
-  return null;
-}
-
-const maxOf = (a) => { const v = (a || []).filter((x) => x != null); return v.length ? Math.max(...v) : null; };
-const minOf = (a) => { const v = (a || []).filter((x) => x != null); return v.length ? Math.min(...v) : null; };
-
-// Riepilogo sui giorni completi: esiti delle fasce, errori di pioggia e temperature per
-// modello, affidabilità della probabilità.
-function summarize(days, wet) {
+// Riepilogo sui giorni completi: conteggi degli esiti delle fasce, errori di pioggia e
+// temperature per modello, affidabilità della probabilità.
+function summarize(days) {
   const full = days.filter((d) => d.observed.complete && !d.today);
-  const watch = store.getWatch();
   const models = Object.fromEntries(ALL_MODELS.map((m) => [m.key, {
-    counts: { hit: 0, ok: 0, false: 0, miss: 0 }, bike: { hit: 0, ok: 0, false: 0, miss: 0 }, qty: { more: 0, less: 0 },
+    counts: { hit: 0, ok: 0, false: 0, miss: 0 }, qty: { more: 0, less: 0 },
     rainErr: [], rainFc: 0, rainObs: 0, tmaxErr: [], tminErr: [],
   }]));
   const bins = BINS.map(([lo, hi]) => ({ lo, hi, n: 0, rained: 0 }));
@@ -140,19 +71,17 @@ function summarize(days, wet) {
   const brier = { sum: 0, n: 0, rained: 0, badHigh: 0, badLow: 0 };
   for (const d of full) {
     const obs = d.observed;
-    for (const s of SLOTS) {
-      const o = total(obs.rain, slotHours(s));
+    SLOTS.forEach((s, k) => {
+      const o = obs.slots[k];
       for (const m of ALL_MODELS) {
-        const fc = total(d.models[m.key]?.rain, slotHours(s));
-        const res = outcome(fc, o, wet);
-        if (res) models[m.key].counts[res]++;
-        const q = qtyOff(fc, o, wet);
-        if (q) models[m.key].qty[q]++;
+        const c = d.models[m.key]?.slots[k];
+        if (c?.res) models[m.key].counts[c.res]++;
+        if (c?.qty) models[m.key].qty[c.qty]++;
       }
-      const p = chance(d.ensemble, slotHours(s));
+      const p = d.ensemble?.slots[k];
       if (p != null && o != null) {
         const b = bins.find((x) => p >= x.lo && p < x.hi);
-        const rained = o >= wet - 1e-9;
+        const rained = o >= d.wetMm - 1e-9;
         b.n++;
         if (rained) b.rained++;
         brier.sum += (p / 100 - (rained ? 1 : 0)) ** 2;
@@ -161,26 +90,18 @@ function summarize(days, wet) {
         if (!rained && p >= BAD_HIGH) brier.badHigh++;
         if (rained && p < BAD_LOW) brier.badLow++;
       }
-    }
-    // intervalli monitorati di quel giorno della settimana
-    for (const w of dayWindows(watch, d.day)) {
-      const o = total(obs.rain, windowHours(w));
-      for (const m of ALL_MODELS) {
-        const res = outcome(total(d.models[m.key]?.rain, windowHours(w)), o, wet);
-        if (res) models[m.key].bike[res]++;
-      }
-    }
+    });
     for (const m of ALL_MODELS) {
       const f = d.models[m.key];
       if (!f) continue;
-      const r = total(f.rain, dayHours());
+      const r = f.day.fc;
       if (r != null && obs.total != null) {
         models[m.key].rainErr.push(r - obs.total);
         models[m.key].rainFc += r;
         models[m.key].rainObs += obs.total;
       }
-      if (maxOf(f.temp) != null && obs.tMax != null) models[m.key].tmaxErr.push(maxOf(f.temp) - obs.tMax);
-      if (minOf(f.temp) != null && obs.tMin != null) models[m.key].tminErr.push(minOf(f.temp) - obs.tMin);
+      if (f.tMax != null && obs.tMax != null) models[m.key].tmaxErr.push(f.tMax - obs.tMax);
+      if (f.tMin != null && obs.tMin != null) models[m.key].tminErr.push(f.tMin - obs.tMin);
     }
   }
   return { full: full.length, models, bins, brier };
@@ -204,7 +125,8 @@ function renderSummary(sum) {
   const counted = (m) => Object.values(sum.models[m.key].counts).some(Boolean);
   const shown = verifyModels().filter((m) => MODELS.includes(m) || counted(m));
   const row = (label, f, help = '') => `<tr><th scope="row">${label}${help ? `<small>${help}</small>` : ''}</th>${shown.map((m) => `<td>${f(sum.models[m.key])}</td>`).join('')}</tr>`;
-  const pct = (s, c = s.counts) => {
+  const pct = (s) => {
+    const c = s.counts;
     const n = c.hit + c.ok + c.false + c.miss;
     return n ? `<b>${Math.round((100 * (c.hit + c.ok)) / n)}%</b> <small class="opt">(${c.hit + c.ok} su ${n})</small>` : '—';
   };
@@ -215,7 +137,6 @@ function renderSummary(sum) {
       <thead><tr><th></th>${shown.map((m) => `<th><i class="dot-${m.key}"></i><span class="lg">${m.name}</span><span class="sm">${m.short}</span></th>`).join('')}</tr></thead>
       <tbody>
         ${row('Fasce previste correttamente', pct, 'pioggia sì/no in ogni fascia di 6 ore')}
-        ${!store.getWatch().windows.length ? '' : `<tr class="vs-bike">${(() => { const label = `${BIKE_ICON}${esc(store.getWatch().label)}: intervalli corretti`; return `<th scope="row">${label}<small>pioggia sì/no in ogni intervallo monitorato</small></th>${shown.map((m) => `<td>${pct(sum.models[m.key], sum.models[m.key].bike)}</td>`).join('')}`; })()}</tr>`}
         ${row('Pioggia prevista e caduta', (s) => s.counts.hit)}
         ${row(`${outcomeMark(OUTCOME.false, 18)}Falsi allarmi`, (s) => s.counts.false, 'pioggia prevista ma non caduta')}
         ${row(`${outcomeMark(OUTCOME.miss, 18)}Pioggia non prevista`, (s) => s.counts.miss)}
@@ -253,20 +174,20 @@ function brierBlock(b) {
     </tbody></table>`;
 }
 
-// `judge` falso: si mostra solo il valore (es. il giorno di oggi non è ancora finito).
-function cell(fc, obs, wet, judge = true) {
-  const res = judge ? outcome(fc, obs, wet) : null;
-  if (fc == null) return '<td class="na">—</td>';
-  const o = res ? OUTCOME[res] : null;
-  const q = judge ? QTY[qtyOff(fc, obs, wet)] : null;
+// Cella di una previsione: `c` = { fc, res, qty } dal server (res null = non giudicata, per
+// esempio il totale di oggi), `obs` = pioggia misurata per lo scarto nel tooltip.
+function cell(c, obs) {
+  if (c?.fc == null) return '<td class="na">—</td>';
+  const o = c.res ? OUTCOME[c.res] : null;
+  const q = c.res ? QTY[c.qty] : null;
   // nel tooltip esito, quantità e scarto previsto − caduto
-  const title = o ? [o.label, q?.label, obs != null && fc !== obs ? `scarto ${fmtSigned(fc - obs, 1)} mm` : null].filter(Boolean).join(' · ') : '';
+  const title = o ? [o.label, q?.label, obs != null && c.fc !== obs ? `scarto ${fmtSigned(c.fc - obs, 1)} mm` : null].filter(Boolean).join(' · ') : '';
   // Quantità molto diversa: al posto della spunta la pioggia con la freccia su / giù.
   const shown = q || o;
-  return `<td class="${o ? o.cls : ''}${q ? ' q-off' : ''}" title="${esc(title)}">${mm(fc)}${shown ? `<span class="o-mark" aria-hidden="true">${outcomeMark(shown)}</span>` : ''}</td>`;
+  return `<td class="${o ? o.cls : ''}${q ? ' q-off' : ''}" title="${esc(title)}">${mm(c.fc)}${shown ? `<span class="o-mark" aria-hidden="true">${outcomeMark(shown)}</span>` : ''}</td>`;
 }
 
-function renderDay(d, wet, todayIso) {
+function renderDay(d, todayIso) {
   const obs = d.observed;
   // i modelli di supporto solo se c'è la loro previsione (coprono ~48 ore)
   const shown = verifyModels().filter((m) => MODELS.includes(m) || d.models[m.key]);
@@ -274,48 +195,26 @@ function renderDay(d, wet, todayIso) {
   const yesterday = new Date(Date.parse(`${todayIso}T12:00:00Z`) - 86400000).toISOString().slice(0, 10);
   if (d.day === yesterday) t.title = 'Ieri';
   const head = `<tr><th></th>${SLOTS.map((s) => `<th><span class="lg">${s.name}</span><span class="sm">${s.short}</span><small>${s.from}–${s.from + 6}</small></th>`).join('')}<th>Giorno</th></tr>`;
-  const obsRow = `<tr class="obs"><th scope="row">Misurata</th>${SLOTS.map((s) => `<td>${mm(total(obs.rain, slotHours(s)))}</td>`).join('')}<td><b>${mm(obs.total)}</b></td></tr>`;
+  const obsRow = `<tr class="obs"><th scope="row">Misurata</th>${obs.slots.map((o) => `<td>${mm(o)}</td>`).join('')}<td><b>${mm(obs.total)}</b></td></tr>`;
   const modelRows = shown.map((m) => {
     const f = d.models[m.key];
     if (!f) return `<tr><th scope="row"><i class="dot-${m.key}"></i>${m.short}</th><td class="na" colspan="5">previsione non disponibile</td></tr>`;
-    return `<tr><th scope="row"><i class="dot-${m.key}"></i>${m.short}</th>${SLOTS.map((s) => cell(total(f.rain, slotHours(s)), total(obs.rain, slotHours(s)), wet)).join('')}${cell(total(f.rain, dayHours()), obs.total, wet, obs.complete)}</tr>`;
+    return `<tr><th scope="row"><i class="dot-${m.key}"></i>${m.short}</th>${f.slots.map((c, k) => cell(c, obs.slots[k])).join('')}${cell(f.day, obs.total)}</tr>`;
   }).join('');
+  const pct = (p) => `<td>${p == null ? '—' : `${p}%`}</td>`;
   const popRow = d.ensemble
-    ? `<tr class="pop"><th scope="row">Prob.</th>${SLOTS.map((s) => { const p = chance(d.ensemble, slotHours(s)); return `<td>${p == null ? '—' : `${p}%`}</td>`; }).join('')}<td>${(() => { const p = chance(d.ensemble, dayHours()); return p == null ? '—' : `${p}%`; })()}</td></tr>`
+    ? `<tr class="pop"><th scope="row">Prob.</th>${d.ensemble.slots.map(pct).join('')}${pct(d.ensemble.day)}</tr>`
     : '';
 
   // Temperature: massima e minima previste (dalle ore) contro le misurate.
   const temps = shown.map((m) => {
     const f = d.models[m.key];
     if (!f) return '';
-    const tx = maxOf(f.temp), tn = minOf(f.temp);
+    const tx = f.tMax, tn = f.tMin;
     // scarto dalla misura solo a giornata finita (oggi minima e massima non sono definitive)
     const diff = (a, b) => (obs.complete && a != null && b != null ? ` <small class="${Math.abs(a - b) >= 2 ? 'o-bad-t' : ''}">(${fmtSigned(a - b, 1)}°)</small>` : '');
     return `<li><i class="dot-${m.key}"></i>${m.name}: max ${fmt(tx, 1)}°${diff(tx, obs.tMax)} · min ${fmt(tn, 1)}°${diff(tn, obs.tMin)}</li>`;
   }).join('');
-
-  // Intervalli monitorati del giorno della settimana (impostazioni dell'utente): tabella come
-  // quella delle fasce, una colonna per intervallo, con esito ✓ ! ✗ per ogni modello.
-  const watch = store.getWatch();
-  const wins = dayWindows(watch, d.day);
-  let bikeTable = '';
-  if (wins.length) {
-    const whead = `<tr><th></th>${wins.map((w) => `<th>${w.from}<small>${w.to}</small></th>`).join('')}</tr>`;
-    const wobs = wins.map((w) => total(obs.rain, windowHours(w)));
-    const wObsRow = `<tr class="obs"><th scope="row">Misurata</th>${wobs.map((o) => `<td>${mm(o)}</td>`).join('')}</tr>`;
-    const wModelRows = shown.map((m) => {
-      const f = d.models[m.key];
-      if (!f) return `<tr><th scope="row"><i class="dot-${m.key}"></i>${m.short}</th><td class="na" colspan="${wins.length}">previsione non disponibile</td></tr>`;
-      return `<tr><th scope="row"><i class="dot-${m.key}"></i>${m.short}</th>${wins.map((w, k) => cell(total(f.rain, windowHours(w)), wobs[k], wet)).join('')}</tr>`;
-    }).join('');
-    const wPopRow = d.ensemble
-      ? `<tr class="pop"><th scope="row">Prob.</th>${wins.map((w) => { const p = chance(d.ensemble, windowHours(w).filter((x) => x.w > 0)); return `<td>${p == null ? '—' : `${p}%`}</td>`; }).join('')}</tr>`
-      : '';
-    bikeTable = `<div class="vd-bike">
-      <h3>${BIKE_ICON}${esc(watch.label)}</h3>
-      <div class="table-wrap"><table class="vt"><thead>${whead}</thead><tbody>${wObsRow}${wModelRows}${wPopRow}</tbody></table></div>
-    </div>`;
-  }
 
   const sources = [
     ...shown.map((m) => (d.models[m.key] ? `${m.name}: run delle ${when(d.models[m.key].runInit * 1000)}` : null)),
@@ -327,7 +226,6 @@ function renderDay(d, wet, todayIso) {
     <p class="vd-obs">Misurato: pioggia <b>${mm(obs.total)} mm</b> · min <b>${fmt(obs.tMin, 1)}°</b>${obs.tMinTime ? ` (${obs.tMinTime})` : ''} · max <b>${fmt(obs.tMax, 1)}°</b>${obs.tMaxTime ? ` (${obs.tMaxTime})` : ''}</p>
     <div class="table-wrap"><table class="vt"><thead>${head}</thead><tbody>${obsRow}${modelRows}${popRow}</tbody></table></div>
     ${temps ? `<ul class="vd-list">${temps}</ul>` : ''}
-    ${bikeTable}
     ${sources ? `<p class="vd-src">Previsioni usate: ${sources}</p>` : ''}
   </section>`;
 }
@@ -342,9 +240,10 @@ function render() {
     return;
   }
   status.hidden = true;
-  renderSummary(summarize(data.days, data.wetMm));
+  for (const d of data.days) d.wetMm = data.wetMm;
+  renderSummary(summarize(data.days));
   const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: TZ });
-  $('#verify-days').innerHTML = data.days.map((d) => renderDay(d, data.wetMm, todayIso)).join('');
+  $('#verify-days').innerHTML = data.days.map((d) => renderDay(d, todayIso)).join('');
 }
 
 async function load() {

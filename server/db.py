@@ -1,9 +1,11 @@
 """Database SQLite: ultime previsioni, ensemble, metadati dei run, medie del periodo,
-letture della centralina e registro degli aggiornamenti."""
+letture della centralina, archivi ed esiti della verifica e registro degli aggiornamenti."""
 
 import json
 import sqlite3
 import time
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from . import config
 
@@ -55,6 +57,17 @@ CREATE TABLE IF NOT EXISTS ensemble_archive (
   PRIMARY KEY (issued_at, target, grp)
 );
 CREATE INDEX IF NOT EXISTS ensemble_archive_target ON ensemble_archive (target, issued_at);
+-- Esiti della verifica dei giorni conclusi (server/verify.py, day_result()), uno per giorno e
+-- anticipo della previsione (1 = il giorno prima, 2 = due giorni prima): fasce e giorno per
+-- modello, probabilità dell'ensemble, misure. Calcolati una volta dal job giornaliero e non più
+-- rielaborati (salvo `jobs verify --force`); conservati VERIFY_KEEP_DAYS.
+CREATE TABLE IF NOT EXISTS verify_days (
+  day         TEXT NOT NULL,       -- 'YYYY-MM-DD'
+  lead        INTEGER NOT NULL,
+  computed_at INTEGER NOT NULL,    -- ms
+  data        TEXT NOT NULL,       -- JSON
+  PRIMARY KEY (day, lead)
+);
 -- Radar (server/radar.py). Ritagli intorno a Faenza (float16 compressi, NaN = fuori
 -- copertura) per movimento e proiezione, e immagini PNG già pronte: si tengono RADAR_KEEP_S.
 CREATE TABLE IF NOT EXISTS radar_frames (
@@ -155,7 +168,8 @@ def prune(conn):
 
 
 def prune_archives(conn):
-    """Toglie letture e archivi oltre STATION_KEEP_DAYS e il registro oltre i 30 giorni. Una
+    """Toglie letture e archivi oltre STATION_KEEP_DAYS, gli esiti della verifica oltre
+    VERIFY_KEEP_DAYS e il registro oltre i 30 giorni. Una
     volta al giorno (job normals): alcune di queste tabelle hanno centinaia di migliaia di
     righe e il DELETE per data le scorre per intero."""
     old = now_ms() - config.STATION_KEEP_DAYS * 86400000
@@ -166,6 +180,9 @@ def prune_archives(conn):
     conn.execute('DELETE FROM radar_obs WHERE time < ?', (old,))
     conn.execute('DELETE FROM river_levels WHERE time < ?', (old,))
     conn.execute('DELETE FROM radar_nowcast WHERE issued < ?', (old,))
+    # esiti della verifica: storico più lungo (giorni 'YYYY-MM-DD' nel fuso della località)
+    first = (datetime.now(ZoneInfo(config.TIMEZONE)).date() - timedelta(days=config.VERIFY_KEEP_DAYS)).isoformat()
+    conn.execute('DELETE FROM verify_days WHERE day < ?', (first,))
     conn.commit()
 
 
@@ -177,7 +194,7 @@ def log(conn, job, ok, detail=''):
 def last_logs(conn):
     """Ultimo esito di ogni job e ultimo successo."""
     out = {}
-    for job in ('station', 'forecast', 'ensemble', 'normals', 'radar', 'rivers', 'backup'):
+    for job in ('station', 'forecast', 'ensemble', 'normals', 'radar', 'rivers', 'verify', 'backup'):
         last = conn.execute('SELECT at, ok, detail FROM fetch_log WHERE job = ? ORDER BY at DESC LIMIT 1', (job,)).fetchone()
         good = conn.execute('SELECT at FROM fetch_log WHERE job = ? AND ok = 1 ORDER BY at DESC LIMIT 1', (job,)).fetchone()
         out[job] = {

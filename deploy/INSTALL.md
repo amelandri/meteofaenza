@@ -108,7 +108,7 @@ Entro 5 minuti deve comparire una riga `radar:`, entro 10 una riga `station:`, e
 | `forecast` | minuti 2, 17, 32, 47 | controlla i metadati dei modelli; scarica le previsioni solo se è uscito un nuovo run (ICON-2I ogni 12 h, ICON-EU ogni 3 h) o se hanno più di 6 ore; ensemble ogni 3 ore |
 | `radar` | ogni 5 minuti, 10 s dopo lo scoccare | scarica le immagini nuove del radar della Protezione Civile, calcola movimento e stima dei prossimi 90 minuti, prepara le immagini dell'animazione (richiede numpy e Pillow, passo 1) |
 | `rivers` | minuti 7, 22, 37, 52 | livelli di Lamone e Marzeno (idrometri ARPAE, portale Allerta Meteo): soglie e serie delle ultime ~2,5 giorni, salvate nel database |
-| `normals` | ogni giorno alle 4:40 | pulisce gli archivi (dati oltre 400 giorni, download dell'ensemble che la verifica non usa) e scarica le medie del periodo 1991–2020 solo se mancano o hanno più di un anno |
+| `normals` | ogni giorno alle 4:40 | salva gli esiti della verifica dei giorni conclusi (conservati due anni), pulisce gli archivi (dati oltre 400 giorni, download dell'ensemble che la verifica non usa) e scarica le medie del periodo 1991–2020 solo se mancano o hanno più di un anno |
 | `backup` | ogni giorno alle 4:50 | copia del database in `/var/lib/meteo/backup` (vedi "Backup e ripristino") |
 
 ## Backup e ripristino
@@ -200,6 +200,7 @@ sudo systemctl restart meteo-api                 # solo se è cambiato qualcosa 
 | Stato dei dati | `curl -s http://127.0.0.1:8085/api/status` |
 | Forzare l'aggiornamento delle previsioni | `sudo -u meteo env METEO_DB=/var/lib/meteo/meteo.db sh -c 'cd /opt/meteo && python3 -B -m server.jobs forecast --force'` |
 | Riavviare l'API | `sudo systemctl restart meteo-api` |
+| Rielaborare gli esiti della verifica (dopo un cambio delle regole) | `sudo -u meteo env METEO_DB=/var/lib/meteo/meteo.db sh -c 'cd /opt/meteo && python3 -B -m server.jobs verify --force'` |
 | Backup del database (subito) | `sudo -u meteo env METEO_DB=/var/lib/meteo/meteo.db sh -c 'cd /opt/meteo && python3 -B -m server.jobs backup'` |
 
 Il database è piccolo: qualche centinaio di KB per previsioni e medie, più circa 1 KB per ogni lettura della centralina (conservate per circa 400 giorni).

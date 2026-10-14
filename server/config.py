@@ -46,6 +46,10 @@ NORMALS_MAX_AGE_S = 365 * 24 * 3600
 
 # Centralina: letta ogni 10 minuti; storico conservato per eventuali verifiche future.
 STATION_KEEP_DAYS = 400
+# Esiti della verifica (tabella verify_days, server/verify.py): calcolati una volta per i giorni
+# conclusi e conservati due anni, anche dopo che letture e archivi delle previsioni (400 giorni)
+# sono stati tolti.
+VERIFY_KEEP_DAYS = 731
 RAIN_LOG_S = 2 * 3600  # letture restituite al frontend per capire se Sta piovendo
 
 # Radar (server/radar.py): un'immagine ogni 5 minuti, pubblicata ~7–8 minuti dopo; il job

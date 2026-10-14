@@ -8,6 +8,9 @@ misure della centralina per i giorni passati (api/verify).
   un'ora (OR delle maschere), come windowRainChance() del frontend.
 - Misure: dalle letture ogni 10 minuti (station_readings) si ricavano pioggia oraria (dai mm
   cumulati del giorno), temperatura oraria, minima e massima.
+- Esiti: per ogni giorno concluso e anticipo (1 o 2 giorni) esiti delle fasce e del giorno per
+  modello, probabilità dell'ensemble e misure, calcolati una volta dal job giornaliero
+  (store_days()) e salvati in verify_days per VERIFY_KEEP_DAYS (due anni).
 
 Convenzione oraria uguale a Open-Meteo e al frontend: il valore del timestamp T riguarda
 l'ora (T-1, T]; il giorno D usa i timestamp D 01:00 … D+1 00:00 (indice 0 … 23).
@@ -20,6 +23,7 @@ vuota (pioggia 0).
 """
 
 import json
+import math
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -423,17 +427,162 @@ def ensemble_day(conn, day, lead):
     return {'issuedAt': row['issued_at'], 'groups': sorted(groups.values(), key=lambda g: order.index(g['model']) if g['model'] in order else 99)}
 
 
+# --- Esiti ------------------------------------------------------------------------------
+# Calcolati qui (non più nel browser) e salvati in verify_days per i giorni conclusi: un
+# cambio delle regole vale per i giorni nuovi; per rielaborare lo storico ancora coperto dagli
+# archivi: python3 -m server.jobs verify --force.
+
+SLOT_STARTS = (0, 6, 12, 18)  # fasce di 6 ore, come SLOTS del frontend
+# Quantità molto diversa (solo se pioggia prevista e caduta): una almeno QTY_RATIO volte
+# l'altra con scarto di almeno QTY_MM, come il criterio di concordanza sulla quantità.
+QTY_RATIO = 2
+QTY_MM = 2.0
+_SLOT_HOURS = [list(range(a, a + 6)) for a in SLOT_STARTS]
+_DAY_HOURS = list(range(24))
+
+
+def _round(v, scale=10):
+    """Arrotondamento come Math.round del frontend (la metà verso l'alto, non "al pari")."""
+    return math.floor(v * scale + 0.5) / scale
+
+
+def _total(arr, hours):
+    """Somma delle ore (un decimale), None se ne manca anche una."""
+    if not arr:
+        return None
+    s = 0.0
+    for h in hours:
+        if arr[h] is None:
+            return None
+        s += arr[h]
+    return _round(s)
+
+
+def outcome(fc, obs):
+    """'hit' / 'ok' / 'false' (falso allarme) / 'miss' (pioggia non prevista), None senza dati."""
+    if fc is None or obs is None:
+        return None
+    f, o = fc >= WET_MM - 1e-9, obs >= WET_MM - 1e-9
+    return ('hit' if o else 'false') if f else ('miss' if o else 'ok')
+
+
+def qty_off(fc, obs):
+    """'more' = caduta molta più pioggia del previsto, 'less' = molta meno, None altrimenti."""
+    if outcome(fc, obs) != 'hit' or abs(fc - obs) < QTY_MM - 1e-9:
+        return None
+    if obs >= QTY_RATIO * fc:
+        return 'more'
+    if fc >= QTY_RATIO * obs:
+        return 'less'
+    return None
+
+
+def chance(ens, hours):
+    """Probabilità (%) di almeno WET_MM in almeno un'ora: quota di scenari bagnati (OR delle
+    maschere), media dei gruppi che coprono tutte le ore; come windowRainChance() dell'app."""
+    if not ens:
+        return None
+    parts = []
+    for g in ens['groups']:
+        if any(not g['n'][h] for h in hours):
+            continue
+        mask = 0
+        for h in hours:
+            mask |= g['masks'][h] or 0
+        parts.append(bin(mask).count('1') / min(g['n'][h] for h in hours))
+    return int(_round(100 * sum(parts) / len(parts), 1)) if parts else None
+
+
+def _judge(fc, obs, judge=True):
+    """Cella della verifica: previsto, esito e quantità (esito solo se `judge`)."""
+    return {'fc': fc, 'res': outcome(fc, obs) if judge else None, 'qty': qty_off(fc, obs) if judge else None}
+
+
+def day_result(conn, day, lead, obs=None):
+    """Esiti del giorno per la previsione di `lead` giorni prima: per ogni fascia e per il giorno
+    intero pioggia misurata, prevista da ogni modello con l'esito, probabilità dell'ensemble;
+    massima e minima previste e misurate. None se non ci sono misure. Il totale del giorno si
+    giudica solo a giornata completa."""
+    obs = obs or observed_day(conn, day)
+    if not obs:
+        return None
+    o_slots = [_total(obs['rain'], hs) for hs in _SLOT_HOURS]
+    models = {}
+    for key, f in forecast_day(conn, day, lead).items():
+        if not f:
+            models[key] = None
+            continue
+        temps = [t for t in f['temp'] if t is not None]
+        models[key] = {
+            'runInit': f['runInit'], 'issuedAt': f['issuedAt'],
+            'slots': [_judge(_total(f['rain'], hs), o) for hs, o in zip(_SLOT_HOURS, o_slots)],
+            'day': _judge(_total(f['rain'], _DAY_HOURS), obs['total'], obs['complete']),
+            'tMax': max(temps) if temps else None, 'tMin': min(temps) if temps else None,
+        }
+    ens = ensemble_day(conn, day, lead)
+    return {
+        'day': day,
+        'observed': {k: obs[k] for k in ('total', 'tMin', 'tMinTime', 'tMax', 'tMaxTime', 'complete')} | {'slots': o_slots},
+        'models': models,
+        'ensemble': {'issuedAt': ens['issuedAt'], 'slots': [chance(ens, hs) for hs in _SLOT_HOURS],
+                     'day': chance(ens, _DAY_HOURS)} if ens else None,
+    }
+
+
+def _final(day, obs, today):
+    """Un giorno è concluso (esiti da salvare) se è passato e le misure sono complete, oppure se
+    è di almeno due giorni fa (non arriverà più niente)."""
+    d = datetime.strptime(day, '%Y-%m-%d').date()
+    return d < today and (obs['complete'] or d <= today - timedelta(days=2))
+
+
+def store_days(conn, force=False, now_ms=None):
+    """Salva in verify_days gli esiti dei giorni conclusi che mancano (con `force` li rielabora
+    tutti, ma solo dove ci sono ancora le misure: gli esiti più vecchi degli archivi restano).
+    Dal giorno della prima lettura della centralina, al massimo VERIFY_KEEP_DAYS. Restituisce
+    il numero di giorni salvati."""
+    tz = _tz()
+    now_ms = now_ms or db.now_ms()
+    today = datetime.fromtimestamp(now_ms / 1000, tz).date()
+    first = conn.execute('SELECT MIN(time) FROM station_readings').fetchone()[0]
+    if first is None:
+        return 0
+    start = max(datetime.fromtimestamp(first / 1000, tz).date(), today - timedelta(days=config.VERIFY_KEEP_DAYS))
+    have = {(r['day'], r['lead']) for r in conn.execute('SELECT day, lead FROM verify_days')}
+    saved = 0
+    d = start
+    while d < today:
+        day = d.isoformat()
+        d += timedelta(days=1)
+        leads = [lead for lead in LEADS if force or (day, lead) not in have]
+        if not leads:
+            continue
+        obs = observed_day(conn, day)
+        if not obs or not _final(day, obs, today):
+            continue
+        for lead in leads:
+            data = day_result(conn, day, lead, obs)
+            conn.execute('INSERT OR REPLACE INTO verify_days (day, lead, computed_at, data) VALUES (?, ?, ?, ?)',
+                         (day, lead, now_ms, json.dumps(data, separators=(',', ':'))))
+            saved += 1
+    conn.commit()
+    return saved
+
+
 def compose_verify(conn, days=30, lead=1):
-    """Giorni dal più recente (oggi, parziale) al più vecchio, solo quelli con misure."""
-    days = max(1, min(int(days), 120))
+    """Giorni dal più recente (oggi, parziale) al più vecchio, solo quelli con misure: esiti
+    salvati in verify_days, calcolati al momento solo per i giorni non ancora salvati (oggi,
+    ieri prima del job giornaliero). In sola lettura: a salvare è il job (store_days())."""
+    days = max(1, min(int(days), config.VERIFY_KEEP_DAYS))
     lead = lead if lead in LEADS else 1
     today = datetime.now(_tz()).date()
+    first = (today - timedelta(days=days - 1)).isoformat()
+    stored = {r['day']: json.loads(r['data']) for r in conn.execute(
+        'SELECT day, data FROM verify_days WHERE lead = ? AND day >= ?', (lead, first))}
     out = []
     for k in range(days):
         day = (today - timedelta(days=k)).isoformat()
-        obs = observed_day(conn, day)
-        if not obs:
-            continue
-        out.append({'day': day, 'today': k == 0, 'observed': obs,
-                    'models': forecast_day(conn, day, lead), 'ensemble': ensemble_day(conn, day, lead)})
+        d = stored.get(day) or day_result(conn, day, lead)
+        if d:
+            out.append({**d, 'today': k == 0})
     return {'lead': lead, 'leadLabel': LEADS[lead], 'wetMm': WET_MM, 'days': out}

@@ -294,8 +294,8 @@
         </tbody>
       </table>
       <p>Il colore della cella ripete l'esito (verde corretta, rosso falso allarme, ambra pioggia non prevista; bordo azzurro per la quantità). Passando con il mouse su una cella si vede lo scarto in millimetri tra previsto e caduto. Sotto la tabella ci sono massima e minima previste (ricavate dai valori orari) accanto a quelle misurate, con lo scarto.</p>
-      <p>Se nelle <a href="settings.html">Impostazioni</a> hai definito degli intervalli monitorati, ogni giorno ha anche una tabella con gli intervalli di quel giorno della settimana, giudicati con le stesse regole: è la verifica più vicina all'uso reale, perché dice se il verdetto sul tragitto sarebbe stato giusto.</p>
       <p class="info-note">Il giorno di oggi è mostrato come "in corso": le fasce già trascorse si giudicano, il totale del giorno e le temperature no. Il riepilogo usa solo i giorni completi. La verifica è disponibile dai giorni in cui il server era attivo.</p>
+      <p>Gli esiti si calcolano sul server una volta sola, nella notte dopo la fine del giorno, e restano salvati per <strong>due anni</strong>: oggi (e ieri, fino a quel momento) sono calcolati al momento. Se in futuro cambiano le regole di giudizio, i giorni già salvati restano giudicati con le regole di allora.</p>
 
       <h3>Il riepilogo del periodo</h3>
       <p>In cima alla pagina, per gli ultimi 7 o 30 giorni completi, un riepilogo per modello:</p>
@@ -303,7 +303,6 @@
         <thead><tr><th>Riga</th><th>Cosa dice</th></tr></thead>
         <tbody>
           <tr><td>Fasce previste correttamente</td><td>la quota di fasce con esito corretto. Attenzione: le fasce asciutte sono la maggioranza, quindi anche un modello che non prevede quasi mai pioggia ottiene una quota alta. Va letta insieme alle righe successive</td></tr>
-          <tr><td>Intervalli corretti</td><td>la stessa quota sugli intervalli monitorati (solo se ne hai definiti)</td></tr>
           <tr><td>Pioggia prevista e caduta</td><td>quante volte il modello ha "preso" la pioggia</td></tr>
           <tr><td>Falsi allarmi · Pioggia non prevista</td><td>i due modi di sbagliare: troppo pessimista o troppo ottimista</td></tr>
           <tr><td>Quantità molto diversa</td><td>fasce in cui la pioggia c'era, ma molta più o molta meno del previsto</td></tr>
@@ -352,7 +351,7 @@
         </tbody>
       </table>
       <p>Accanto al punteggio sono contati gli <strong>errori gravi</strong>: fasce con probabilità almeno del 70% rimaste asciutte, o sotto il 20% in cui è piovuto. Sono le previsioni che avrebbero fatto prendere una decisione sbagliata (lasciare a casa la bici, o uscire senza ombrello).</p>
-      <p class="info-note">Le quattro fasce di uno stesso giorno non sono indipendenti (una perturbazione ne bagna spesso più d'una): con 7 giorni (28 fasce) il confronto cambia molto da una settimana all'altra, con 30 giorni è molto più stabile. Il calcolo usa le fasce di 6 ore, non gli intervalli monitorati, che sono pochi e brevi.</p>
+      <p class="info-note">Le quattro fasce di uno stesso giorno non sono indipendenti (una perturbazione ne bagna spesso più d'una): con 7 giorni (28 fasce) il confronto cambia molto da una settimana all'altra, con 30 giorni è molto più stabile. Il calcolo usa le fasce di 6 ore.</p>
     </section>
 
     <section class="card" id="limiti">
