@@ -54,7 +54,7 @@
       <a href="#modelli">I due modelli</a>
       <a href="#ensemble">Previsione singola e ensemble</a>
       <a href="#probabilita">La probabilità di pioggia</a>
-      <a href="#tragitti">I tragitti in bici</a>
+      <a href="#verdetto">Il verdetto ora per ora</a>
       <a href="#giorni">Fasce orarie e concordanza</a>
       <a href="#icone">Le icone</a>
       <a href="#centralina">La centralina</a>
@@ -93,9 +93,9 @@
         </article>
       </div>
       <p class="info-note">Nell'app ICON-2I è sempre <span class="c-i2i">verde acqua</span> e ICON-EU sempre <span class="c-eu">arancio</span>. Oltre l'orizzonte di un modello i suoi valori mancano ("—").</p>
-      <p>Nelle <a href="settings.html">Impostazioni</a>, alla voce "Modelli", si può scegliere di vedere le previsioni di uno solo dei due. In quel caso giorni, tragitti, grafico e dettaglio orario usano solo il modello scelto e manca il giudizio di concordanza; la probabilità di pioggia, che viene dagli ensemble, resta sempre visibile.</p>
+      <p>Nelle <a href="settings.html">Impostazioni</a>, alla voce "Modelli", si può scegliere di vedere le previsioni di uno solo dei due. In quel caso giorni, grafico (compreso il verdetto ora per ora) e dettaglio orario usano solo il modello scelto e manca il giudizio di concordanza; la probabilità di pioggia, che viene dagli ensemble, resta sempre visibile.</p>
       <h3 id="supporto">Modelli di supporto</h3>
-      <p>Per le prime 48 ore circa il verdetto dei tragitti in bici ascolta anche due modelli ad altissima risoluzione, aggiornati ogni 3 ore (ICON-2I solo ogni 12): <strong>ICON-D2</strong> del DWD (2,2 km) e <strong>AROME</strong> di Météo-France (1,3 km, molto bravo con i temporali). Non sono mostrati come colonne, per non riempire lo schermo: compaiono nel dettaglio dei tragitti e nella pagina <a href="verify.html">Verifica</a>, dove si può controllare quanto sono affidabili.</p>
+      <p>Per le prime 48 ore circa il verdetto ora per ora ascolta anche due modelli ad altissima risoluzione, aggiornati ogni 3 ore (ICON-2I solo ogni 12): <strong>ICON-D2</strong> del DWD (2,2 km) e <strong>AROME</strong> di Météo-France (1,3 km, molto bravo con i temporali). Non sono mostrati come colonne, per non riempire lo schermo: compaiono nel dettaglio del verdetto e nella pagina <a href="verify.html">Verifica</a>, dove si può controllare quanto sono affidabili.</p>
       <p>I dati li scarica il server dell'app, non il tuo browser: ogni 15 minuti controlla se un modello ha pubblicato una nuova previsione e solo allora la scarica, così compare poco dopo l'uscita. Gli scenari dell'ensemble li riscarica ogni 3 ore; se un aggiornamento non riesce usa quelli precedenti (fino a 12 ore). Con l'app aperta, il browser chiede al server se ci sono novità ogni 10 minuti.</p>
     </section>
 
@@ -123,7 +123,7 @@
       <p>Con soglie più basse conterebbero come "pioggia" anche poche gocce. 0,2 mm è la stessa soglia usata per dire che uno dei due modelli "vede pioggia", così modelli e probabilità parlano della stessa cosa.</p>
 
       <h3>Ora per ora e su un intervallo</h3>
-      <p>Nel <strong>dettaglio orario</strong> e nel <strong>grafico delle precipitazioni</strong> la probabilità è calcolata ora per ora. Per un <strong>intervallo</strong> (le fasce di 6 ore di Oggi, Domani e Dopodomani, o un tragitto in bici) l'app conta gli scenari bagnati: quelli che danno almeno 0,2 mm in almeno una delle ore dell'intervallo.</p>
+      <p>Nel <strong>dettaglio orario</strong> e nel <strong>grafico delle precipitazioni</strong> la probabilità è calcolata ora per ora. Per un <strong>intervallo</strong> (le fasce di 6 ore di Oggi, Domani e Dopodomani) l'app conta gli scenari bagnati: quelli che danno almeno 0,2 mm in almeno una delle ore dell'intervallo.</p>
       <p>Non si prende la probabilità più alta tra le singole ore, perché <strong>sottostimerebbe</strong> il rischio: scenari diversi possono far piovere in ore diverse dello stesso intervallo. Esempio reale: ore singole al 45% e al 23%, ma pioggia nell'intervallo nel 50% degli scenari.</p>
       <p>Non basta invece che la pioggia arrivi a 0,2 mm sommando più ore: i dati sono arrotondati a 0,1 mm e due ore di pioviggine da 0,1 mm farebbero contare come "pioggia" uno scenario quasi asciutto. Per questo serve almeno un'ora con 0,2 mm. I millimetri indicati nel dettaglio sono invece il totale dell'intervallo.</p>
       <p>Per le ore incluse solo in parte (es. 12:30–13:00) la pioggia di quell'ora è conteggiata in proporzione, assumendo che sia distribuita in modo uniforme.</p>
@@ -146,21 +146,20 @@
       <h3>Nelle fasce della giornata</h3>
       <p>Sotto i box dei due modelli c'è una riga, segnata da una goccia, con la probabilità che piova in ciascuna fascia (notte, mattina, pomeriggio, sera): una barra che si riempie in proporzione e la percentuale. È un dato <strong>comune ai due modelli</strong>, perché viene dall'ensemble, quindi compare una volta sola. I millimetri in azzurro dentro i box sono invece quelli previsti da ciascun modello. Toccando una cella della riga si vede il dettaglio.</p>
 
-      <h3 id="tragitti">Nei tragitti in bici</h3>
-      <p>Per ogni intervallo del tragitto in bici l'app combina i modelli (i due mostrati più, nelle prime 48 ore circa, i <a href="#supporto">modelli di supporto</a> ICON-D2 e AROME) con la probabilità. Nome e orari si scelgono nelle <a href="settings.html">Impostazioni</a>, alla voce "Intervalli monitorati": fino a 6 intervalli (al massimo 4 nello stesso giorno), ognuno con i giorni della settimana in cui vale, così si possono avere orari diversi in giorni diversi. All'inizio non ce n'è nessuno: finché non se ne aggiunge uno, la card di oggi mostra solo un piccolo invito a sceglierli. Ogni giorno mostra solo gli intervalli di quel giorno della settimana.</p>
+      <h3 id="verdetto">Il verdetto ora per ora</h3>
+      <p>Sotto il grafico delle precipitazioni una striscia colorata dà un verdetto per ogni ora (verde asciutto, ambra rischio o incerto, blu pioggia). Per ogni ora l'app combina i modelli (i due mostrati più, nelle prime 48 ore circa, i <a href="#supporto">modelli di supporto</a> ICON-D2 e AROME) con la probabilità:</p>
       <table class="info-table">
         <thead><tr><th>Indicazione</th><th>Quando</th></tr></thead>
         <tbody>
-          <tr><td><span class="info-st st-wet">Pioggia</span></td><td>la maggioranza dei modelli prevede pioggia (entrambi su due, almeno 3 su 4) e probabilità ≥ 30%, oppure almeno un modello e probabilità ≥ 60%, oppure probabilità ≥ 80%; oppure <strong>Sta piovendo adesso</strong> secondo la centralina e il tragitto è in corso o inizia entro 30 minuti; oppure il <a href="#radar">radar</a> vede arrivare pioggia durante il tragitto entro i prossimi 60 minuti</td></tr>
+          <tr><td><span class="info-st st-wet">Pioggia</span></td><td>la maggioranza dei modelli prevede pioggia (entrambi su due, almeno 3 su 4) e probabilità ≥ 30%, oppure almeno un modello e probabilità ≥ 60%, oppure probabilità ≥ 80%; oppure <strong>Sta piovendo adesso</strong> secondo la centralina e l'ora è in corso o inizia entro 30 minuti; oppure il <a href="#radar">radar</a> vede arrivare pioggia in quell'ora entro i prossimi 60 minuti</td></tr>
           <tr><td><span class="info-st st-dry">Asciutto</span></td><td>nessun modello prevede pioggia e probabilità sotto il 20%</td></tr>
           <tr><td><span class="info-st st-risk">Rischio</span></td><td>nessun modello prevede pioggia, ma probabilità ≥ 20%</td></tr>
           <tr><td><span class="info-st st-mixed">Incerto</span></td><td>tutti gli altri casi (es. metà dei modelli prevede pioggia e l'altra metà no, con probabilità media)</td></tr>
         </tbody>
       </table>
-      <p>Se nelle Impostazioni è scelto un solo modello, il verdetto considera quello e i modelli di supporto (oltre le 48 ore solo quello); se il modello scelto non copre il tragitto resta solo la probabilità.</p>
-      <p>Toccando un tragitto (o passandoci sopra con il mouse) si apre il dettaglio: il verdetto, il motivo, i millimetri di ciascun modello, la probabilità con gli scenari di ogni ensemble e la quantità di pioggia negli scenari bagnati.</p>
-      <p>Accanto alla probabilità ogni tragitto mostra la <strong>temperatura media prevista</strong> nell'intervallo: per ogni modello mostrato la media dei valori orari, interpolati ogni 10 minuti tra un'ora e l'altra; con due modelli la media dei due. Nel dettaglio c'è quella di ciascun modello. È la previsione grezza dei modelli, senza la correzione con la centralina.</p>
-      <p>Lo stesso verdetto c'è anche <strong>ora per ora</strong>, nella striscia colorata sotto il grafico delle precipitazioni (verde asciutto, ambra rischio o incerto, blu pioggia): ogni casella giudica un'ora con le stesse regole e gli stessi dati dei tragitti, compresi ICON-D2 e AROME e, per oggi, la pioggia in corso e il radar. Toccando una casella si apre lo stesso dettaglio. Per un intervallo di più ore conta però il tragitto: la probabilità che piova in almeno un'ora di un intervallo è più alta di quella di ciascuna ora.</p>
+      <p>Se nelle Impostazioni è scelto un solo modello, il verdetto considera quello e i modelli di supporto (oltre le 48 ore solo quello); se il modello scelto non copre quell'ora la casella resta vuota.</p>
+      <p>Toccando una casella (o cliccandola con il mouse) si apre il dettaglio: il verdetto, il motivo, i millimetri e la temperatura media prevista di ciascun modello, la probabilità con gli scenari di ogni ensemble e la quantità di pioggia negli scenari bagnati. Il verdetto compare anche passando con il mouse sul grafico.</p>
+      <p>Ogni casella giudica un'ora sola. Per uno spostamento di più ore il rischio è più alto di quello della singola ora: la probabilità che piova in almeno un'ora di un intervallo supera quella di ciascuna ora (vedi <a href="#probabilita">sopra</a>).</p>
       <p class="info-note">Il verdetto non usa la media dei millimetri dei modelli: con 2 mm da un modello e 0 dall'altro la media direbbe "1 mm", nascondendo proprio il disaccordo.</p>
     </section>
 
@@ -220,7 +219,7 @@
       <p>La centralina azzera i valori del giorno (pioggia, minima, massima, raffica) alla mezzanotte dell'ora solare, cioè all'01:00 quando c'è l'ora legale. Il server li ricalcola dalle letture salvate a partire dalla mezzanotte vera, così dopo mezzanotte l'app non mostra più i valori di ieri; tra mezzanotte e l'01:00 la raffica massima non è disponibile.</p>
       <p>Il server dell'app legge la centralina ai minuti :00, :10, :20, :30, :40 e :50 e conserva le letture; l'app chiede la nuova misura al server poco dopo. Aprendo l'app (o tornandoci) la chiede subito solo se l'ultima ha più di 10 minuti; altrimenti mostra quella salvata e aspetta la lettura programmata. Se la misura ha più di 30 minuti viene segnalata come "non aggiornata".</p>
       <h3>Pioggia in corso</h3>
-      <p>La centralina fornisce solo i millimetri caduti da mezzanotte. Confrontando la misura con una lettura di 8–40 minuti prima l'app capisce se Sta piovendo e lo scrive in alto nel box della centralina ("Sta piovendo"). Le letture precedenti le conserva il server, quindi l'indicazione c'è subito, anche appena aperta l'app. Se Sta piovendo, un tragitto in corso o che inizia entro 30 minuti diventa <em>Pioggia</em>, qualunque cosa dicano i modelli; il dettaglio riporta anche cosa prevedevano.</p>
+      <p>La centralina fornisce solo i millimetri caduti da mezzanotte. Confrontando la misura con una lettura di 8–40 minuti prima l'app capisce se Sta piovendo e lo scrive in alto nel box della centralina ("Sta piovendo"). Le letture precedenti le conserva il server, quindi l'indicazione c'è subito, anche appena aperta l'app. Se Sta piovendo, nel verdetto ora per ora l'ora in corso (e quella che inizia entro 30 minuti) diventa <em>Pioggia</em>, qualunque cosa dicano i modelli; il dettaglio riporta anche cosa prevedevano.</p>
       <h3>Temperatura corretta</h3>
       <p>Nel grafico della temperatura le linee tratteggiate sono le previsioni dei due modelli corrette con la centralina: l'app calcola la differenza tra la temperatura misurata e quella prevista nello stesso momento e la applica alle ore successive, dimezzandola ogni 3 ore e azzerandola dopo 12. Differenze di oltre 5 °C non vengono usate (più probabile una misura anomala). I box dei giorni mostrano invece le previsioni originali, per non alterare il confronto tra i modelli.</p>
     </section>
@@ -231,7 +230,7 @@
       <p>Confrontando l'ultima immagine con quella di 15 minuti prima il server calcola <strong>dove si sta muovendo la pioggia</strong> e a che velocità, poi la "sposta in avanti" lungo quel movimento per i prossimi 90 minuti: è il <em>nowcasting</em>. Per ogni momento guarda una zona intorno a Faenza che si allarga con il tempo (da 3 km adesso a 12 km tra 90 minuti, perché l'incertezza cresce): se in almeno metà della zona c'è pioggia (almeno 0,3 mm/h) la pioggia è <strong>in arrivo</strong>, se in almeno un quarto è <strong>possibile</strong>.</p>
       <ul>
         <li>In fondo al box della centralina la riga <strong>Radar</strong> dice se piove su Faenza (e fino a quando), se la pioggia è in arrivo e a che ora, dov'è la pioggia più vicina entro 50 km, oppure che non ce n'è. Toccandola si apre la sezione Radar.</li>
-        <li>Un <strong>tragitto di oggi</strong> in corso o che inizia entro un'ora diventa <em>Pioggia</em> se il radar la vede arrivare durante il tragitto entro i prossimi 60 minuti (oltre la stima è troppo incerta).</li>
+        <li>Nel <strong>verdetto ora per ora</strong>, un'ora di oggi in corso o che inizia entro un'ora diventa <em>Pioggia</em> se il radar la vede arrivare in quell'ora entro i prossimi 60 minuti (oltre la stima è troppo incerta).</li>
         <li>La sezione <strong>Radar</strong> (chiusa di default) mostra l'animazione dell'ultima ora e, con la scritta "stima", la proiezione dei prossimi 60 minuti; la cartina copre 60 km attorno a Faenza, con le città principali, la costa e il mare (in azzurro), i confini di regione e di San Marino (tratto-punto) e i cerchi tratteggiati a 25 e 50 km; in grigio le zone non coperte dal radar. Accanto (sotto, sul telefono) la stima <strong>su Faenza nei prossimi 90 minuti</strong>, ogni 15 minuti: la barra è la quota della zona guardata in cui il radar vede pioggia (non una probabilità), con le linee al 25, 50 e 75% (25% = possibile, 50% = in arrivo).</li>
       </ul>
       <table class="info-table">
@@ -242,7 +241,7 @@
           <tr><td>oltre 7,5</td><td>forte</td></tr>
         </tbody>
       </table>
-      <p class="info-note">La stima funziona bene con fronti e linee di rovesci che si spostano, fino a circa un'ora. Non vede i <strong>temporali che nascono sul posto</strong> (frequenti d'estate sull'Appennino) né quelli che si rinforzano o si esauriscono; il radar fatica con la pioviggine e vicino ai rilievi. Per questo il radar può solo aggiungere pioggia al verdetto dei tragitti, mai toglierla. Immagini: Dipartimento della Protezione Civile, licenza CC BY-SA 4.0 (con la stessa licenza le immagini radar mostrate dall'app).</p>
+      <p class="info-note">La stima funziona bene con fronti e linee di rovesci che si spostano, fino a circa un'ora. Non vede i <strong>temporali che nascono sul posto</strong> (frequenti d'estate sull'Appennino) né quelli che si rinforzano o si esauriscono; il radar fatica con la pioviggine e vicino ai rilievi. Per questo il radar può solo aggiungere pioggia al verdetto ora per ora, mai toglierla. Immagini: Dipartimento della Protezione Civile, licenza CC BY-SA 4.0 (con la stessa licenza le immagini radar mostrate dall'app).</p>
     </section>
 
     <section class="card" id="fiumi">

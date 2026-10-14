@@ -51,7 +51,7 @@ MODELS = [
     {'key': 'i2i', 'id': 'italia_meteo_arpae_icon_2i', 'meta': 'italia_meteo_arpae_icon_2i'},
     {'key': 'eu', 'id': 'icon_eu', 'meta': 'dwd_icon_eu'},
 ]
-# Modelli "di supporto": non mostrati come colonne, votano nel verdetto dei tragitti. Ad alta
+# Modelli "di supporto": non mostrati come colonne, votano nel verdetto ora per ora. Ad alta
 # risoluzione e aggiornati ogni 3 ore (ICON-2I ogni 12), coprono le prime ~48 ore. Si scarica
 # solo la pioggia (al frontend) più temperatura e codice per l'archivio della verifica.
 SUPPORT_MODELS = [

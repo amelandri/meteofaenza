@@ -7,7 +7,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Impostazioni – Meteo Faenza</title>
-  <meta name="description" content="Impostazioni di Meteo Faenza: tema, modelli mostrati, grafico, sezioni, intervalli orari monitorati e verifica">
+  <meta name="description" content="Impostazioni di Meteo Faenza: tema, modelli mostrati, grafico, sezioni e verifica">
   <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0c111b" media="(prefers-color-scheme: dark)">
   <script src="js/theme.js"></script>
@@ -54,9 +54,8 @@
     <h1>Impostazioni</h1>
     <p class="info-lead">Le impostazioni sono salvate solo in questo browser.</p>
 
-    <!-- Da 900 px due colonne: a sinistra le preferenze di visualizzazione, a destra gli
-         intervalli monitorati, la verifica e il file delle impostazioni. Sotto, una colonna
-         sola nello stesso ordine. I pulsanti con data-pref / data-value li gestisce settings.js. -->
+    <!-- Da 900 px due colonne: a sinistra aspetto, modelli e grafico, a destra sezioni,
+         verifica e file delle impostazioni. Sotto, una colonna sola nello stesso ordine. I pulsanti con data-pref / data-value li gestisce settings.js. -->
     <div class="settings-grid">
     <div class="settings-col">
     <section class="card">
@@ -71,7 +70,7 @@
 
     <section class="card">
       <h2>Modelli</h2>
-      <p class="info-note">Previsioni da mostrare: giorni, tragitti, grafico e dettaglio orario. La probabilità di pioggia, calcolata dagli ensemble, resta sempre visibile. Con un solo modello non c'è il giudizio di concordanza.</p>
+      <p class="info-note">Previsioni da mostrare: giorni, grafico (anche il verdetto ora per ora) e dettaglio orario. La probabilità di pioggia, calcolata dagli ensemble, resta sempre visibile. Con un solo modello non c'è il giudizio di concordanza.</p>
       <div class="seg theme-seg" data-pref="models" role="group" aria-label="Modelli mostrati">
         <button type="button" data-value="both">Entrambi</button>
         <button type="button" data-value="i2i">ICON-2I</button>
@@ -109,7 +108,9 @@
         </div>
       </div>
     </section>
+    </div>
 
+    <div class="settings-col">
     <section class="card">
       <h2>Sezioni della pagina</h2>
       <p class="info-note">Sezioni aperte o chiuse all'apertura dell'app. Aprendole o chiudendole nella pagina principale, l'app ricorda l'ultima scelta.</p>
@@ -142,33 +143,6 @@
         </div>
       </div>
     </section>
-    </div>
-
-    <div class="settings-col">
-    <form id="watch-form" class="card" novalidate>
-      <h2>Intervalli monitorati</h2>
-      <p class="info-note">Fasce orarie da tenere d'occhio (es. gli spostamenti in bici): per ognuna, in "Prossimi giorni" l'app indica se pioverà e con quale probabilità. Per ogni intervallo si scelgono i giorni della settimana in cui monitorarlo: così si possono anche avere orari diversi in giorni diversi. Al massimo 6 intervalli, e 4 nello stesso giorno; orari in ora locale di Faenza. Il nome compare accanto agli intervalli.</p>
-
-      <label class="field">
-        <span class="field-label">Nome</span>
-        <input id="watch-label" type="text" required autocomplete="off" placeholder="Bike">
-      </label>
-
-      <fieldset class="field">
-        <legend class="field-label">Intervalli</legend>
-        <ol id="watch-windows" class="win-list"></ol>
-        <p id="watch-empty" class="info-note win-empty" hidden>Nessun intervallo: aggiungine uno per sapere se pioverà in quegli orari.</p>
-        <button id="add-window" type="button" class="btn btn-ghost btn-sm">+ Aggiungi intervallo</button>
-      </fieldset>
-
-      <p id="form-error" class="form-error" role="alert" hidden></p>
-
-      <div class="form-actions">
-        <button type="submit" class="btn">Salva</button>
-        <button id="reset-watch" type="button" class="btn btn-ghost">Rimuovi tutti</button>
-        <span id="saved" class="form-saved" role="status" hidden>Salvato</span>
-      </div>
-    </form>
 
     <section class="card">
       <h2>Verifica</h2>

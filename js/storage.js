@@ -54,7 +54,7 @@ const DEFAULT_SETTINGS = { variable: 'rain', range: '72', chartFrom: 'now', show
 export const getSettings = () => ({ ...DEFAULT_SETTINGS, ...read(KEYS.settings, {}) });
 export const saveSettings = (patch) => write(KEYS.settings, { ...getSettings(), ...patch });
 
-// Valori ammessi di ogni preferenza semplice (tutte tranne watch): li usano la pagina
+// Valori ammessi di ogni preferenza: li usano la pagina
 // Impostazioni (un pulsante per valore) e l'importazione (valori diversi scartati).
 // variable = chiavi di VARIABLES in app.js, range / chartFrom = pulsanti del grafico in
 // index.html, verifyLead / verifyDays = selettori di verify.html: se cambiano là, aggiornarli qui.
@@ -74,86 +74,11 @@ export const PREF_VALUES = {
 // Confronto stretto: un oggetto, un array o "true" al posto di true non passano.
 export const validPref = (key, v) => Object.prototype.hasOwnProperty.call(PREF_VALUES, key) && PREF_VALUES[key].includes(v);
 
-// --- Intervalli monitorati (pagina Impostazioni) ---------------------------------
-// Gruppo di intervalli orari in cui l'app valuta se pioverà (oggi mostrati come tragitti
-// in bici). Salvato in settings.watch come { label, windows: [{ from, to, days }] }: orari
-// in ora locale (HH:MM), days = giorni della settimana in cui l'intervallo vale (0 = domenica …
-// 6 = sabato, come parts().wd di weather.js). Così si possono anche definire orari diversi
-// giorno per giorno (intervalli distinti su giorni diversi).
-
-export const MAX_WATCH_WINDOWS = 6; // in tutto…
-export const MAX_WATCH_PER_DAY = 4; // …e al massimo 4 nello stesso giorno (una riga di blocchi)
-export const MAX_WATCH_LABEL = 24;
-export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
-// Predefinito: nessun intervallo (al loro posto "Prossimi giorni" mostra un invito discreto
-// a definirli nelle Impostazioni).
-export const DEFAULT_WATCH = { label: 'Bike', windows: [] };
-// Intervalli predefiniti delle versioni precedenti: li ricevono, salvati una volta per
-// tutte, gli utenti che già usavano l'app senza averli mai cambiati (vedi getWatch()).
-const LEGACY_WATCH = {
-  label: 'Bike',
-  windows: [
-    { from: '06:45', to: '08:00', days: [...ALL_DAYS] },
-    { from: '12:30', to: '15:00', days: [...ALL_DAYS] },
-    { from: '17:00', to: '18:30', days: [...ALL_DAYS] },
-  ],
-};
-
-// Giorni validi, senza doppioni e ordinati; assenti (dati salvati prima dei giorni) o vuoti →
-// tutti i giorni.
-function normalizeDays(days) {
-  const ok = Array.isArray(days) ? [...new Set(days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort() : [];
-  return ok.length ? ok : [...ALL_DAYS];
-}
-
-const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-// Normalizza gli intervalli monitorati (letti dallo storage o dal modulo): etichetta non vuota,
-// intervalli validi con inizio < fine e giorni (normalizeDays), ordinati per orario, al
-// massimo MAX_WATCH_WINDOWS (anche nessuno). Sovrapposizioni e limite per giorno li
-// controlla il modulo. Intervalli non validi vengono scartati.
-// Nel nome si tolgono i caratteri di controllo e di formato (a capo, direzione del testo…).
-// Gli orari devono essere stringhe: RegExp.test() converte, e ['07:00'] passerebbe il test.
-const isHHMM = (v) => typeof v === 'string' && HHMM.test(v);
-export function normalizeWatch(watch) {
-  const label = typeof watch?.label === 'string' ? watch.label.replace(/[\p{Cc}\p{Cf}]/gu, '').trim().slice(0, MAX_WATCH_LABEL) : '';
-  const windows = (Array.isArray(watch?.windows) ? watch.windows : [])
-    .filter((w) => isHHMM(w?.from) && isHHMM(w?.to) && w.from < w.to)
-    .map((w) => ({ from: w.from, to: w.to, days: normalizeDays(w.days) }))
-    .sort((a, b) => a.from.localeCompare(b.from))
-    .slice(0, MAX_WATCH_WINDOWS);
-  return { label: label || DEFAULT_WATCH.label, windows };
-}
-
-// L'app è già stata usata in questo browser (dati salvati dalle versioni precedenti)?
-function hasPreviousData() {
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k === KEYS.station || k?.startsWith(CACHE_PREFIX)) return true;
-    }
-  } catch { /* storage non accessibile */ }
-  return false;
-}
-
-// settings.watch assente = mai salvato: chi usava già l'app teneva gli intervalli predefiniti
-// di allora (LEGACY_WATCH) e li conserva; un nuovo utente parte senza intervalli. La scelta si
-// salva subito, così non si ripete alle visite successive.
-export function getWatch() {
-  const saved = getSettings().watch;
-  if (saved !== undefined) return normalizeWatch(saved);
-  const watch = normalizeWatch(hasPreviousData() ? LEGACY_WATCH : DEFAULT_WATCH);
-  saveSettings({ watch });
-  return watch;
-}
-export const saveWatch = (watch) => saveSettings({ watch: normalizeWatch(watch) });
-export const resetWatch = () => saveWatch(DEFAULT_WATCH);
-
 // --- Esportazione e importazione delle preferenze (pagina Impostazioni) -------------
 // File JSON { app, kind, version, exportedAt, settings }. Il file importato è un dato non
 // fidato: si legge solo con JSON.parse (mai eseguito), entro MAX_IMPORT_BYTES, e si tengono
-// solo le chiavi di PREF_VALUES con un valore ammesso, più watch (da controllare ancora con
-// normalizeWatch() e le regole del modulo); il resto si scarta. Le preferenze si ricostruiscono
+// solo le chiavi di PREF_VALUES con un valore ammesso; il resto si scarta (watch, gli intervalli
+// monitorati delle versioni precedenti, senza segnalarlo). Le preferenze si ricostruiscono
 // in un oggetto nuovo, mai copiando quello del file.
 
 export const SETTINGS_FILE = { app: 'meteo-faenza', kind: 'settings', version: 1 };
@@ -166,12 +91,10 @@ export function exportSettings() {
   const current = getSettings();
   const settings = {};
   for (const k of Object.keys(PREF_VALUES)) if (validPref(k, current[k])) settings[k] = current[k];
-  settings.watch = getWatch();
   return { ...SETTINGS_FILE, exportedAt: new Date().toISOString(), settings };
 }
 
 // Legge il testo di un file esportato: { settings, ignored } (chiavi scartate) o { error }.
-// settings.watch, se c'è, è ancora quello del file: lo controlla chi importa.
 export function parseSettingsFile(text) {
   if (typeof text !== 'string' || text.length > MAX_IMPORT_BYTES) return { error: 'Il file è troppo grande per essere un file di impostazioni.' };
   let data;
@@ -190,13 +113,9 @@ export function parseSettingsFile(text) {
   const settings = {};
   const ignored = [];
   for (const k of Object.keys(src)) {
-    if (k === 'watch') continue;
+    if (k === 'watch') continue; // intervalli monitorati: non più usati
     if (validPref(k, src[k])) settings[k] = src[k];
     else ignored.push(k);
-  }
-  if (own(src, 'watch')) {
-    if (isObject(src.watch)) settings.watch = { label: src.watch.label, windows: src.watch.windows };
-    else ignored.push('watch');
   }
   return { settings, ignored };
 }
@@ -205,7 +124,6 @@ export function parseSettingsFile(text) {
 export function importSettings(settings) {
   const patch = {};
   for (const k of Object.keys(PREF_VALUES)) if (own(settings, k) && validPref(k, settings[k])) patch[k] = settings[k];
-  if (own(settings, 'watch')) patch.watch = normalizeWatch(settings.watch);
   return saveSettings(patch);
 }
 
@@ -266,11 +184,17 @@ export const isFresh = (forecast) => !!forecast && Date.now() < nextDownloadAt(f
 // --- Pulizia ----------------------------------------------------------------------
 
 // Dati delle versioni precedenti, non più usati: preferiti, ultima località, indice della
-// cache e previsioni salvate per località diverse da `keep`.
+// cache, previsioni salvate per località diverse da `keep` e intervalli monitorati
+// (settings.watch).
 export function removeLegacyKeys(keep) {
   remove(`${PREFIX}favorites`);
   remove(`${PREFIX}lastLocation`);
   remove(`${PREFIX}cacheIndex`);
+  const saved = read(KEYS.settings, null);
+  if (saved && typeof saved === 'object' && 'watch' in saved) {
+    delete saved.watch;
+    write(KEYS.settings, saved);
+  }
   const keepKey = CACHE_PREFIX + locationId(keep);
   try {
     const old = [];

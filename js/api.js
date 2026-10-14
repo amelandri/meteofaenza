@@ -31,7 +31,7 @@ export const MODELS = [
 ];
 
 // Modelli "di supporto" (server/sources.py SUPPORT_MODELS): non mostrati come colonne,
-// votano nel verdetto dei tragitti nelle prime ~48 ore e compaiono nel suo dettaglio. Dal
+// votano nel verdetto orario (striscia del grafico) nelle prime ~48 ore e compaiono nel suo dettaglio. Dal
 // server arriva solo la pioggia oraria (hourly.models.<key>.precipitation).
 export const SUPPORT_MODELS = [
   { key: 'd2', name: 'ICON-D2', short: 'D2', provider: 'DWD', resolution: '2,2 km' },

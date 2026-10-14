@@ -93,7 +93,7 @@ def compose_forecast(conn, now_ms):
                            for t in ens['time']]
     runs = (db.get_snapshot(conn, 'runs') or {}).get('data') or {}
     trim_forecast(data, ens, today)
-    # Dei modelli di supporto al frontend serve solo la pioggia (verdetto dei tragitti);
+    # Dei modelli di supporto al frontend serve solo la pioggia (verdetto ora per ora);
     # temperatura e codice restano nel database per la verifica.
     for m in sources.SUPPORT_MODELS:
         series = data['hourly']['models'].get(m['key'])

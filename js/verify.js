@@ -50,8 +50,8 @@ const shownModels = () => {
   const only = MODELS.find((m) => m.key === settings.models);
   return only ? [only] : MODELS;
 };
-// Nella verifica anche i modelli di supporto (ICON-D2, AROME), che votano nel verdetto dei
-// tragitti: qui si vede se aiutano davvero.
+// Nella verifica anche i modelli di supporto (ICON-D2, AROME), che votano nel verdetto
+// orario: qui si vede se aiutano davvero.
 const verifyModels = () => [...shownModels(), ...SUPPORT_MODELS];
 const ALL_MODELS = [...MODELS, ...SUPPORT_MODELS];
 

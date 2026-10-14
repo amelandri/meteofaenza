@@ -29,7 +29,7 @@ from zoneinfo import ZoneInfo
 
 from . import config, db, sources
 
-WET_MM = 0.2  # come BIKE_WET_MM / ENSEMBLE_WET_MM del frontend
+WET_MM = 0.2  # come VERDICT_WET_MM / ENSEMBLE_WET_MM del frontend
 NEAR_MS = 8 * 60 * 1000  # una lettura vale per un orario se è entro 8 minuti
 LEADS = {1: 'il giorno prima alle 23', 2: 'due giorni prima alle 23'}
 # Ora locale del giorno prima (o di due giorni prima) a cui si prende la previsione da verificare:

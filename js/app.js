@@ -1,7 +1,7 @@
 import { MODELS, SUPPORT_MODELS, fetchForecast, inModelDomain, fetchNormals, dayOfYear, NORMALS } from './api.js';
 import { fetchStation, STATION, STATION_STALE_MS } from './station.js';
 import { loadRivers, renderRivers, riversSummary } from './rivers.js';
-import { radarStatus, radarWindowRain, radarWords, RADAR_BIKE_MIN, loadRadar, renderRadar, closeRadar, radarTime } from './radar.js';
+import { radarStatus, radarWindowRain, radarWords, RADAR_VERDICT_MIN, loadRadar, renderRadar, closeRadar, radarTime } from './radar.js';
 import * as store from './storage.js';
 import { renderChart, tipValue } from './chart.js';
 import {
@@ -53,7 +53,7 @@ const LOCATION = {
 };
 
 // Modelli di cui mostrare le previsioni (preferenza settings.models dalla pagina Impostazioni:
-// "both", "i2i" o "eu"). Vale per box dei giorni, verdetto dei tragitti, grafico, tabella oraria
+// "both", "i2i" o "eu"). Vale per box dei giorni, verdetto orario, grafico, tabella oraria
 // e run nel piè di pagina; le probabilità di pioggia (ensemble) restano sempre visibili e il
 // download comprende sempre entrambi i modelli.
 function shownModels() {
@@ -93,7 +93,7 @@ function init() {
   let resizeTimer;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => { renderChartSection(); if (state.data) fitBikes(); }, 150);
+    resizeTimer = setTimeout(renderChartSection, 150);
   });
 
   // Aggiorna i dati quando l'app torna in primo piano dopo un po' di tempo.
@@ -291,7 +291,7 @@ async function loadStation() {
   }
 }
 
-// La misura della centralina entra nel box Adesso, nei tragitti (pioggia in corso) e nel
+// La misura della centralina entra nel box Adesso, nel verdetto orario (pioggia in corso) e nel
 // grafico della temperatura (correzione): si ridisegnano tutti.
 function renderStationViews() {
   if (!state.data || $('#forecast').hidden) return;
@@ -311,7 +311,7 @@ function stationIsFresh() {
 const RAIN_NOW_MIN_GAP_MS = 8 * 60 * 1000; // lettura di confronto: almeno 8 minuti prima…
 const RAIN_NOW_MAX_GAP_MS = 40 * 60 * 1000; // …e al massimo 40
 const RAIN_NOW_FRESH_MS = 20 * 60 * 1000; // misura attuale non più vecchia di così
-const RAIN_NOW_LEAD_MIN = 30; // un tragitto che inizia entro 30 minuti è "imminente"
+const RAIN_NOW_LEAD_MIN = 30; // un'ora che inizia entro 30 minuti è "imminente"
 
 const stationDay = (ms) => localDateTime(ms, state.data?.timezone || 'Europe/Rome', state.data?.utcOffset || 0).date;
 
@@ -690,7 +690,7 @@ function renderPopRow(pops, pastUntil, day) {
   </div>`;
 }
 
-// Probabilità di pioggia per ciascuna fascia del giorno (stesso calcolo dei tragitti sulle
+// Probabilità di pioggia per ciascuna fascia del giorno (stesso calcolo del verdetto sulle
 // 6 ore della fascia); null dove mancano dati orari.
 function slotChances(day, hourIdx) {
   return SLOTS.map((s) => {
@@ -772,19 +772,16 @@ const durationWords = (min) => {
 
 const DROP = '<svg class="drop" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M8 1.6c2.4 3 4.4 5.5 4.4 8.1a4.4 4.4 0 0 1-8.8 0c0-2.6 2-5.1 4.4-8.1z"/></svg>';
 
-// --- Tragitti in bici ("Bike") ------------------------------------------------------
-// Elenco di tragitti, ognuno con le sue finestre orarie (ora locale della località). Per
-// ogni finestra si valuta se pioverà confrontando i due modelli e la probabilità
-// dall'ensemble. Oggi c'è un'unica voce: gli "intervalli monitorati" (nome e fino a 6
-// intervalli, al massimo 4 al giorno) scelti nella pagina Impostazioni (settings.html, salvati in settings.watch).
-let BIKE_COMMUTES = [store.getWatch()];
-const BIKE_WET_MM = 0.2; // mm nel tragitto oltre cui un modello "vede" pioggia
+// --- Verdetto di un intervallo ------------------------------------------------------
+// Per un intervallo orario (oggi: ogni ora della striscia sotto il grafico Precipitazioni)
+// si valuta se pioverà confrontando i modelli e la probabilità dall'ensemble.
+const VERDICT_WET_MM = 0.2; // mm nell'intervallo oltre cui un modello "vede" pioggia
 // Soglie del verdetto, che combina i modelli (quelli mostrati più i modelli di supporto
 // ICON-D2 e AROME, dove arrivano) con la probabilità dell'ensemble:
-const BIKE_POP_MOST = 30; // Pioggia se la maggioranza dei modelli vede pioggia e prob. ≥ 30%…
-const BIKE_POP_ONE = 60; // …oppure se la vede almeno un modello e prob. ≥ 60%…
-const BIKE_POP_ANY = 80; // …oppure, comunque, con prob. ≥ 80%
-const BIKE_POP_DRY = 20; // Asciutto se nessun modello vede pioggia e prob. < 20%
+const VERDICT_POP_MOST = 30; // Pioggia se la maggioranza dei modelli vede pioggia e prob. ≥ 30%…
+const VERDICT_POP_ONE = 60; // …oppure se la vede almeno un modello e prob. ≥ 60%…
+const VERDICT_POP_ANY = 80; // …oppure, comunque, con prob. ≥ 80%
+const VERDICT_POP_DRY = 20; // Asciutto se nessun modello vede pioggia e prob. < 20%
 
 const toMinutes = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 
@@ -815,7 +812,7 @@ function windowHours(day, w) {
   return out;
 }
 
-// Probabilità che piova durante un intervallo (tragitto o fascia).
+// Probabilità che piova durante un intervallo (fascia, ora).
 // Metodo: quota di scenari dell'ensemble con almeno ENSEMBLE_WET_MM in almeno una singola ora
 // dell'intervallo (per le ore parziali conta la parte nell'intervallo, come per i mm). Non
 // basta la somma delle ore: con dati arrotondati a 0,1 mm, due ore di pioviggine da 0,1 mm
@@ -823,15 +820,15 @@ function windowHours(day, w) {
 // fascia 12–18, di cui ~9 punti solo da scenari così, contro il 25% massimo delle ore).
 // La massima delle probabilità orarie invece sottostima: scenari diversi possono vedere
 // pioggia in ore diverse dello stesso intervallo, e qui ognuno conta una volta sola.
-// Se l'ensemble non copre il tragitto si ripiega sulla massima oraria (popExact = false).
-// Stessa soglia con cui un modello "vede pioggia" (BIKE_WET_MM): modelli e probabilità
+// Se l'ensemble non copre l'intervallo si ripiega sulla massima oraria (popExact = false).
+// Stessa soglia con cui un modello "vede pioggia" (VERDICT_WET_MM): modelli e probabilità
 // parlano della stessa pioggia. (Con 0,1 mm contavano anche poche gocce.)
-const ENSEMBLE_WET_MM = BIKE_WET_MM;
+const ENSEMBLE_WET_MM = VERDICT_WET_MM;
 
 // Elenco in italiano: "A", "A e B", "A, B e C".
 const listIt = (a) => (a.length > 1 ? `${a.slice(0, -1).join(', ')} e ${a[a.length - 1]}` : a.join(''));
 
-// Descrizione a parole dei mm nel tragitto (valore tipico degli scenari con pioggia).
+// Descrizione a parole dei mm nell'intervallo (valore tipico degli scenari con pioggia).
 function rainWords(mm) {
   if (mm < 0.5) return 'qualche goccia';
   if (mm < 2) return 'pioggia debole';
@@ -923,7 +920,7 @@ const tipHead = (title, chip = '', cls = '') => `<div class="tp-head"><b>${title
 const tipRows = (rows) => (rows.length ? `<dl class="tp-rows">${rows.map((r) => `<div><dt>${r.dot ? `<i class="dot-${r.dot}"></i>` : ''}${r.k}</dt><dd>${r.v}</dd></div>`).join('')}</dl>` : '');
 const tipNote = (txt) => `<p class="tp-note">${txt}</p>`;
 
-// Probabilità di pioggia (tragitti, fasce, ore): percentuale grande, scenari per ensemble,
+// Probabilità di pioggia (fasce, ore, verdetto): percentuale grande, scenari per ensemble,
 // quantità negli scenari bagnati, note su orario approssimato e dati vecchi.
 function tipChance(x, where) {
   if (x.pop == null) return tipNote('Probabilità di pioggia non disponibile.');
@@ -945,7 +942,7 @@ function tipChance(x, where) {
 }
 const chancePlain = (x, where) => (x.pop == null ? 'Probabilità n.d.' : `Probabilità di pioggia ${where} ${x.popExact ? '' : '~'}${x.pop}%`);
 
-// Verdetto per una finestra: combina quanti modelli "vedono pioggia" (≥ BIKE_WET_MM) con
+// Verdetto per una finestra: combina quanti modelli "vedono pioggia" (≥ VERDICT_WET_MM) con
 // la probabilità dell'ensemble. Non si fa una media dei mm tra i modelli (2 e 0 mm
 // darebbero "1 mm" nascondendo il disaccordo).
 //   Pioggia  = maggioranza (più di metà) + prob ≥ 30% · almeno uno + prob ≥ 60% · qualunque + prob ≥ 80%
@@ -953,7 +950,7 @@ const chancePlain = (x, where) => (x.pop == null ? 'Probabilità n.d.' : `Probab
 //   Rischio  = nessun modello, ma prob ≥ 20%  ·  Incerto = gli altri casi
 // Con due modelli la maggioranza è "entrambi"; con quattro (2I, EU, D2, AROME) almeno tre.
 // Senza probabilità si giudica solo sui modelli (tutti → Pioggia, alcuni → Incerto).
-function bikeVerdict(wet, total, pop, single = "l'unico modello disponibile") {
+function verdictOf(wet, total, pop, single = "l'unico modello disponibile") {
   const all = wet === total, some = wet > 0, most = total > 1 && wet > total / 2;
   let models;
   if (total === 1) models = some ? `${single} vede pioggia` : `${single} non vede pioggia`;
@@ -965,11 +962,11 @@ function bikeVerdict(wet, total, pop, single = "l'unico modello disponibile") {
     return { status: some ? 'mixed' : 'dry', why: `${models} ${na}` };
   }
   const p = `probabilità ${pop}%`;
-  if (most && pop >= BIKE_POP_MOST) return { status: 'wet', why: `${models} e ${p} (≥ ${BIKE_POP_MOST}%)` };
-  if (some && pop >= BIKE_POP_ONE) return { status: 'wet', why: `${models} e ${p} (≥ ${BIKE_POP_ONE}%)` };
-  if (pop >= BIKE_POP_ANY) return { status: 'wet', why: `${p} (≥ ${BIKE_POP_ANY}%), anche se ${models}` };
-  if (!some && pop < BIKE_POP_DRY) return { status: 'dry', why: `${models} e ${p} (< ${BIKE_POP_DRY}%)` };
-  if (!some) return { status: 'risk', why: `${models}, ma ${p} (≥ ${BIKE_POP_DRY}%)` };
+  if (most && pop >= VERDICT_POP_MOST) return { status: 'wet', why: `${models} e ${p} (≥ ${VERDICT_POP_MOST}%)` };
+  if (some && pop >= VERDICT_POP_ONE) return { status: 'wet', why: `${models} e ${p} (≥ ${VERDICT_POP_ONE}%)` };
+  if (pop >= VERDICT_POP_ANY) return { status: 'wet', why: `${p} (≥ ${VERDICT_POP_ANY}%), anche se ${models}` };
+  if (!some && pop < VERDICT_POP_DRY) return { status: 'dry', why: `${models} e ${p} (< ${VERDICT_POP_DRY}%)` };
+  if (!some) return { status: 'risk', why: `${models}, ma ${p} (≥ ${VERDICT_POP_DRY}%)` };
   return { status: 'mixed', why: `${models}, ${p}` };
 }
 
@@ -997,7 +994,7 @@ function windowTemp(day, w, hourIdx, key) {
   return sum / n;
 }
 
-function bikeWindow(day, w, hourIdx) {
+function windowVerdict(day, w, hourIdx) {
   const { hourly } = state.data;
   const hrs = windowHours(day, w).map((x) => ({ ...x, i: hourIdx.get(x.stamp) }));
   const shown = shownModels();
@@ -1007,11 +1004,11 @@ function bikeWindow(day, w, hourIdx) {
     return hrs.reduce((sum, x) => sum + p[x.i] * x.weight, 0);
   };
   // I modelli mostrati sempre (anche "n.d." oltre l'orizzonte), quelli di supporto solo dove
-  // coprono il tragitto (prime ~48 ore).
+  // coprono l'intervallo (prime ~48 ore).
   const main = shown.map((m) => ({ m, mm: mmOf(m), temp: windowTemp(day, w, hourIdx, m.key) }));
   const support = SUPPORT_MODELS.map((m) => ({ m, mm: mmOf(m), support: true })).filter((x) => x.mm != null);
   const mainAvail = main.filter((x) => x.mm != null);
-  // Temperatura media del tragitto: media dei modelli mostrati che lo coprono (i modelli di
+  // Temperatura media dell'intervallo: media dei modelli mostrati che lo coprono (i modelli di
   // supporto arrivano all'app solo con la pioggia).
   const temps = main.map((x) => x.temp).filter((v) => v != null);
   const temp = temps.length ? temps.reduce((a, b) => a + b, 0) / temps.length : null;
@@ -1019,51 +1016,50 @@ function bikeWindow(day, w, hourIdx) {
   const avail = [...mainAvail, ...support];
   const chance = windowRainChance(hrs);
   const { pop } = chance;
-  // Nessun modello mostrato copre il tragitto: niente verdetto, resta la probabilità.
+  // Nessun modello mostrato copre l'intervallo: niente verdetto, resta la probabilità.
   if (!mainAvail.length) return { w, status: 'na', why: `${shown.map((m) => m.name).join(' e ')} oltre l'orizzonte`, models, avail, mainAvail, temp, ...chance };
 
-  const wet = avail.filter((x) => x.mm >= BIKE_WET_MM).length;
+  const wet = avail.filter((x) => x.mm >= VERDICT_WET_MM).length;
   // Con un solo modello (mostrato e senza supporto) si nomina quello; con entrambi mostrati
   // ma uno solo disponibile (fine orizzonte) "l'unico modello disponibile".
-  const { status, why } = bikeVerdict(wet, avail.length, pop, shown.length === 1 ? shown[0].name : undefined);
+  const { status, why } = verdictOf(wet, avail.length, pop, shown.length === 1 ? shown[0].name : undefined);
   const mms = avail.map((x) => x.mm);
   return { w, status, why, wet, models, avail, mainAvail, temp, ...chance, mean: mms.reduce((a, b) => a + b, 0) / mms.length, min: Math.min(...mms), max: Math.max(...mms) };
 }
 
 // Icone dello stato (16×16, tratto): sole = asciutto, nuvola = rischio,
 // nuvola con goccia = incerto, ombrello = pioggia.
-const BIKE_CLOUD = '<path d="M4.6 11.2h6.9a2.6 2.6 0 0 0 .2-5.2 3.6 3.6 0 0 0-6.9 1A2.1 2.1 0 0 0 4.6 11.2z"/>';
-const BIKE_STATUS = {
+const VERDICT_CLOUD = '<path d="M4.6 11.2h6.9a2.6 2.6 0 0 0 .2-5.2 3.6 3.6 0 0 0-6.9 1A2.1 2.1 0 0 0 4.6 11.2z"/>';
+const VERDICT_STATUS = {
   dry: { label: 'Asciutto', icon: '<circle cx="8" cy="8" r="2.9"/><path d="M8 1.6v1.5M8 12.9v1.5M1.6 8h1.5M12.9 8h1.5M3.5 3.5l1 1M11.5 11.5l1 1M3.5 12.5l1-1M11.5 4.5l1-1"/>' },
-  risk: { label: 'Rischio', icon: `<g transform="translate(0 .6)">${BIKE_CLOUD}</g>` },
-  mixed: { label: 'Incerto', icon: `<g transform="translate(0 -1.6)">${BIKE_CLOUD}</g><path d="M8 11.8l-.9 2.4"/>` },
+  risk: { label: 'Rischio', icon: `<g transform="translate(0 .6)">${VERDICT_CLOUD}</g>` },
+  mixed: { label: 'Incerto', icon: `<g transform="translate(0 -1.6)">${VERDICT_CLOUD}</g><path d="M8 11.8l-.9 2.4"/>` },
   wet: { label: 'Pioggia', icon: '<path d="M2.2 8.3a5.8 5.8 0 0 1 11.6 0z"/><path d="M8 8.3v4.6a1.4 1.4 0 0 1-2.8 0"/><path d="M8 2.5v-.9"/>' },
   na: { label: 'n.d.', icon: '' },
 };
-const BIKE_ICON = '<svg class="bike-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="5.5" cy="16.5" r="3.5"/><circle cx="18.5" cy="16.5" r="3.5"/><path d="M5.5 16.5 9 9h6l3.5 7.5M9 9l3.5 7.5L15 9M8 6.5h3M15 9l-1-2.5h2.5"/></svg>';
 
-// Pioggia in corso misurata dalla centralina: per un tragitto di oggi in corso o che inizia
+// Pioggia in corso misurata dalla centralina: per un intervallo di oggi in corso o che inizia
 // entro RAIN_NOW_LEAD_MIN minuti il verdetto diventa "Pioggia", qualunque cosa dicano i modelli.
 function applyRainNow(x, rn, nowMin) {
   if (!rn?.raining || x.status === 'na') return x;
   if (nowMin >= toMinutes(x.w.to) || toMinutes(x.w.from) - nowMin > RAIN_NOW_LEAD_MIN) return x;
-  const forecast = `previsione: ${BIKE_STATUS[x.status].label.toLowerCase()}${x.why ? `, ${x.why}` : ''}`;
+  const forecast = `previsione: ${VERDICT_STATUS[x.status].label.toLowerCase()}${x.why ? `, ${x.why}` : ''}`;
   return {
     ...x, status: 'wet', rainNow: true,
     why: `Sta piovendo adesso (centralina: ${fmt(rn.mm, 1)} mm negli ultimi ${rn.minutes} minuti); ${forecast}`,
   };
 }
 
-// Pioggia vista arrivare dal radar: un tragitto di oggi in corso o che inizia entro
-// RADAR_BIKE_MIN minuti in cui la stima del radar dà pioggia diventa "Pioggia".
+// Pioggia vista arrivare dal radar: un intervallo di oggi in corso o che inizia entro
+// RADAR_VERDICT_MIN minuti in cui la stima del radar dà pioggia diventa "Pioggia".
 function applyRadar(x, day, nowMin) {
-  if (x.status === 'na' || x.rainNow || toMinutes(x.w.from) - nowMin > RADAR_BIKE_MIN || nowMin >= toMinutes(x.w.to)) return x;
+  if (x.status === 'na' || x.rainNow || toMinutes(x.w.from) - nowMin > RADAR_VERDICT_MIN || nowMin >= toMinutes(x.w.to)) return x;
   const { utcOffset, timezone } = state.data;
   // dai minuti, così vale anche "24:00" (ultima ora della striscia del grafico)
   const ms = (hhmm) => Date.parse(`${day}T00:00:00Z`) + toMinutes(hhmm) * 60000 - utcOffset * 1000;
   const s = radarWindowRain(state.station?.radar, ms(x.w.from), ms(x.w.to));
   if (!s) return x;
-  const forecast = `previsione: ${BIKE_STATUS[x.status].label.toLowerCase()}${x.why ? `, ${x.why}` : ''}`;
+  const forecast = `previsione: ${VERDICT_STATUS[x.status].label.toLowerCase()}${x.why ? `, ${x.why}` : ''}`;
   return {
     ...x, status: 'wet', rainNow: true,
     why: `il radar vede arrivare pioggia ${radarWords(s.mmh)} verso le ${localDateTime(s.at, timezone, utcOffset).time}; ${forecast}`,
@@ -1083,10 +1079,10 @@ function verdictMm(x) {
 // "solo EU": uno dei modelli mostrati non copre l'intervallo (non se se ne mostra uno solo).
 const verdictPartial = (x) => x.mainAvail.length === 1 && x.models.filter((y) => !y.support).length > 1;
 
-// Dettaglio di un verdetto (tragitto o ora della striscia del grafico): stato, perché, mm e
+// Dettaglio del verdetto di un'ora della striscia del grafico: stato, perché, mm e
 // temperatura per modello, probabilità con gli scenari.
 function verdictTip(x, title, where) {
-  const st = BIKE_STATUS[x.status];
+  const st = VERDICT_STATUS[x.status];
   const mm = verdictMm(x);
   const temp = x.temp != null ? `${fmt(x.temp)}°` : '';
   return tipHead(title, `${st.label}${mm ? ` · ${mm}` : ''}${temp ? ` · ${temp}` : ''}`, `st-${x.status}`)
@@ -1098,12 +1094,12 @@ function verdictTip(x, title, where) {
 }
 
 // Verdetto di una singola ora del grafico (timestamp T = ora (T-1, T]) con le regole dei
-// tragitti: modelli mostrati e di supporto, probabilità, e per oggi pioggia in corso e radar.
+// verdetto: modelli mostrati e di supporto, probabilità, e per oggi pioggia in corso e radar.
 function hourVerdict(t, ctx) {
   const h = Number(t.slice(11, 13));
   const day = h === 0 ? prevDate(t.slice(0, 10)) : t.slice(0, 10);
   const w = { from: `${String((h + 23) % 24).padStart(2, '0')}:00`, to: h === 0 ? '24:00' : t.slice(11, 16) };
-  const x = bikeWindow(day, w, ctx.hourIdx);
+  const x = windowVerdict(day, w, ctx.hourIdx);
   if (day !== ctx.today) return x;
   return applyRadar(applyRainNow(x, stationRainNow(), ctx.nowMin), day, ctx.nowMin);
 }
@@ -1118,44 +1114,6 @@ function verdictCtx() {
   };
 }
 
-function renderBike(commute, day, hourIdx, today, nowMin) {
-  // Solo gli intervalli attivi in questo giorno della settimana (w.days, 0 = domenica).
-  const wd = parts(day).wd;
-  const windows = commute.windows.filter((w) => w.days.includes(wd));
-  if (!windows.length) return '';
-  const rn = day === today ? stationRainNow() : null;
-  const items = windows.map((w) => {
-    const x = applyRainNow(bikeWindow(day, w, hourIdx), rn, nowMin);
-    return day === today ? applyRadar(x, day, nowMin) : x;
-  });
-  if (items.every((x) => x.status === 'na' && x.pop == null)) return '';
-  const chips = items.map((x) => {
-    const st = BIKE_STATUS[x.status];
-    const past = day === today && toMinutes(x.w.to) <= nowMin ? ' past' : '';
-    const range = `${x.w.from}–${x.w.to}`;
-    const mm = verdictMm(x);
-    const partial = verdictPartial(x);
-    const only = partial ? `<span class="bike-only">solo ${x.mainAvail[0].m.short}</span>` : '';
-    // Dettaglio: riquadro al clic su desktop, avviso al tocco su mobile (dove mm
-    // e "solo EU" sono nascosti).
-    const temp = x.temp != null ? `${fmt(x.temp)}°` : '';
-    const tip = verdictTip(x, `Tragitto ${range}`, 'nel tragitto');
-    return `<button type="button" class="bike-chip st-${x.status}${past}" data-tip="${esc(tip)}" data-tip-key="bike|${day}|${range}" aria-label="${esc(`Tragitto ${range}: ${st.label}${temp ? `, ${temp}` : ''}. ${chancePlain(x, 'nel tragitto')}`)}">
-      <span class="bike-time">${x.w.from}–<wbr>${x.w.to}</span>
-      <span class="bike-info">
-        <span class="bike-st" aria-label="${st.label}">${st.icon ? `<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">${st.icon}</svg>` : ''}<span class="bike-st-label">${st.label}</span></span>
-        ${mm ? `<span class="bike-mm">${mm}</span>` : ''}${only}
-        ${x.pop != null ? `<span class="bike-pop">${DROP}${x.popExact ? '' : '~'}${fmt(x.pop)}%</span>` : ''}
-        ${temp ? `<span class="bike-temp" title="Temperatura media prevista">${temp}</span>` : ''}
-      </span>
-    </button>`;
-  }).join('');
-  return `<div class="bike">
-    <span class="bike-label">${BIKE_ICON}<span>${esc(commute.label)}</span></span>
-    <div class="bike-chips">${chips}</div>
-  </div>`;
-}
-
 // Legenda delle fonti (pallino colorato + nome), ordine = colonne dei box.
 const sourcesLegend = (models) => `<div class="sources">${models.map((m) => `<span><i class="dot-${m.key}"></i>${m.name}</span>`).join('')}</div>`;
 
@@ -1165,10 +1123,7 @@ function renderDaily() {
   const today = nowIso.slice(0, 10);
   const nowHour = Number(nowIso.slice(11, 13));
   const hourIdx = new Map(hourly.time.map((t, i) => [t, i]));
-  const nowMin = toMinutes(localDateTime(Date.now(), state.data.timezone, utcOffset).time);
   const shown = shownModels();
-  // Nessun intervallo monitorato (predefinito per i nuovi utenti): invito nella card di oggi.
-  const noWatch = BIKE_COMMUTES.every((c) => !c.windows.length);
 
   const rows = daily.time
     .map((day, d) => ({ day, d }))
@@ -1243,8 +1198,6 @@ function renderDaily() {
         <div class="day-name">${sunTimes(daily, d, day === today)}</div>
         <div class="day-models${shown.length === 1 ? ' single' : ''}">${cells}${renderPopRow(pops, pastUntil, day)}</div>
         ${delta}
-        ${bikeArea(BIKE_COMMUTES.map((c) => renderBike(c, day, hourIdx, today, nowMin)).join(''))}
-        ${day === today && noWatch ? WATCH_HINT : ''}
       </div>
     </section>`;
   }).join('');
@@ -1252,60 +1205,7 @@ function renderDaily() {
   // Le fasce sono indicate dentro ogni box dalle ore di confine 6/12/18 (slotTicks).
   $('#daily').innerHTML = rows;
   updateSunNow();
-  fitBikes();
   syncTipCard();
-}
-
-// Invito discreto a definire gli intervalli monitorati, al posto della riga dei tragitti.
-const WATCH_HINT = `<p class="watch-hint">${BIKE_ICON}<span>Pioverà durante i tuoi spostamenti? <a href="settings.html#watch-form">Scegli gli orari da tenere d'occhio</a></span></p>`;
-
-const bikeArea = (html) => (html.trim() ? `<div class="bike-area"><div class="bikes">${html}</div></div>` : '');
-
-// Tutti i blocchi dei tragitti (work, school, tutti i giorni) hanno la stessa larghezza:
-// quella del blocco più largo (--bike-chip-w). La disposizione è nel CSS: su desktop i
-// tragitti sulla stessa riga, su mobile uno per riga a colonne uguali (--bike-max).
-// Va rieseguita dopo ogni render di "Prossimi giorni" e al ridimensionamento.
-
-function fitBikes() {
-  const daily = $('#daily');
-  daily.classList.remove('bikes-sized');
-  // Misura alla larghezza naturale (.bikes-measure): con la griglia stretta i blocchi
-  // verrebbero compressi e la misura risulterebbe troppo piccola.
-  daily.classList.add('bikes-measure');
-  const chips = [...daily.querySelectorAll('.bike-chip')];
-  const width = Math.ceil(Math.max(0, ...chips.map((c) => c.getBoundingClientRect().width)));
-  daily.classList.remove('bikes-measure');
-  if (!width) return; // sezione non visibile: niente da misurare
-  daily.style.setProperty('--bike-chip-w', `${width}px`);
-  // Colonne della riga dei blocchi su mobile: il massimo di blocchi in un giorno (gli
-  // intervalli possono valere solo in alcuni giorni della settimana).
-  const perRow = [...daily.querySelectorAll('.bike-chips')].map((r) => r.children.length);
-  daily.style.setProperty('--bike-max', String(Math.max(1, ...perRow))); // layout mobile
-  daily.classList.add('bikes-sized');
-
-  // Desktop: i tragitti stanno nelle colonne dei modelli solo se ci entrano; altrimenti
-  // (o con il giorno su una colonna, ≤720 px) uno dopo l'altro. Su mobile decide il CSS.
-  daily.classList.remove('bikes-flow');
-  // Soglie sulla larghezza della colonna (come le container query "side" del CSS), non
-  // dello schermo: su desktop la colonna dei giorni è stretta come un telefono.
-  const colWidth = daily.clientWidth;
-  if (colWidth <= 560) return;
-  const col = daily.querySelector('.dm')?.getBoundingClientRect().width || 0;
-  const gap = 5; // come .bike-chips
-  // Per ogni tragitto: blocchi nel giorno che ne ha di più ed etichetta (misurati una volta).
-  const counts = BIKE_COMMUTES.map(() => 0);
-  for (const bikes of daily.querySelectorAll('.bikes')) {
-    [...bikes.children].forEach((b, i) => {
-      if (i < counts.length) counts[i] = Math.max(counts[i], b.querySelector('.bike-chips')?.children.length || 0);
-    });
-  }
-  const firstBikes = daily.querySelector('.bikes');
-  const fits = counts.every((n, i) => {
-    const chips = n * width + Math.max(0, n - 1) * gap;
-    const label = i === 0 ? 0 : (firstBikes?.children[i]?.querySelector('.bike-label')?.getBoundingClientRect().width || 0) + 12;
-    return label + chips <= col;
-  });
-  if (colWidth <= 720 || !fits) daily.classList.add('bikes-flow');
 }
 
 function buildVarTabs() {
@@ -1372,7 +1272,7 @@ function renderChartSection() {
   }
 
   // Striscia del verdetto (solo Precipitazioni): per ogni ora Asciutto / Rischio / Incerto /
-  // Pioggia con le regole dei tragitti; il dettaglio si costruisce al clic (tipContent()).
+  // Pioggia con le regole del verdetto; il dettaglio si costruisce al clic (tipContent()).
   const nowHour = localNowIso(state.data.utcOffset);
   let verdicts = null;
   if (cfg.pop) {
@@ -1381,7 +1281,7 @@ function renderChartSection() {
   }
   const strip = verdicts?.map((x, k) => (x.status === 'na' ? null : {
     status: x.status, key: `verdict|${times[k]}`, past: times[k] <= nowHour,
-    label: `${dayShort(times[k])} · ore ${hourSpan(times[k])}: ${BIKE_STATUS[x.status].label}`,
+    label: `${dayShort(times[k])} · ore ${hourSpan(times[k])}: ${VERDICT_STATUS[x.status].label}`,
   }));
 
   renderChart($('#chart'), {
@@ -1401,7 +1301,7 @@ function renderChartSection() {
       const a = series[0].values[i], b = shown.length > 1 ? series[1].values[i] : null;
       const diff = a != null && b != null ? `<div class="tip-diff muted">Δ 2I − EU: ${fmtSigned(a - b, cfg.decimals)} ${cfg.unit}</div>` : '';
       const v = verdicts?.[i];
-      const verdict = v && v.status !== 'na' ? `<div class="tip-row"><i class="sw vsw st-${v.status}"></i>Verdetto<b>${BIKE_STATUS[v.status].label}</b></div>` : '';
+      const verdict = v && v.status !== 'na' ? `<div class="tip-row"><i class="sw vsw st-${v.status}"></i>Verdetto<b>${VERDICT_STATUS[v.status].label}</b></div>` : '';
       return `<div class="tip-head">${dayShort(times[i])} · ${hourLabel(times[i])}</div>${rows}${verdict}${diff}`;
     },
   });
@@ -1425,7 +1325,7 @@ function renderChartSection() {
   $('#chart-note').textContent = legend + note.join(' ');
 }
 
-// Cella della probabilità oraria: stesso calcolo dei tragitti (scenari dell'ensemble con
+// Cella della probabilità oraria: stesso calcolo del verdetto (scenari dell'ensemble con
 // almeno 0,2 mm nell'ora), dettaglio in tooltip/avviso al tocco; "~" = stima Open-Meteo
 // (oltre l'orizzonte dell'ensemble). Sfondo azzurro più intenso al crescere della probabilità.
 function popCell(i) {
@@ -1599,7 +1499,8 @@ function bindControls() {
   $('#retry-btn').addEventListener('click', () => load({ force: true }));
 
   const showTip = (e) => {
-    // Etichetta di concordanza, blocchi dei tragitti, probabilità delle fasce e celle "Prob.":
+    // Etichetta di concordanza, probabilità delle fasce, striscia del verdetto, celle "Prob." e
+    // icona della centralina:
     // al clic il dettaglio, nel riquadro accanto all'elemento con il mouse, in un avviso in
     // basso al tocco. Secondo clic/tap sullo stesso elemento: chiude.
     const el = e.target.closest('[data-tip]');
@@ -1844,15 +1745,13 @@ placeFooter();
 
 // Tornando dalla pagina Impostazioni la pagina può essere ripristinata dalla cache del
 // browser (bfcache) senza ricaricare i moduli: rilegge le preferenze della pagina Impostazioni
-// (intervalli monitorati, modelli mostrati, grafico e sezioni) e ridisegna se sono cambiate.
+// (modelli mostrati, grafico e sezioni) e ridisegna se sono cambiate.
 // Vale anche per i cambi fatti in un'altra scheda.
 const RELOADED_SETTINGS = ['models', 'variable', 'range', 'chartFrom', 'showAllHours', 'hourlyOpen', 'radarOpen', 'riversOpen'];
 function reloadSettings() {
-  const watch = store.getWatch();
   const fresh = store.getSettings();
   const changed = RELOADED_SETTINGS.filter((k) => fresh[k] !== state.settings[k]);
-  if (JSON.stringify(watch) === JSON.stringify(BIKE_COMMUTES[0]) && !changed.length) return;
-  BIKE_COMMUTES = [watch];
+  if (!changed.length) return;
   for (const k of changed) state.settings[k] = fresh[k];
   if (changed.includes('radarOpen')) {
     syncRadarCollapse();

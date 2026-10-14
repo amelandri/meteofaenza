@@ -1,7 +1,7 @@
 // Radar della Protezione Civile (calcolato dal server, vedi server/radar.py): pioggia vista
 // adesso intorno a Faenza, movimento e stima dei prossimi 90 minuti (nowcasting).
 // - riepilogo in `station.radar` (arriva con la misura della centralina, ogni 10 minuti):
-//   riga del box Adesso (radarStatus) e tragitti di oggi (radarWindowRain);
+//   riga del box Adesso (radarStatus) e verdetto delle ore di oggi (radarWindowRain);
 // - sezione "Radar" collassabile: animazione dell'ultima ora più la proiezione (api/radar).
 // La stima sposta la pioggia di adesso lungo il suo movimento: vede bene fronti e linee di
 // rovesci, non i temporali che nascono sul posto.
@@ -11,7 +11,7 @@ import { esc, localDateTime } from './weather.js';
 
 export const RADAR_STALE_MS = 30 * 60 * 1000; // oltre, il riepilogo non si usa
 export const RADAR_LEAD_MIN = 90; // orizzonte della stima (riga del box Adesso)
-export const RADAR_BIKE_MIN = 60; // oltre, la stima è troppo incerta per cambiare il verdetto dei tragitti
+export const RADAR_VERDICT_MIN = 60; // oltre, la stima è troppo incerta per cambiare il verdetto
 
 // Intensità a parole (mm/h).
 export const radarWords = (mmh) => (mmh < 2.5 ? 'debole' : mmh < 7.5 ? 'moderata' : 'forte');
@@ -50,11 +50,11 @@ export function radarStatus(r, tz, off, now = Date.now()) {
 }
 
 // Primo passo della stima con pioggia (quota ≥ arriveFrac) tra `fromMs` e `toMs`, entro
-// RADAR_BIKE_MIN minuti da adesso, o null.
+// RADAR_VERDICT_MIN minuti da adesso, o null.
 export function radarWindowRain(r, fromMs, toMs, now = Date.now()) {
   const steps = radarSteps(r, now);
   if (!steps) return null;
-  const until = Math.min(toMs, now + RADAR_BIKE_MIN * 60000);
+  const until = Math.min(toMs, now + RADAR_VERDICT_MIN * 60000);
   return steps.find((s) => s.frac >= r.arriveFrac && s.at >= fromMs - 150000 && s.at <= until) || null;
 }
 
