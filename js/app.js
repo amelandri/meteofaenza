@@ -1542,6 +1542,19 @@ function bindControls() {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTipCard(); });
   $('#tipcard').addEventListener('click', hideTipCard);
 
+  // Solo al tocco (avviso del dettaglio in basso, .rich): con l'avviso aperto un tocco fuori
+  // lo chiude e basta, non arriva all'elemento sotto (link, pulsanti, altri dettagli). In fase
+  // di cattura, così si ferma prima di ogni altro gestore; vale anche per il secondo tocco
+  // sull'elemento che l'ha aperto. Dentro l'avviso i link funzionano. Con il mouse invece il
+  // clic fuori chiude il riquadro e prosegue (gestore più sotto); da tastiera (detail 0) passa.
+  document.addEventListener('click', (e) => {
+    const t = $('#toast');
+    const open = !t.hidden && t.classList.contains('rich') && !t.classList.contains('leaving');
+    if (!open || !e.detail || e.target.closest('#toast')) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    hideToast();
+  }, true);
   // L'avviso si chiude toccandolo o toccando un qualsiasi altro punto della pagina.
   $('#toast').addEventListener('click', hideToast);
   // Lo stesso vale per il riquadro aperto con il mouse.
