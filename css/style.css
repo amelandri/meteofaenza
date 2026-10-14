@@ -1215,7 +1215,7 @@ body.loading #forecast { opacity: .5; }
 }
 
 @container side (max-width: 560px) {
-  .card { padding: 14px 12px; }
+  .card { padding: 14px 10px; }
   .now-hour { font-size: 1.15rem; }
   .now-temp { font-size: 1.8rem; }
   .obs-main { --now-t: 2.2rem; }
@@ -1231,22 +1231,24 @@ body.loading #forecast { opacity: .5; }
   .day-models > .dm:nth-child(2) { border-radius: 0; }
   /* Riga probabilità allineata alle fasce: stessa colonna fissa delle temperature (40 px),
      stesso spazio e padding dei box; al posto della scritta solo la goccia */
-  .pop-row { grid-template-columns: 40px minmax(0, 1fr); padding: 6px 10px 7px; }
+  .pop-row { grid-template-columns: 52px minmax(0, 1fr); padding: 6px 8px 7px; }
   .pop-label { justify-content: center; }
   .pop-label-text { display: none; }
   .pop-cell { gap: 4px; padding: 0 5px; }
   .pop-val { font-size: .64rem; min-width: 2.2em; }
   .dm {
-    grid-template-columns: 40px minmax(0, 1fr); /* colonna temperature fissa: fasce allineate tra i box e con la riga probabilità */
+    grid-template-columns: 52px minmax(0, 1fr); /* colonna temperature fissa: fasce allineate tra i box e con la riga probabilità */
     grid-template-areas: "temps slots";
     align-items: center;
-    gap: 0 12px;
-    padding: 8px 10px;
+    gap: 0 10px;
+    padding: 8px 8px;
   }
   .dm > .wi, .dm > .prec, .dm > .gust { display: none; }
-  .dm .temps { flex-direction: column; align-items: center; gap: 0; min-width: 34px; font-size: 1rem; line-height: 1.2; }
-  .dm .tv { flex-direction: column; align-items: center; gap: 0; } /* scarto sotto la temperatura */
-  .dm .tv .anom { line-height: 1; margin-bottom: 2px; }
+  /* Massima sopra la minima, ognuna con lo scarto dalla media a destra: griglia valore |
+     scarto, valori allineati a destra e scarti in colonna */
+  .dm .temps { display: grid; grid-template-columns: auto auto; justify-content: start; justify-items: end; align-items: baseline; column-gap: 2px; row-gap: 2px; min-width: 0; font-size: .92rem; line-height: 1.2; }
+  .dm .tv { display: contents; }
+  .dm .tv .anom { justify-self: start; font-size: .58rem; }
   .dm .slots { margin-top: 6px; }
   .dm.dm-empty { flex-direction: column; align-items: flex-start; gap: 4px; }
   .slot { font-size: .74rem; }
@@ -1263,24 +1265,23 @@ body.loading #forecast { opacity: .5; }
 
 }
 
-/* Colonna compatta ma non stretta (desktop, 400–560 px): lo scarto dalla media accanto alla
-   temperatura ("21° +1°") invece che sotto; colonna delle temperature più larga, uguale nei
-   box e nella riga della probabilità. */
+/* Colonna compatta ma non stretta (desktop, 400–560 px): temperature a grandezza piena e
+   colonna più larga, uguale nei box e nella riga della probabilità. */
 @container side (min-width: 400px) and (max-width: 560px) {
   .dm, .pop-row { grid-template-columns: 62px minmax(0, 1fr); }
-  /* griglia valore | scarto: valori allineati a destra, scarti in colonna */
-  .dm .temps { display: grid; grid-template-columns: auto auto; justify-content: start; justify-items: end; align-items: baseline; column-gap: 3px; min-width: 0; }
-  .dm .tv { display: contents; }
-  .dm .tv .anom { justify-self: start; margin-bottom: 0; }
+  .dm .temps { column-gap: 3px; font-size: 1rem; }
+  .dm .tv .anom { font-size: .62rem; }
 }
 
 @media (max-width: 560px) {
-  .topbar-inner { gap: 10px; }
+  /* Margini laterali ridotti: pagina 8 px, card 10 px (anche .table-wrap / .tabs) */
+  .container { padding: 10px 8px 20px; }
+  .topbar-inner { gap: 10px; padding-left: 12px; padding-right: 12px; }
   .topbar-actions, .topbar-nav { gap: 2px; }
   h1 { font-size: 1.35rem; }
   .brand-sub .coords { display: none; }
-  .card { padding: 14px 12px; }
-  .table-wrap, .tabs { margin: 0 -12px; padding: 0 12px; }
+  .card { padding: 14px 10px; margin-bottom: 10px; }
+  .table-wrap, .tabs { margin: 0 -10px; padding: 0 10px; }
   .tabs { margin-bottom: 10px; }
   .hourly { font-size: .82rem; }
   .hourly th, .hourly td { padding: 3px 2px; }
