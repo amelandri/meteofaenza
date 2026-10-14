@@ -1186,24 +1186,27 @@ function renderDaily() {
         + tipNote('Differenze calcolate come ICON-2I − ICON-EU.');
       delta = `<div class="dd"><button type="button" class="agree ${ag.cls}" data-tip="${esc(tip)}" data-tip-key="agree|${day}" aria-label="${esc(reason)}">${ag.label}<span class="agree-i" aria-hidden="true">i</span></button></div>`;
     }
-    // Ogni giorno è una card con il titolo "Oggi" / "Domani" / "Dopodomani", la data e la
-    // legenda delle fonti.
+    // Ogni giorno è un blocco della card "Previsioni", con il titolo "Oggi" / "Domani" /
+    // "Dopodomani" e la data; la legenda delle fonti è una sola, accanto al titolo della card.
     const t = dayTitle(day, today);
-    return `<section class="card day-card">
-      <div class="card-head">
-        <h2>${t.title} <span class="day-date">${t.date}</span></h2>
-        ${sourcesLegend(shown)}
+    return `<div class="day-block">
+      <div class="card-head day-head">
+        <h3>${t.title} <span class="day-date">${t.date}</span></h3>
       </div>
       <div class="day">
         <div class="day-name">${sunTimes(daily, d, day === today)}</div>
         <div class="day-models${shown.length === 1 ? ' single' : ''}">${cells}${renderPopRow(pops, pastUntil, day)}</div>
         ${delta}
       </div>
-    </section>`;
+    </div>`;
   }).join('');
 
-  // Le fasce sono indicate dentro ogni box dalle ore di confine 6/12/18 (slotTicks).
-  $('#daily').innerHTML = rows;
+  // Una sola card per i tre giorni: titolo "Previsioni" come "Centralina" (.obs-tag) e
+  // legenda delle fonti. Le fasce sono indicate dentro ogni box dalle ore 6/12/18 (slotTicks).
+  $('#daily').innerHTML = rows ? `<section class="card day-card" aria-labelledby="fc-title">
+      <div class="fc-head"><span class="obs-tag fc-tag" id="fc-title">Previsioni</span>${sourcesLegend(shown)}</div>
+      ${rows}
+    </section>` : '';
   updateSunNow();
   syncTipCard();
 }

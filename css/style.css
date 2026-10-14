@@ -338,12 +338,17 @@ button { font: inherit; color: inherit; }
 }
 .day:first-child { border-top: 0; padding-top: 15px; }
 .day:last-child { padding-bottom: 4px; }
-/* Card di un giorno: il titolo è il nome del giorno; dentro la card la riga non ha
-   spaziature né bordi di separazione (la separazione è tra le card) */
+/* Card "Previsioni" (renderDaily()): titolo come "Centralina" (.obs-tag, colore --accent) e
+   legenda delle fonti in alto, poi un blocco per giorno (.day-block) con nome e data; la riga
+   del giorno non ha spaziature né bordi propri, i blocchi sono separati da una linea. */
 .day-card .day { padding: 0; border-top: 0; }
+.fc-head { display: flex; align-items: center; justify-content: space-between; gap: 4px 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.fc-tag { color: var(--accent); }
+.day-block + .day-block { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.day-head h3 { margin: 0; font-size: 1.02rem; letter-spacing: -.005em; line-height: 1.2; }
 .day-date { margin-left: 6px; font-size: .82rem; font-weight: 500; color: var(--muted); white-space: nowrap; }
 /* Schermi molto stretti: la legenda delle fonti scende sotto il titolo invece di spezzare la data */
-.day-card .card-head { flex-wrap: wrap; row-gap: 4px; align-items: baseline; } /* legenda sulla stessa linea di base del nome del giorno */
+.day-card .card-head { flex-wrap: wrap; row-gap: 4px; align-items: baseline; }
 .day-name { grid-area: name; display: flex; flex-direction: column; justify-content: center; }
 .day-models { grid-area: models; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; }
 /* I due box (ICON-2I | ICON-EU) come un'unica pillola divisa da 1 px: angoli arrotondati
