@@ -1282,8 +1282,10 @@ function renderChartSection() {
     const ctx = verdictCtx();
     verdicts = times.map((t) => hourVerdict(t, ctx));
   }
+  // rank: gravità dello stato, per i blocchi di più ore della striscia (vince l'ora peggiore)
+  const RANK = { dry: 0, risk: 1, mixed: 2, wet: 3 };
   const strip = verdicts?.map((x, k) => (x.status === 'na' ? null : {
-    status: x.status, key: `verdict|${times[k]}`, past: times[k] <= nowHour,
+    status: x.status, rank: RANK[x.status], key: `verdict|${times[k]}`, past: times[k] <= nowHour,
     label: `${dayShort(times[k])} · ore ${hourSpan(times[k])}: ${VERDICT_STATUS[x.status].label}`,
   }));
 

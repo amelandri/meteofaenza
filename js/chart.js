@@ -5,9 +5,10 @@
 // Opzionale `daylight` ([{ rise, set }] in ora locale "YYYY-MM-DDTHH:MM", un elemento per
 // giorno): barra giorno/notte sopra l'area del grafico, sotto i nomi dei giorni, con un
 // pallino (e tooltip) per ogni alba e tramonto.
-// Opzionale `strip` (un elemento per ora: { status, key, label, past } o null): striscia di
-// caselle colorate tra l'area del grafico e le ore (verdetto di ogni ora, vedi app.js); ogni
-// casella ha data-tip vuoto e data-tip-key, il dettaglio lo costruisce app.js al clic.
+// Opzionale `strip` (un elemento per ora: { status, rank, key, label, past } o null): striscia
+// di caselle colorate tra l'area del grafico e le ore (verdetto di ogni ora, vedi app.js),
+// raggruppate in blocchi di più ore se le colonne sono troppo strette; ogni casella ha
+// data-tip vuoto e data-tip-key, il dettaglio lo costruisce app.js al clic.
 
 import { parts, dayShort, fmt, sunEventIcon } from './weather.js';
 
@@ -158,14 +159,29 @@ export function renderChart(el, opts) {
   }
 
   // --- Striscia del verdetto ------------------------------------------------------
-  // Una casella per ora, larga quanto la colonna (meno 1 px di spazio), subito sotto l'area
-  // del grafico: fuori dall'area attiva (.hit), così il clic apre il dettaglio dell'ora.
+  // Subito sotto l'area del grafico, fuori dall'area attiva (.hit), così il clic apre il
+  // dettaglio. Una casella per ora; se le ore sono troppo strette (telefono a 72 ore o
+  // "Tutto") caselle da 2, 3 o 6 ore allineate all'orologio, larghe almeno STRIP_MIN_W px, così
+  // tra una casella e l'altra resta sempre 1 px di separazione. Il blocco prende lo stato
+  // dell'ora peggiore (`rank` più alto) e ne apre il dettaglio.
   if (stripH) {
-    const sy = pad.t + plotH + 3, sh = 8, gap = step > 4 ? 1 : 0;
-    strip.forEach((c, i) => {
-      if (!c) return;
-      html += `<rect class="vcell st-${c.status}${c.past ? ' past' : ''}" data-tip="" data-tip-key="${c.key}" role="button" aria-label="${c.label}" x="${(pad.l + step * i + gap / 2).toFixed(1)}" y="${sy}" width="${Math.max(1, step - gap).toFixed(1)}" height="${sh}" rx="${step > 6 ? 2 : 0}"/>`;
-    });
+    const STRIP_MIN_W = 7;
+    const k = [1, 2, 3, 6].find((h) => step * h >= STRIP_MIN_W) || 6;
+    const sy = pad.t + plotH + 3, sh = 8;
+    const groupOf = (i) => Math.floor(((hours[i] + 23) % 24) / k); // ora (T-1, T]: inizio T-1
+    for (let i0 = 0; i0 < n;) {
+      let i1 = i0;
+      while (i1 + 1 < n && groupOf(i1 + 1) === groupOf(i0) && k > 1) i1++;
+      const cells = strip.slice(i0, i1 + 1).filter(Boolean);
+      if (cells.length) {
+        const c = cells.reduce((a, b) => ((b.rank ?? 0) > (a.rank ?? 0) ? b : a));
+        const past = cells.every((x) => x.past);
+        const w = step * (i1 - i0 + 1);
+        const label = k > 1 ? `${c.label} (ora peggiore del blocco di ${i1 - i0 + 1} ore)` : c.label;
+        html += `<rect class="vcell st-${c.status}${past ? ' past' : ''}" data-tip="" data-tip-key="${c.key}" role="button" aria-label="${label}" x="${(pad.l + step * i0 + 0.5).toFixed(1)}" y="${sy}" width="${Math.max(1, w - 1).toFixed(1)}" height="${sh}" rx="${w > 6 ? 2 : 0}"/>`;
+      }
+      i0 = i1 + 1;
+    }
   }
 
   // --- Etichette orarie ----------------------------------------------------------
