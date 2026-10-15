@@ -68,6 +68,24 @@ CREATE TABLE IF NOT EXISTS verify_days (
   data        TEXT NOT NULL,       -- JSON
   PRIMARY KEY (day, lead)
 );
+-- Accesso (server/auth.py): utenti con l'hash della password (scrypt con sale, mai la
+-- password), sessioni del browser e token personali con l'hash SHA-256 del token.
+CREATE TABLE IF NOT EXISTS users (
+  username    TEXT PRIMARY KEY,
+  pw_hash     TEXT NOT NULL,
+  created_at  INTEGER NOT NULL,    -- ms
+  last_login  INTEGER
+);
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash  TEXT PRIMARY KEY,    -- SHA-256 del token (il token è solo nel cookie / nel plugin)
+  username    TEXT NOT NULL,
+  kind        TEXT NOT NULL,       -- 'session' (browser, scade) | 'token' (personale, senza scadenza)
+  label       TEXT,
+  created_at  INTEGER NOT NULL,
+  expires_at  INTEGER,             -- ms; NULL per i token personali
+  renewed_at  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS sessions_user ON sessions (username);
 -- Radar (server/radar.py). Ritagli intorno a Faenza (float16 compressi, NaN = fuori
 -- copertura) per movimento e proiezione, e immagini PNG già pronte: si tengono RADAR_KEEP_S.
 CREATE TABLE IF NOT EXISTS radar_frames (

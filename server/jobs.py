@@ -26,7 +26,7 @@ import traceback
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from . import config, db, radar, rivers, sources, verify
+from . import auth, config, db, radar, rivers, sources, verify
 
 
 def _locked(name):
@@ -112,6 +112,7 @@ def job_normals(conn, force=False):
     avviene anche se non riesce) e medie del periodo se mancano o sono vecchie."""
     saved = verify.store_days(conn)
     db.prune_archives(conn)
+    auth.prune(conn)  # sessioni scadute
     thinned = verify.thin_ensemble_archive(conn)
     done = f'{saved} esiti della verifica salvati; archivi puliti ({thinned} download dell\'ensemble tolti)'
     at = db.snapshot_time(conn, 'normals')

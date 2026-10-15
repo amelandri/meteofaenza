@@ -17,6 +17,11 @@ Il nome del file decide l'intervallo di aggiornamento di SwiftBar (.5m. = ogni 5
 
 Installazione: copiare il file nella cartella dei plugin di SwiftBar e renderlo eseguibile
 (chmod +x). Solo libreria standard di Python 3.
+
+Accesso: il server richiede un token personale, creato sul server con
+  python3 -m server.users token <nome> --label "SwiftBar"
+e indicato nella variabile METEO_TOKEN (in SwiftBar con <swiftbar.environment>) oppure nel file
+~/.config/meteo-faenza/token (consigliato: chmod 600).
 """
 
 import json
@@ -30,6 +35,7 @@ from pathlib import Path
 BASE_URL = os.environ.get('METEO_URL', 'https://meteofa.melandri.net').rstrip('/')
 SITE_URL = f'{BASE_URL}/'
 TIMEOUT = 10  # secondi
+TOKEN_FILE = Path.home() / '.config' / 'meteo-faenza' / 'token'
 
 STALE_S = 30 * 60  # misura più vecchia di così: "non aggiornata"
 # Pioggia in corso (come nell'app): aumento dei mm di oggi rispetto a una lettura di 8–40
@@ -47,8 +53,22 @@ WARN = '#b07a05,#e7b43a'
 DIRS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSO', 'SO', 'OSO', 'O', 'ONO', 'NO', 'NNO']
 
 
+def token():
+    """Token personale: variabile METEO_TOKEN o file TOKEN_FILE (None se manca)."""
+    t = os.environ.get('METEO_TOKEN', '').strip()
+    if not t:
+        try:
+            t = TOKEN_FILE.read_text().strip()
+        except OSError:
+            t = ''
+    return t or None
+
+
 def get_json(path):
-    req = urllib.request.Request(f'{BASE_URL}/{path}', headers={'User-Agent': 'MeteoFaenza-SwiftBar/1.0'})
+    headers = {'User-Agent': 'MeteoFaenza-SwiftBar/1.0'}
+    if token():
+        headers['Authorization'] = f'Bearer {token()}'
+    req = urllib.request.Request(f'{BASE_URL}/{path}', headers=headers)
     with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
         return json.load(res)
 
@@ -140,8 +160,11 @@ def main():
     except Exception as err:
         print(line('—°', sfimage='thermometer.medium.slash'))
         print('---')
-        print(line('Server di Meteo Faenza non raggiungibile', sfimage='exclamationmark.triangle', color=WARN))
-        print(line(str(err)[:80], size=11))
+        # 401: token mancante o revocato (vedi "Accesso" in cima al file)
+        denied = getattr(err, 'code', None) == 401
+        msg = ('Token mancante' if not token() else 'Token non valido o revocato') if denied else 'Server di Meteo Faenza non raggiungibile'
+        print(line(msg, sfimage='exclamationmark.triangle', color=WARN))
+        print(line('Crea un token sul server: python3 -m server.users token <nome>' if denied else str(err)[:80], size=11))
         print('---')
         print(line('Apri Meteo Faenza', href=SITE_URL, sfimage='safari'))
         print(line('Aggiorna', refresh='true', sfimage='arrow.clockwise'))

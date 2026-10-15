@@ -6,7 +6,7 @@ Web app (PWA) che mette a confronto le previsioni di due modelli meteorologici p
 - **ICON-EU**: modello europeo (7 km) del servizio meteorologico tedesco DWD, copre circa 5 giorni e mezzo;
 - **Centralina**: Osservatorio Meteorologico "E. Torricelli" ([meteofaenza.it](https://www.meteofaenza.it/)). L'app è un progetto indipendente, non collegato all'Osservatorio.
 
-È composta da un **frontend statico** (HTML, CSS e JavaScript senza passaggio di build né dipendenze npm) e da un **piccolo server in Python** (libreria standard; numpy e Pillow solo per il radar) con un database **SQLite**. Il server scarica le fonti esterne a intervalli regolari, via cron, e le serve al frontend come API JSON: le fonti vengono interrogate una volta per tutti gli utenti e mai dal browser. Non serve alcuna API key e non c'è login: le preferenze restano nel browser. Le previsioni vengono salvate anche nel browser e restano consultabili offline (fino a un giorno dal download).
+È composta da un **frontend statico** (HTML, CSS e JavaScript senza passaggio di build né dipendenze npm) e da un **piccolo server in Python** (libreria standard; numpy e Pillow solo per il radar) con un database **SQLite**. Il server scarica le fonti esterne a intervalli regolari, via cron, e le serve al frontend come API JSON: le fonti vengono interrogate una volta per tutti gli utenti e mai dal browser. Non serve alcuna API key. L'app richiede un **accesso con nome utente e password**: gli utenti si creano solo sul server, con uno script (vedi [Accesso](#accesso)). Le preferenze restano nel browser. Le previsioni vengono salvate anche nel browser e restano consultabili offline (fino a un giorno dal download).
 
 La località è fissa (costante `LOCATION` in `js/app.js`, `LAT` / `LON` in `server/config.py`): non c'è ricerca né geolocalizzazione.
 
@@ -41,6 +41,26 @@ Per i giorni passati, pioggia e temperature previste la sera prima alle 23 (o du
 ### Impostazioni
 
 Tema (automatico, chiaro o scuro), previsioni mostrate (entrambi i modelli, solo ICON-2I o solo ICON-EU; la probabilità di pioggia resta sempre visibile), come si apre il grafico, sezioni aperte o chiuse all'avvio e scelte iniziali della Verifica. Le preferenze si possono esportare e reimportare in un file JSON.
+
+### Accesso
+
+Senza login il server non dà nessun dato: la pagina `login.html` chiede nome utente e password e poi riporta alla pagina da cui si era arrivati. Le pagine HTML, gli script e lo stile restano scaricabili senza accesso (il codice è pubblico), ma senza dati; la pagina Come funziona, che non usa dati, resta leggibile. Nelle Impostazioni la card **Account** mostra l'utente collegato e il pulsante **Esci**, che cancella anche le copie delle previsioni salvate nel browser.
+
+- **Password**: nel database c'è solo il loro hash scrypt con sale casuale, non reversibile (PBKDF2-SHA256 se il Python del server non ha scrypt). La verifica confronta in tempo costante e, per un utente inesistente, impiega lo stesso tempo.
+- **Sessioni**: cookie `meteo_session` `HttpOnly` (JavaScript non lo legge), `SameSite=Strict`, `Secure` quando il sito è in HTTPS; durano 30 giorni e si rinnovano usando l'app. Nel database c'è solo l'hash SHA-256 del token, non il token.
+- **Tentativi**: dopo 5 errori in 15 minuti dallo stesso indirizzo il login risponde "troppi tentativi" fino alla fine dei 15 minuti.
+- **Token personali**, per programmi senza browser come il plugin SwiftBar: si inviano con `Authorization: Bearer <token>`, non scadono e si revocano dal server.
+
+Gestione degli utenti, solo sul server:
+
+```bash
+python3 -m server.users add <nome>                 # crea (chiede la password due volte)
+python3 -m server.users passwd <nome>              # cambia la password, chiude le sessioni aperte
+python3 -m server.users del <nome>                 # elimina utente, sessioni e token
+python3 -m server.users list                       # utenti (con ultimo accesso) e token
+python3 -m server.users token <nome> --label "…"   # token personale, mostrato una sola volta
+python3 -m server.users revoke <nome> [--tokens]   # chiude le sessioni e revoca i token
+```
 
 ### Come funziona
 
@@ -88,7 +108,7 @@ Job notturni (orari in `deploy/crontab`):
 
 ### API
 
-Tutte in sola lettura, con `ETag`: il browser rivalida e riscarica solo se i dati sono cambiati.
+Tutte richiedono l'accesso (cookie di sessione o token personale; senza: `401`), tranne login e logout e `api/status` chiesto direttamente sul server (`curl http://127.0.0.1:8085/api/status`, senza passare da nginx). Le letture hanno un `ETag`: il browser rivalida e riscarica solo se i dati sono cambiati.
 
 | Percorso | Contenuto |
 |---|---|
@@ -100,6 +120,9 @@ Tutte in sola lettura, con `ETag`: il browser rivalida e riscarica solo se i dat
 | `api/normals` | medie del periodo (366 giorni) |
 | `api/verify?days=30&lead=1` | esiti della verifica per giorno: misure delle fasce e del giorno, previsto ed esito per ogni modello, probabilità degli ensemble, minime e massime; `lead=1` previsione del giorno prima alle 23, `lead=2` di due giorni prima |
 | `api/status` | stato dei job (ultimo aggiornamento, errori) |
+| `api/me` | utente collegato |
+| `POST api/login` | `{"username", "password"}` (solo JSON) → cookie di sessione |
+| `POST api/logout` | chiude la sessione |
 
 ### Dati conservati
 
@@ -108,6 +131,8 @@ Tutte in sola lettura, con `ETag`: il browser rivalida e riscarica solo se i dat
 | Letture della centralina, archivio delle previsioni (ogni run, ora per ora) e degli ensemble (quali scenari danno pioggia), livelli dei fiumi, dato radar su Faenza | circa 400 giorni |
 | Esiti della verifica (un record per giorno e per anticipo) | 2 anni, anche dopo che i dati grezzi sono stati tolti |
 | Immagini e ritagli del radar | 3 ore |
+| Utenti (nome, hash della password, ultimo accesso) e token personali | finché non si eliminano o revocano |
+| Sessioni del browser | 30 giorni dall'ultimo uso |
 | Registro dei job | 30 giorni |
 | Copie del database | ultime 7 notti |
 
@@ -129,7 +154,8 @@ La regola generale: il **server** fa tutto ciò che richiede fonti esterne, stor
 | Radar: lettura del GeoTIFF, ritaglio attorno a Faenza, calcolo del movimento della pioggia, stima dei prossimi 90 minuti, immagini PNG, riepilogo per la centralina | `radar.py` (numpy, Pillow) |
 | Fiumi: soglie, serie di 48 ore, livello di allerta e tendenza per stazione | `rivers.py` |
 | Verifica: archivio di ogni run e degli scenari degli ensemble; pioggia oraria misurata dalle letture (con azzeramento della centralina e cambio dell'ora); esiti per fascia e per giorno, probabilità, minime e massime; salvataggio degli esiti dei giorni conclusi | `verify.py` |
-| Manutenzione degli archivi e backup del database | `db.py`, `jobs.py` |
+| Accesso: verifica delle password (hash), sessioni e token, blocco dei tentativi ripetuti, controllo su ogni richiesta all'API; creazione degli utenti con uno script | `auth.py`, `api.py`, `users.py` |
+| Manutenzione degli archivi, delle sessioni scadute e backup del database | `db.py`, `jobs.py` |
 
 ### Lato browser (`js/`)
 
@@ -145,6 +171,7 @@ La regola generale: il **server** fa tutto ciò che richiede fonti esterne, stor
 | Temperatura corretta con la centralina nel grafico | `app.js` (`tempFix()`) |
 | Scarti dalla media del periodo | `app.js` (`anomaly()`) |
 | Grafico SVG, tabella oraria, linea di alba e tramonto, animazione del radar, sezione dei fiumi | `chart.js`, `app.js`, `radar.js`, `rivers.js` |
+| Pagina di accesso; passaggio al login quando il server risponde 401, con cancellazione delle copie dei dati; uscita dalle Impostazioni | `login.js`, `api.js`, `settings.js`, `storage.js` |
 | Verifica: riepilogo del periodo (conteggi degli esiti, errori medi, affidabilità, Brier) dagli esiti già calcolati dal server | `verify.js` |
 | Tema applicato prima del primo disegno | `theme.js` |
 
@@ -156,10 +183,11 @@ Serve Python 3.9 o successivo; il radar richiede anche numpy e Pillow (`apt inst
 
 ```bash
 python3 -m server.jobs all          # primo popolamento del database (data/meteo.db)
+python3 -m server.users add <nome>  # un utente per accedere
 python3 -m server.api --static      # API + file del frontend su http://127.0.0.1:8085
 ```
 
-poi aprire <http://127.0.0.1:8085>. In locale i job si rilanciano a mano (`python3 -m server.jobs station`, `forecast`, `normals`, `radar`, `rivers`, `verify`, `backup`; `--force` per forzare). Il database è in `data/meteo.db` (variabile `METEO_DB` per cambiarlo), escluso da git. Test: `python3 -m unittest discover -s tests`.
+poi aprire <http://127.0.0.1:8085> e accedere. In locale i job si rilanciano a mano (`python3 -m server.jobs station`, `forecast`, `normals`, `radar`, `rivers`, `verify`, `backup`; `--force` per forzare). Il database è in `data/meteo.db` (variabile `METEO_DB` per cambiarlo), escluso da git. Test: `python3 -m unittest discover -s tests`.
 
 Il service worker funziona solo su `http://localhost`/`127.0.0.1` o in HTTPS.
 
@@ -174,12 +202,12 @@ Guida completa, passo per passo: [`deploy/INSTALL.md`](deploy/INSTALL.md). In br
    useradd --system --home /var/lib/meteo meteo
    mkdir -p /var/lib/meteo && chown meteo:meteo /var/lib/meteo
    ```
-2. Primo popolamento: `sudo -u meteo env METEO_DB=/var/lib/meteo/meteo.db sh -c 'cd /opt/meteo && python3 -m server.jobs all'`
+2. Primo popolamento e primo utente: `sudo -u meteo env METEO_DB=/var/lib/meteo/meteo.db sh -c 'cd /opt/meteo && python3 -m server.jobs all'`, poi lo stesso comando con `python3 -m server.users add <nome>`.
 3. API come servizio: `deploy/meteo-api.service` in `/etc/systemd/system/`, poi `systemctl enable --now meteo-api` (ascolta solo su `127.0.0.1:8085`).
 4. Aggiornamenti e job notturni: `crontab -u meteo deploy/crontab` (log con `journalctl -t meteo`).
 5. nginx: `deploy/nginx-meteo.conf` in `/etc/nginx/sites-available/`, adattare `server_name`, collegare in `sites-enabled`, `nginx -t && systemctl reload nginx`; HTTPS con `certbot --nginx`. La configurazione non espone `server/`, `data/`, `tests/`, `deploy/` e `swiftbar/`. Per installare l'app in una sottocartella c'è una variante commentata nello stesso file.
 
-Controllo: `curl -s https://<dominio>/api/status`.
+Controllo, sul server: `curl -s http://127.0.0.1:8085/api/status`. Usare HTTPS: senza, la password viaggia in chiaro.
 
 ### Aggiornare l'app
 
@@ -198,6 +226,8 @@ Installazione: [SwiftBar](https://swiftbar.app) e poi
 chmod +x swiftbar/meteo-faenza.5m.py
 ln -s "$PWD/swiftbar/meteo-faenza.5m.py" "<cartella dei plugin di SwiftBar>/"
 ```
+
+Il plugin ha bisogno di un **token personale**, da creare sul server con `python3 -m server.users token <nome> --label "SwiftBar"` e da mettere nel file `~/.config/meteo-faenza/token` (consigliato `chmod 600`) o nella variabile `METEO_TOKEN`. Senza token, o con un token revocato, il menu lo segnala.
 
 Server diverso da `https://meteofa.melandri.net`: variabile `METEO_URL` (in SwiftBar, con `<swiftbar.environment>` o modificando `BASE_URL` nel file). Serve solo Python 3, senza pacchetti aggiuntivi.
 
@@ -226,6 +256,7 @@ Tema, modelli mostrati, grafico e sezioni si scelgono dalla pagina Impostazioni.
 | Conservazione dei dati | `STATION_KEEP_DAYS`, `VERIFY_KEEP_DAYS`, `RADAR_KEEP_S`, `BACKUP_KEEP` in `server/config.py` |
 | Frequenza degli aggiornamenti del server | `deploy/crontab` e `*_MAX_AGE_S` / `ENSEMBLE_EVERY_S` in `server/config.py` |
 | Ogni quanto il browser ricontrolla il server | `CACHE_TTL_MS` in `js/storage.js` |
+| Accesso: durata delle sessioni, lunghezza minima della password, blocco dei tentativi | `SESSION_DAYS`, `MIN_PASSWORD`, `MAX_FAILURES`, `FAIL_WINDOW_S` in `server/auth.py` |
 
 Se si cambiano soglie o regole, va aggiornata anche la pagina `info.html`, che le riporta in chiaro.
 
@@ -238,11 +269,13 @@ index.html             pagina principale (centralina, previsioni, grafico, radar
 info.html              pagina "Come funziona"
 settings.html          pagina Impostazioni
 verify.html            pagina Verifica (previsioni confrontate con le misure)
+login.html             pagina di accesso
 css/style.css          stile (tema chiaro e scuro)
 js/theme.js            applica il tema scelto prima che la pagina compaia
 js/app.js              logica e rendering della pagina principale
 js/settings.js         pagina Impostazioni
 js/verify.js           pagina Verifica
+js/login.js            pagina di accesso
 js/api.js              accesso all'API del server
 js/station.js          misure della centralina (dall'API)
 js/radar.js            radar: riga del box della centralina, verdetto di oggi, sezione con l'animazione
@@ -259,6 +292,8 @@ server/jobs.py         job di aggiornamento, verifica e backup (lanciati da cron
 server/api.py          API JSON (e file statici in locale)
 server/db.py           database SQLite e pulizia
 server/verify.py       archivio delle previsioni, esiti della verifica
+server/auth.py         accesso: hash delle password, sessioni, token, blocco dei tentativi
+server/users.py        script per creare e gestire gli utenti
 server/rivers.py       livelli dei fiumi
 server/radar.py        radar: lettura delle immagini, movimento, stima, immagini PNG (numpy, Pillow)
 tests/                 test del server (senza rete)
@@ -279,4 +314,4 @@ Nota tecnica sulla centralina: il suo file dati è un piccolo file JavaScript co
 
 ## Privacy
 
-L'app non ha login e non raccoglie dati personali: il server conserva solo i dati meteo (previsioni, misure della centralina, medie, radar, livelli dei fiumi, esiti della verifica). Preferenze di visualizzazione, tema e modelli mostrati restano solo nel `localStorage` del browser, insieme a una copia delle previsioni (al massimo di un giorno prima) e dell'ultima misura per l'uso offline. Come ogni server web, nginx registra nei suoi log gli indirizzi IP delle richieste.
+Oltre ai dati meteo (previsioni, misure della centralina, medie, radar, livelli dei fiumi, esiti della verifica), il server conserva solo i dati di accesso: nome utente, hash della password (non reversibile), data dell'ultimo accesso e hash dei token di sessione e personali. Preferenze di visualizzazione, tema e modelli mostrati restano solo nel `localStorage` del browser, insieme a una copia delle previsioni (al massimo di un giorno prima) e dell'ultima misura per l'uso offline, cancellata quando si esce. Come ogni server web, nginx registra nei suoi log gli indirizzi IP delle richieste.

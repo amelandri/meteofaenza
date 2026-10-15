@@ -7,7 +7,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Impostazioni – Meteo Faenza</title>
-  <meta name="description" content="Impostazioni di Meteo Faenza: tema, modelli mostrati, grafico, sezioni e verifica">
+  <meta name="description" content="Impostazioni di Meteo Faenza: tema, modelli mostrati, grafico, sezioni, verifica e account">
   <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0c111b" media="(prefers-color-scheme: dark)">
   <script src="js/theme.js"></script>
@@ -160,6 +160,15 @@
           <button type="button" data-value="7">7 giorni</button>
           <button type="button" data-value="30">30 giorni</button>
         </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Account</h2>
+      <p class="info-note">Uscendo, le copie delle previsioni salvate in questo browser vengono cancellate; le impostazioni restano.</p>
+      <div class="account-row">
+        <span id="account-user" class="muted">Accesso in corso…</span>
+        <button id="logout-btn" type="button" class="btn btn-ghost">Esci</button>
       </div>
     </section>
 

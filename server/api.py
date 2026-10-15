@@ -5,8 +5,15 @@
   GET api/normals   medie del periodo 1991–2020
   GET api/status    stato dei job (ultimo aggiornamento, errori)
   GET api/verify?days=30&lead=1
-                    verifica dei giorni passati: misure della centralina e previsioni
-                    disponibili la sera prima (lead=1) o due giorni prima (lead=2)
+                    esiti della verifica dei giorni passati (previsione della sera prima,
+                    lead=1, o di due giorni prima, lead=2)
+  GET api/me        utente collegato
+  POST api/login    {"username", "password"} → cookie di sessione (vedi auth.py)
+  POST api/logout   chiude la sessione
+
+Tutte le risorse richiedono l'accesso (cookie di sessione o "Authorization: Bearer <token>"),
+tranne login / logout e api/status chiesto direttamente sul server (curl su 127.0.0.1:8085,
+senza passare da nginx). Senza accesso: 401 {"error": "accesso richiesto"}.
 
 Le risposte hanno un ETag: il browser rivalida (Cache-Control: no-cache) e riceve 304
 finché i dati non cambiano. Le richieste non toccano mai le fonti esterne.
@@ -20,13 +27,14 @@ import copy
 import hashlib
 import json
 import threading
+from http.cookies import CookieError, SimpleCookie
 from datetime import datetime, timedelta, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from zoneinfo import ZoneInfo
 
 from urllib.parse import parse_qs, urlsplit
 
-from . import config, db, radar, rivers, sources, verify
+from . import auth, config, db, radar, rivers, sources, verify
 
 _cache = {}  # chiave → (corpo, etag): JSON già composto delle previsioni
 _offset_memo = (None, None)  # (download delle previsioni, utcOffset)
@@ -188,13 +196,58 @@ class Handler(SimpleHTTPRequestHandler):
 
     # Immagini radar: il nome comprende l'istante (e il riquadro), il contenuto non cambia mai;
     # il browser le tiene finché il server le conserva (RADAR_KEEP_S) senza ricontrollarle.
-    IMMUTABLE = f'public, max-age={config.RADAR_KEEP_S}, immutable'
+    # "private": risposte riservate a chi ha fatto l'accesso, mai in cache condivise.
+    IMMUTABLE = f'private, max-age={config.RADAR_KEEP_S}, immutable'
+    MAX_BODY = 4096  # login: corpo JSON piccolo
 
     def end_headers(self):
         # API: il browser rivalida sempre (ETag → 304), salvo le immagini radar. File statici
         # serviti in locale: niente cache aggressiva durante lo sviluppo.
-        self.send_header('Cache-Control', getattr(self, '_cache_control', None) or 'no-cache')
+        self.send_header('Cache-Control', getattr(self, '_cache_control', None) or 'private, no-cache')
+        for h in getattr(self, '_extra_headers', ()):
+            self.send_header(*h)
         super().end_headers()
+
+    # --- Accesso -------------------------------------------------------------------------
+
+    def _client(self):
+        """Indirizzo del client: l'ultimo di X-Forwarded-For (aggiunto da nginx, non falsificabile
+        dal client), altrimenti quello della connessione."""
+        xff = self.headers.get('X-Forwarded-For')
+        return xff.split(',')[-1].strip() if xff else self.client_address[0]
+
+    def _direct_local(self):
+        """Richiesta fatta direttamente sul server (non passata da nginx, che aggiunge sempre
+        X-Forwarded-For)."""
+        return not self.headers.get('X-Forwarded-For') and self.client_address[0] in ('127.0.0.1', '::1')
+
+    def _cookie_token(self):
+        try:
+            c = SimpleCookie(self.headers.get('Cookie') or '')
+        except CookieError:
+            return None
+        return c[auth.COOKIE].value if auth.COOKIE in c else None
+
+    def _bearer(self):
+        h = self.headers.get('Authorization') or ''
+        return h[7:].strip() if h.lower().startswith('bearer ') else None
+
+    def _set_cookie(self, token, max_age):
+        """Cookie di sessione: HttpOnly (non leggibile da JavaScript), SameSite=Strict, Secure se
+        la richiesta è arrivata in HTTPS (nginx: X-Forwarded-Proto), percorso = cartella
+        dell'app (funziona anche in una sottocartella)."""
+        path = urlsplit(self.path).path.split('/api/')[0] + '/'
+        secure = '; Secure' if self.headers.get('X-Forwarded-Proto') == 'https' else ''
+        self._extra_headers.append(('Set-Cookie', f'{auth.COOKIE}={token}; Path={path}; Max-Age={max_age}; HttpOnly; SameSite=Strict{secure}'))
+
+    def _user(self, conn):
+        """Utente collegato (cookie o token personale), o None. Rinnova il cookie se la sessione
+        è stata prolungata."""
+        cookie, bearer = self._cookie_token(), self._bearer()
+        user, renewed = auth.check_token(conn, bearer or cookie)
+        if user and renewed and not bearer:
+            self._set_cookie(cookie, auth.SESSION_DAYS * 86400)
+        return user
 
     def _json(self, status, body, etag=None, content_type='application/json; charset=utf-8', cache=None):
         self._cache_control = cache
@@ -222,6 +275,11 @@ class Handler(SimpleHTTPRequestHandler):
     def _api(self, name, query=None):
         conn = db.connect()
         try:
+            user = self._user(conn)
+            if not user and not (name == 'status' and self._direct_local()):
+                return self._json(401, {'error': 'accesso richiesto'})
+            if name == 'me':
+                return self._json(200, {'user': user})
             if name == 'verify':
                 q = query or {}
                 try:
@@ -255,8 +313,50 @@ class Handler(SimpleHTTPRequestHandler):
         finally:
             conn.close()
 
+    def do_POST(self):
+        self._cache_control = None
+        self._extra_headers = []
+        name = urlsplit(self.path).path.rstrip('/').split('/api/')[-1] if '/api/' in self.path else ''
+        if name not in ('login', 'logout'):
+            return self._json(404, {'error': 'non trovato'})
+        # Solo JSON: un modulo di un altro sito non può inviarlo senza il permesso del browser.
+        if (self.headers.get('Content-Type') or '').split(';')[0].strip() != 'application/json':
+            return self._json(415, {'error': 'richiesta non valida'})
+        try:
+            size = int(self.headers.get('Content-Length') or 0)
+        except ValueError:
+            size = -1
+        if size < 0 or size > self.MAX_BODY:
+            return self._json(413, {'error': 'richiesta non valida'})
+        try:
+            data = json.loads(self.rfile.read(size) or b'{}')
+        except ValueError:
+            return self._json(400, {'error': 'richiesta non valida'})
+        if not isinstance(data, dict):
+            data = {}
+        conn = db.connect()
+        try:
+            if name == 'logout':
+                auth.end_session(conn, self._cookie_token())
+                self._set_cookie('', 0)
+                return self._json(200, {'ok': True})
+            addr = self._client()
+            if auth.blocked(addr):
+                return self._json(429, {'error': 'troppi tentativi: riprova tra qualche minuto'})
+            username, password = data.get('username'), data.get('password')
+            user = auth.authenticate(conn, username, password) if isinstance(username, str) and isinstance(password, str) else None
+            if not user:
+                auth.record_failure(addr)
+                return self._json(401, {'error': 'nome utente o password non validi'})
+            auth.clear_failures(addr)
+            self._set_cookie(auth.create_session(conn, user), auth.SESSION_DAYS * 86400)
+            return self._json(200, {'user': user})
+        finally:
+            conn.close()
+
     def do_GET(self):
         self._cache_control = None  # per richiesta (con keep-alive l'oggetto serve più richieste)
+        self._extra_headers = []
         parts = urlsplit(self.path)
         path = parts.path
         if '/api/' in path:

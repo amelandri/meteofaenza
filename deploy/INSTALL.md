@@ -73,6 +73,17 @@ Deve stampare quattro righe: `station`, `forecast` (con l'ensemble) e `normals`.
 
 Se `normals` risponde "troppe richieste (HTTP 429)", non è un problema: Open-Meteo limita le richieste all'archivio storico, e il job giornaliero riprova da solo il giorno dopo.
 
+### Primo utente
+
+L'app richiede l'accesso: senza utenti nessuno può vederla. Gli utenti si creano solo da qui (non c'è registrazione dal sito); la password viene chiesta due volte senza comparire sullo schermo e nel database finisce solo il suo hash.
+
+```bash
+sudo -u meteo env METEO_DB=/var/lib/meteo/meteo.db \
+  sh -c 'cd /opt/meteo && python3 -B -m server.users add <nome>'
+```
+
+Altri comandi nella tabella "Comandi utili" in fondo.
+
 ## 5. API come servizio systemd
 
 ```bash
@@ -82,6 +93,8 @@ sudo systemctl enable --now meteo-api
 systemctl status meteo-api                       # deve essere "active (running)"
 curl -s http://127.0.0.1:8085/api/status         # stato dei job, in JSON
 ```
+
+`api/status` chiesto così, direttamente sul server, non richiede l'accesso; dal sito (attraverso nginx) sì, come tutte le altre API.
 
 Per cambiare porta o percorso del database basta modificare le righe `Environment=` del file del servizio, poi `sudo systemctl daemon-reload && sudo systemctl restart meteo-api`. Se cambia la porta, va aggiornata anche la configurazione di nginx (passo 7).
 
@@ -170,12 +183,12 @@ sudo ufw allow 'Nginx Full'                      # porte 80 e 443 (la 8085 resta
 ## 9. Verifiche finali
 
 ```bash
-curl -s https://<tuo-dominio>/api/status         # stato dei job
-curl -sI https://<tuo-dominio>/api/forecast      # 200 con ETag
+curl -s http://127.0.0.1:8085/api/status         # stato dei job (sul server)
+curl -sI https://<tuo-dominio>/api/forecast      # 401: senza accesso nessun dato
 curl -sI https://<tuo-dominio>/server/config.py  # deve rispondere 404 (codice non esposto)
 ```
 
-Poi aprire il sito nel browser. In DevTools → Network non devono comparire richieste a domini esterni: solo `api/…` e i file dell'app.
+Poi aprire il sito nel browser: compare la pagina di accesso; dopo il login, l'app. Il cookie di sessione è `Secure` solo se la richiesta arriva in HTTPS (passo 8): senza HTTPS la password viaggia in chiaro. In DevTools → Network non devono comparire richieste a domini esterni: solo `api/…` e i file dell'app.
 
 ---
 
@@ -201,6 +214,12 @@ sudo systemctl restart meteo-api                 # solo se è cambiato qualcosa 
 | Forzare l'aggiornamento delle previsioni | `sudo -u meteo env METEO_DB=/var/lib/meteo/meteo.db sh -c 'cd /opt/meteo && python3 -B -m server.jobs forecast --force'` |
 | Riavviare l'API | `sudo systemctl restart meteo-api` |
 | Rielaborare gli esiti della verifica (dopo un cambio delle regole) | `sudo -u meteo env METEO_DB=/var/lib/meteo/meteo.db sh -c 'cd /opt/meteo && python3 -B -m server.jobs verify --force'` |
+| Creare un utente | `sudo -u meteo env METEO_DB=/var/lib/meteo/meteo.db sh -c 'cd /opt/meteo && python3 -B -m server.users add <nome>'` |
+| Cambiare la password (chiude le sessioni aperte) | `… python3 -B -m server.users passwd <nome>` |
+| Elenco di utenti e token | `… python3 -B -m server.users list` |
+| Eliminare un utente | `… python3 -B -m server.users del <nome>` |
+| Token personale (plugin SwiftBar) | `… python3 -B -m server.users token <nome> --label "SwiftBar"` (mostrato una sola volta) |
+| Chiudere tutte le sessioni e revocare i token | `… python3 -B -m server.users revoke <nome>` (`--tokens` per i soli token) |
 | Backup del database (subito) | `sudo -u meteo env METEO_DB=/var/lib/meteo/meteo.db sh -c 'cd /opt/meteo && python3 -B -m server.jobs backup'` |
 
 Il database è piccolo: qualche centinaio di KB per previsioni e medie, più circa 1 KB per ogni lettura della centralina (conservate per circa 400 giorni).
@@ -212,5 +231,7 @@ Il database è piccolo: qualche centinaio di KB per previsioni e medie, più cir
 | Il sito mostra "dati non ancora disponibili" | i job non hanno ancora girato | eseguire il passo 4, controllare `journalctl -t meteo` |
 | `502 Bad Gateway` su `/api/` | l'API non è in esecuzione | `systemctl status meteo-api`, `journalctl -u meteo-api` |
 | La centralina risulta "non aggiornata" | il job `station` fallisce o il sito della centralina non risponde | `journalctl -t meteo`; l'ultimo esito è anche in `api/status` |
+| La pagina di accesso non accetta la password | utente inesistente o password sbagliata; dopo 5 errori in 15 minuti dallo stesso indirizzo il login risponde "troppi tentativi" | `… server.users list`, `… server.users passwd <nome>`; il blocco si toglie da solo o riavviando l'API |
+| Dopo il login si torna subito alla pagina di accesso | il browser non salva o non rimanda il cookie (cookie bloccati, app in una sottocartella con percorsi diversi da quelli della variante di nginx) | consentire i cookie per il sito; controllare la variante di nginx per la sottocartella |
 | `normals: troppe richieste (HTTP 429)` | limite delle richieste all'archivio di Open-Meteo | nessuna azione: il job riprova il giorno dopo |
 | Dopo un aggiornamento il browser mostra la versione vecchia | `VERSION` in `sw.js` non incrementato | incrementarlo, fare commit e `git pull` |

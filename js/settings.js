@@ -1,10 +1,11 @@
 // Pagina Impostazioni: tema (automatico/chiaro/scuro, settings.theme, applicato da
 // js/theme.js), modelli mostrati (entrambi / solo ICON-2I / solo ICON-EU, settings.models,
-// letti da app.js), grafico e sezioni all'apertura (app.js) e scelte della Verifica
-// (verify.js). I valori sono salvati nel localStorage. Esportazione e importazione di tutte
-// le preferenze in un file JSON.
+// letti da app.js), grafico e sezioni all'apertura (app.js), scelte della Verifica
+// (verify.js) e account (utente collegato, Esci). I valori sono salvati nel localStorage.
+// Esportazione e importazione di tutte le preferenze in un file JSON.
 
 import * as store from './storage.js';
+import { getJSON, goToLogin } from './api.js';
 
 const $ = (sel) => document.querySelector(sel);
 // --- Preferenze a scelta singola (tema, modelli, grafico, sezioni, verifica) ---
@@ -91,4 +92,20 @@ importInput.addEventListener('change', async () => {
   syncPrefs();
   const skipped = ignored.length ? ` (${ignored.length} ${ignored.length === 1 ? 'voce non riconosciuta ignorata' : 'voci non riconosciute ignorate'})` : '';
   showIo('', `Impostazioni importate${skipped}.`);
+});
+
+// --- Account: utente collegato e uscita ---
+// api/me richiede l'accesso: senza, getJSON() porta alla pagina di login.
+getJSON('api/me').then((me) => {
+  const el = $('#account-user');
+  el.classList.remove('muted');
+  el.textContent = '';
+  el.append('Accesso come ', Object.assign(document.createElement('b'), { textContent: me.user }));
+}).catch(() => { $('#account-user').textContent = 'Utente non disponibile'; });
+
+$('#logout-btn').addEventListener('click', async () => {
+  try {
+    await fetch('api/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', cache: 'no-store' });
+  } catch { /* offline: il cookie resta, ma i dati salvati si tolgono comunque */ }
+  goToLogin();
 });

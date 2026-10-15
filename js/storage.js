@@ -183,6 +183,20 @@ export const isFresh = (forecast) => !!forecast && Date.now() < nextDownloadAt(f
 
 // --- Pulizia ----------------------------------------------------------------------
 
+// Uscita dall'app (o sessione scaduta): toglie le copie dei dati (previsioni, misura della
+// centralina, medie), così senza accesso non restano consultabili offline. Le preferenze
+// (meteo:settings) restano: non sono dati riservati.
+export function clearData() {
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith(PREFIX) && k !== KEYS.settings) keys.push(k);
+    }
+    keys.forEach(remove);
+  } catch { /* storage non accessibile */ }
+}
+
 // Dati delle versioni precedenti, non più usati: preferiti, ultima località, indice della
 // cache, previsioni salvate per località diverse da `keep` e intervalli monitorati
 // (settings.watch).

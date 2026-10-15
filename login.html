@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <!-- Solo script e stili dei nostri file, niente codice inline; il modulo invia solo con fetch. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Accesso – Meteo Faenza</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0c111b" media="(prefers-color-scheme: dark)">
+  <script src="js/theme.js"></script>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/login.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <img src="icons/icon.svg" alt="" width="32" height="32">
+        <div class="brand-text">
+          <p class="brand-name">Meteo Faenza</p>
+          <p class="brand-sub">Accesso</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container login">
+    <form id="login-form" class="card login-card" novalidate>
+      <h1>Accedi</h1>
+      <p class="info-note">Le utenze sono create dall'amministratore del server.</p>
+      <label class="login-field">
+        <span class="field-label">Nome utente</span>
+        <input id="login-user" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      </label>
+      <label class="login-field">
+        <span class="field-label">Password</span>
+        <input id="login-pass" name="password" type="password" autocomplete="current-password" required>
+      </label>
+      <p id="login-error" class="form-error" role="alert" hidden></p>
+      <button id="login-btn" type="submit" class="btn login-btn">Accedi</button>
+    </form>
+  </main>
+</body>
+</html>

@@ -1,6 +1,10 @@
 // Accesso ai dati: il frontend legge solo dal proprio server (api/…, percorsi relativi così
 // l'app funziona anche in una sottocartella). È il server a scaricare le fonti esterne
 // (Open-Meteo, centralina) via cron e a salvarle nel database: vedi server/.
+// Tutte le richieste richiedono l'accesso (cookie di sessione, vedi server/auth.py): senza,
+// il server risponde 401 e l'app va alla pagina di login.
+
+import { clearData } from './storage.js';
 
 const API = {
   forecast: 'api/forecast',
@@ -64,6 +68,14 @@ function httpReason(status, body) {
   return `errore HTTP ${status}`;
 }
 
+// Pagina di login, con il ritorno alla pagina attuale dopo l'accesso. Senza accesso le copie
+// dei dati salvate nel browser si tolgono (clearData()).
+export function goToLogin() {
+  clearData();
+  const page = location.pathname.split('/').pop() || './';
+  location.replace(`login.html?next=${encodeURIComponent(page)}`);
+}
+
 // Le risposte del server hanno un ETag e Cache-Control: no-cache: il browser rivalida e,
 // se i dati non sono cambiati, riceve 304 e usa la copia che ha già (niente download).
 export async function getJSON(url) {
@@ -71,6 +83,10 @@ export async function getJSON(url) {
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
     const res = await fetch(url, { signal: ctrl.signal });
+    if (res.status === 401) {
+      goToLogin();
+      throw new ApiError('accesso richiesto');
+    }
     if (!res.ok) {
       let body = null;
       try { body = await res.json(); } catch { /* risposta non JSON */ }

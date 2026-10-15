@@ -1,9 +1,9 @@
 // Service worker: rende disponibile offline la "shell" dell'app.
-// Le previsioni NON passano da qui (le richieste a api/ vanno sempre in rete): l'app ne
-// tiene una copia nel localStorage per l'uso offline.
+// Le previsioni NON passano da qui (le richieste a api/ vanno sempre in rete, anche login e
+// logout): l'app ne tiene una copia nel localStorage per l'uso offline.
 // Ad ogni modifica dei file dell'app incrementare VERSION.
 
-const VERSION = 'v193';
+const VERSION = 'v195';
 const CACHE = `meteo-shell-${VERSION}`;
 
 const SHELL = [
@@ -12,6 +12,7 @@ const SHELL = [
   './info.html',
   './settings.html',
   './verify.html',
+  './login.html',
   './manifest.webmanifest',
   './css/style.css',
   './js/app.js',
@@ -25,6 +26,7 @@ const SHELL = [
   './js/settings.js',
   './js/theme.js',
   './js/verify.js',
+  './js/login.js',
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',

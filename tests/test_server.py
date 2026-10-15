@@ -1,5 +1,6 @@
 """Test del server (senza rete): python3 -m unittest discover -s tests"""
 
+import json
 import os
 import sys
 import tempfile
@@ -562,3 +563,112 @@ class BackupTest(unittest.TestCase):
             self.assertIn('"x"', row[0])
         finally:
             config.DB_PATH, config.BACKUP_DIR, config.BACKUP_KEEP = old
+
+
+class AuthTest(unittest.TestCase):
+    """Accesso (server/auth.py): password solo come hash, sessioni, token personali, API protette."""
+
+    @classmethod
+    def setUpClass(cls):
+        from server import auth
+        cls.auth = auth
+        cls.old = config.DB_PATH
+        config.DB_PATH = Path(_tmp.name) / 'auth.db'
+        cls.conn = db.connect()
+        auth.add_user(cls.conn, 'mario', 'password-lunga')
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.conn.close()
+        config.DB_PATH = cls.old
+
+    def test_password_hash(self):
+        stored = self.conn.execute("SELECT pw_hash FROM users WHERE username = 'mario'").fetchone()[0]
+        self.assertNotIn('password-lunga', stored)
+        self.assertTrue(stored.startswith(('scrypt$', 'pbkdf2$')))
+        self.assertTrue(self.auth.check_password('password-lunga', stored))
+        self.assertFalse(self.auth.check_password('password-lungA', stored))
+        # stessa password, sale diverso: hash diversi
+        self.assertNotEqual(self.auth.hash_password('abc12345'), self.auth.hash_password('abc12345'))
+        self.assertEqual(self.auth.authenticate(self.conn, 'mario', 'password-lunga'), 'mario')
+        self.assertIsNone(self.auth.authenticate(self.conn, 'mario', 'sbagliata'))
+        self.assertIsNone(self.auth.authenticate(self.conn, 'nessuno', 'password-lunga'))
+        with self.assertRaises(ValueError):
+            self.auth.add_user(self.conn, 'corta', '1234')
+        with self.assertRaises(ValueError):
+            self.auth.add_user(self.conn, 'mario', 'altra-password')
+
+    def test_sessions_and_tokens(self):
+        a = self.auth
+        tok = a.create_session(self.conn, 'mario')
+        self.assertEqual(a.check_token(self.conn, tok), ('mario', False))
+        stored = [r[0] for r in self.conn.execute('SELECT token_hash FROM sessions')]
+        self.assertNotIn(tok, stored)  # nel database solo l'hash
+        # dopo più di un giorno la sessione si rinnova
+        self.conn.execute('UPDATE sessions SET renewed_at = renewed_at - ? WHERE kind = ?', (2 * 86400000, 'session'))
+        self.assertEqual(a.check_token(self.conn, tok), ('mario', True))
+        # scaduta
+        self.conn.execute("UPDATE sessions SET expires_at = 1 WHERE kind = 'session'")
+        self.assertEqual(a.check_token(self.conn, tok), (None, False))
+        a.prune(self.conn)
+        # token personale: senza scadenza, revocabile
+        pt = a.create_token(self.conn, 'mario', 'test')
+        self.assertEqual(a.check_token(self.conn, pt)[0], 'mario')
+        a.revoke(self.conn, 'mario', tokens_only=True)
+        self.assertIsNone(a.check_token(self.conn, pt)[0])
+        # cambio password: chiude le sessioni
+        s2 = a.create_session(self.conn, 'mario')
+        a.set_password(self.conn, 'mario', 'password-lunga')
+        self.assertIsNone(a.check_token(self.conn, s2)[0])
+
+    def test_api(self):
+        import http.client
+        import threading
+        from server import api
+        srv = api.ThreadingHTTPServer(('127.0.0.1', 0), api.Handler)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        port = srv.server_address[1]
+
+        def req(method, path, body=None, headers=None):
+            c = http.client.HTTPConnection('127.0.0.1', port, timeout=10)
+            h = {'X-Forwarded-For': '203.0.113.7', **(headers or {})}  # come da nginx
+            if body is not None:
+                h['Content-Type'] = 'application/json'
+            c.request(method, path, body=body, headers=h)
+            r = c.getresponse()
+            data, cookie = r.read(), r.getheader('Set-Cookie')
+            c.close()
+            return r.status, data, cookie
+
+        try:
+            self.assertEqual(req('GET', '/api/station')[0], 401)
+            self.assertEqual(req('GET', '/api/status')[0], 401)  # da nginx: serve l'accesso
+            st, _, _ = req('GET', '/api/status', headers={'X-Forwarded-For': ''})
+            self.assertNotEqual(st, 401)  # curl diretto sul server
+            self.assertEqual(req('POST', '/api/login', '{"username":"mario","password":"no"}')[0], 401)
+            st, body, cookie = req('POST', '/api/login', '{"username":"mario","password":"password-lunga"}',
+                                   {'X-Forwarded-Proto': 'https'})
+            self.assertEqual(st, 200)
+            for part in ('meteo_session=', 'HttpOnly', 'SameSite=Strict', 'Secure', 'Path=/'):
+                self.assertIn(part, cookie)
+            sess = cookie.split(';')[0]
+            st, body, _ = req('GET', '/api/me', headers={'Cookie': sess})
+            self.assertEqual((st, json.loads(body)['user']), (200, 'mario'))
+            pt = self.auth.create_token(self.conn, 'mario', 'swiftbar')
+            self.assertEqual(req('GET', '/api/me', headers={'Authorization': f'Bearer {pt}'})[0], 200)
+            # solo JSON
+            c = http.client.HTTPConnection('127.0.0.1', port, timeout=10)
+            c.request('POST', '/api/login', body='username=mario', headers={'Content-Type': 'application/x-www-form-urlencoded'})
+            self.assertEqual(c.getresponse().status, 415)
+            c.close()
+            # logout: la sessione non vale più
+            req('POST', '/api/logout', '{}', {'Cookie': sess})
+            self.assertEqual(req('GET', '/api/me', headers={'Cookie': sess})[0], 401)
+            # troppi tentativi dallo stesso indirizzo
+            for _ in range(self.auth.MAX_FAILURES):
+                req('POST', '/api/login', '{"username":"mario","password":"no"}', {'X-Forwarded-For': '198.51.100.9'})
+            self.assertEqual(req('POST', '/api/login', '{"username":"mario","password":"password-lunga"}',
+                                 {'X-Forwarded-For': '198.51.100.9'})[0], 429)
+        finally:
+            srv.shutdown()
+            srv.server_close()
