@@ -740,6 +740,10 @@ button { font: inherit; color: inherit; }
 .hourly th.vh.st-dry { --vc: color-mix(in srgb, var(--good) 60%, transparent); }
 .hourly th.vh.st-risk, .hourly th.vh.st-mixed { --vc: var(--mid); }
 .hourly th.vh.st-wet { --vc: var(--rain); }
+/* Ora con il dettaglio aperto: niente contorno blu (.tip-open), ma barretta più larga, cella
+   del colore del verdetto più intensa e tutta la riga velata (sopra lo sfondo delle colonne) */
+.hourly tbody th.vh.tip-open { outline: none; color: var(--text); box-shadow: inset 6px 0 0 var(--vc); background: color-mix(in srgb, var(--vc) 32%, transparent); }
+.hourly tbody tr:has(> th.vh.tip-open) > td { background-image: linear-gradient(color-mix(in srgb, var(--text) 7%, transparent), color-mix(in srgb, var(--text) 7%, transparent)); }
 .hourly .wind { display: inline-flex; align-items: center; gap: 3px; }
 
 .wind-arrow { fill: currentColor; opacity: .75; flex: none; transition: none; }
@@ -1305,6 +1309,7 @@ body.loading #forecast { opacity: .5; }
   .hourly th, .hourly td { padding: 3px 2px; }
   .hourly .col-hour { width: 26px; }
   .hourly tbody th.vh { padding-left: 5px; box-shadow: inset 3px 0 0 var(--vc); }
+  .hourly tbody th.vh.tip-open { box-shadow: inset 4px 0 0 var(--vc); }
   .hourly thead th { font-size: .66rem; letter-spacing: 0; }
   .hourly thead .mk-name { display: none; } /* solo il colore del modello */
   .hourly td .wi { width: 20px; height: 20px; }
