@@ -48,7 +48,7 @@ Senza login il server non dà nessun dato: la pagina `login.html` chiede nome ut
 
 - **Password**: nel database c'è solo il loro hash scrypt con sale casuale, non reversibile (PBKDF2-SHA256 se il Python del server non ha scrypt). La verifica confronta in tempo costante e, per un utente inesistente, impiega lo stesso tempo.
 - **Sessioni**: cookie `meteo_session` `HttpOnly` (JavaScript non lo legge), `SameSite=Strict`, `Secure` quando il sito è in HTTPS; durano 30 giorni e si rinnovano usando l'app. Nel database c'è solo l'hash SHA-256 del token, non il token.
-- **Tentativi**: dopo 5 errori in 15 minuti dallo stesso indirizzo il login risponde "troppi tentativi" fino alla fine dei 15 minuti.
+- **Tentativi**: dopo 5 errori in 15 minuti dallo stesso indirizzo il login risponde "troppi tentativi". Il blocco scade da solo quando il primo dei 5 errori ha più di 15 minuti (i tentativi fatti durante il blocco non lo allungano) e vale per indirizzo, non per utente. Il conteggio è solo nella memoria dell'API: per sbloccare subito, `sudo systemctl restart meteo-api` (le sessioni aperte restano valide).
 - **Token personali**, per programmi senza browser come il plugin SwiftBar: si inviano con `Authorization: Bearer <token>`, non scadono e si revocano dal server.
 
 Gestione degli utenti, solo sul server. **Va sempre fatta sul database dell'API e come suo proprietario**, altrimenti l'utente finisce in un database che il sito non legge (senza `METEO_DB` lo script userebbe `data/meteo.db` nella cartella del codice):
@@ -66,6 +66,14 @@ sudo -u meteo env METEO_DB=/var/lib/meteo/meteo.db sh -c 'cd /opt/meteo && pytho
 | `check <nome>` | controlla se una password è quella giusta, senza cambiare nulla |
 | `token <nome> --label "…"` | crea un token personale, mostrato una sola volta |
 | `revoke <nome> [--tokens]` | chiude le sessioni e revoca i token (solo i token con `--tokens`) |
+
+Se non si riesce ad accedere:
+
+1. `list`: controlla che l'utente ci sia e il nome esatto (lo script mostra anche quale database sta usando);
+2. `check <nome>`: prova la password senza cambiare nulla;
+3. `passwd <nome>`: imposta una password nuova (chiude le sessioni aperte di quell'utente);
+4. se il login dice "troppi tentativi": aspettare 15 minuti o `sudo systemctl restart meteo-api`;
+5. se dice "errore del server (database)": `ls -l /var/lib/meteo/` e `sudo chown meteo:meteo /var/lib/meteo/meteo.db*`.
 
 Lo script mostra sempre quale database sta usando, non ne crea uno nuovo, avvisa se il database non contiene previsioni (quindi probabilmente non è quello dell'API) e si ferma se lo si lancia con un utente diverso dal proprietario del database: da root SQLite potrebbe creare file che l'API, utente `meteo`, poi non riesce a scrivere, e il login fallirebbe proprio con la password giusta. In quel caso il login risponde "errore del server (database)" e il dettaglio è in `journalctl -u meteo-api`.
 
@@ -193,7 +201,7 @@ Serve Python 3.9 o successivo; il radar richiede anche numpy e Pillow (`apt inst
 
 ```bash
 python3 -m server.jobs all          # primo popolamento del database (data/meteo.db)
-python3 -m server.users add <nome>  # un utente per accedere
+python3 -m server.users add <nome>  # un utente per accedere (nel database data/meteo.db creato dal comando sopra)
 python3 -m server.api --static      # API + file del frontend su http://127.0.0.1:8085
 ```
 
@@ -237,7 +245,7 @@ chmod +x swiftbar/meteo-faenza.5m.py
 ln -s "$PWD/swiftbar/meteo-faenza.5m.py" "<cartella dei plugin di SwiftBar>/"
 ```
 
-Il plugin ha bisogno di un **token personale**, da creare sul server con `python3 -m server.users token <nome> --label "SwiftBar"` e da mettere nel file `~/.config/meteo-faenza/token` (consigliato `chmod 600`) o nella variabile `METEO_TOKEN`. Senza token, o con un token revocato, il menu lo segnala.
+Il plugin ha bisogno di un **token personale**, da creare sul server con il comando `token <nome> --label "SwiftBar"` dello script degli utenti (vedi [Accesso](#accesso), sempre con `METEO_DB` e come utente `meteo`) e da mettere nel file `~/.config/meteo-faenza/token` (consigliato `chmod 600`) o nella variabile `METEO_TOKEN`. Senza token, o con un token revocato, il menu lo segnala.
 
 Server diverso da `https://meteofa.melandri.net`: variabile `METEO_URL` (in SwiftBar, con `<swiftbar.environment>` o modificando `BASE_URL` nel file). Serve solo Python 3, senza pacchetti aggiuntivi.
 
