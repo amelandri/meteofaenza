@@ -1,5 +1,5 @@
 // Pagina di accesso: invia nome e password a api/login (il server risponde con il cookie di
-// sessione, HttpOnly: JavaScript non lo vede) e torna alla pagina da cui si è arrivati
+// sessione, HttpOnly: JavaScript non lo vede, più il segnale meteo_auth letto da auth-guard.js) e torna alla pagina da cui si è arrivati
 // (?next=…, solo pagine dell'app). Se l'accesso c'è già, ci torna subito.
 
 const $ = (sel) => document.querySelector(sel);

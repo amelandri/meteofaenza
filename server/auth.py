@@ -29,6 +29,10 @@ from . import db
 SESSION_DAYS = 30
 RENEW_AFTER_S = 24 * 3600  # rinnovo della scadenza al più una volta al giorno
 COOKIE = 'meteo_session'
+# Segnale leggibile da JavaScript (non HttpOnly, valore fisso "1", nessun segreto): dice alle
+# pagine, prima del primo disegno, che c'è una sessione (js/auth-guard.js); senza, si va subito
+# al login invece di mostrare per un attimo l'app vuota. Ha la stessa vita del cookie di sessione.
+MARK_COOKIE = 'meteo_auth'
 MIN_PASSWORD = 8
 MAX_FAILURES = 5
 FAIL_WINDOW_S = 15 * 60

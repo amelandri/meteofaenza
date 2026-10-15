@@ -3,7 +3,7 @@
 // logout): l'app ne tiene una copia nel localStorage per l'uso offline.
 // Ad ogni modifica dei file dell'app incrementare VERSION.
 
-const VERSION = 'v204';
+const VERSION = 'v205';
 const CACHE = `meteo-shell-${VERSION}`;
 
 const SHELL = [
@@ -25,6 +25,7 @@ const SHELL = [
   './js/rivers.js',
   './js/settings.js',
   './js/theme.js',
+  './js/auth-guard.js',
   './js/verify.js',
   './js/login.js',
   './icons/icon-v3.svg',

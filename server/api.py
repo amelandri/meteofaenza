@@ -226,31 +226,50 @@ class Handler(SimpleHTTPRequestHandler):
         return not self.headers.get('X-Forwarded-For') and self.client_address[0] in ('127.0.0.1', '::1')
 
     def _cookie_token(self):
-        try:
-            c = SimpleCookie(self.headers.get('Cookie') or '')
-        except CookieError:
-            return None
+        c = self._cookies()
         return c[auth.COOKIE].value if auth.COOKIE in c else None
 
     def _bearer(self):
         h = self.headers.get('Authorization') or ''
         return h[7:].strip() if h.lower().startswith('bearer ') else None
 
+    def _cookies(self):
+        try:
+            return SimpleCookie(self.headers.get('Cookie') or '')
+        except CookieError:
+            return SimpleCookie()
+
     def _set_cookie(self, token, max_age):
         """Cookie di sessione: HttpOnly (non leggibile da JavaScript), SameSite=Strict, Secure se
         la richiesta è arrivata in HTTPS (nginx: X-Forwarded-Proto), percorso = cartella
-        dell'app (funziona anche in una sottocartella)."""
+        dell'app (funziona anche in una sottocartella). Con lui il segnale auth.MARK_COOKIE
+        (stessa durata; token vuoto = uscita: si tolgono entrambi)."""
+        self._extra_headers.append(('Set-Cookie', f'{auth.COOKIE}={token}; {self._cookie_attrs(max_age)}; HttpOnly'))
+        self._set_mark(max_age if token else 0)
+
+    def _set_mark(self, max_age):
+        self._extra_headers.append(('Set-Cookie', f'{auth.MARK_COOKIE}={"1" if max_age else ""}; {self._cookie_attrs(max_age)}'))
+
+    def _cookie_attrs(self, max_age):
         path = urlsplit(self.path).path.split('/api/')[0] + '/'
         secure = '; Secure' if self.headers.get('X-Forwarded-Proto') == 'https' else ''
-        self._extra_headers.append(('Set-Cookie', f'{auth.COOKIE}={token}; Path={path}; Max-Age={max_age}; HttpOnly; SameSite=Strict{secure}'))
+        return f'Path={path}; Max-Age={max_age}; SameSite=Strict{secure}'
 
     def _user(self, conn):
         """Utente collegato (cookie o token personale), o None. Rinnova il cookie se la sessione
-        è stata prolungata."""
+        è stata prolungata; rimette il segnale auth.MARK_COOKIE se manca (sessioni nate prima
+        del segnale). Sessione del browser non valida (scaduta, chiusa da `users passwd`):
+        toglie i cookie, così le pagine vanno subito al login."""
         cookie, bearer = self._cookie_token(), self._bearer()
         user, renewed = auth.check_token(conn, bearer or cookie)
-        if user and renewed and not bearer:
+        if bearer:
+            return user
+        if user and renewed:
             self._set_cookie(cookie, auth.SESSION_DAYS * 86400)
+        elif user and auth.MARK_COOKIE not in self._cookies():
+            self._set_mark(auth.SESSION_DAYS * 86400)
+        elif not user and (cookie or auth.MARK_COOKIE in self._cookies()):
+            self._set_cookie('', 0)
         return user
 
     def _json(self, status, body, etag=None, content_type='application/json; charset=utf-8', cache=None):

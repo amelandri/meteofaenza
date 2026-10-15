@@ -651,11 +651,22 @@ class AuthTest(unittest.TestCase):
             self.assertEqual(st, 200)
             for part in ('meteo_session=', 'HttpOnly', 'SameSite=Strict', 'Secure', 'Path=/'):
                 self.assertIn(part, cookie)
+            # con la sessione il segnale leggibile da JavaScript (js/auth-guard.js), non HttpOnly
+            self.assertIn('meteo_auth=1; Path=/; Max-Age=', cookie)
+            self.assertNotIn('HttpOnly', cookie.split('meteo_auth=')[1])
             sess = cookie.split(';')[0]
-            st, body, _ = req('GET', '/api/me', headers={'Cookie': sess})
+            mark = 'meteo_auth=1'
+            st, body, set_c = req('GET', '/api/me', headers={'Cookie': sess})
             self.assertEqual((st, json.loads(body)['user']), (200, 'mario'))
+            self.assertIn('meteo_auth=1', set_c)  # sessione senza segnale (nata prima): lo rimette
+            self.assertIsNone(req('GET', '/api/me', headers={'Cookie': f'{sess}; {mark}'})[2])
             pt = self.auth.create_token(self.conn, 'mario', 'swiftbar')
-            self.assertEqual(req('GET', '/api/me', headers={'Authorization': f'Bearer {pt}'})[0], 200)
+            st, _, set_c = req('GET', '/api/me', headers={'Authorization': f'Bearer {pt}'})
+            self.assertEqual((st, set_c), (200, None))  # token personale: nessun cookie
+            # segnale rimasto senza sessione valida: il server lo toglie
+            st, _, set_c = req('GET', '/api/me', headers={'Cookie': f'meteo_session=finto; {mark}'})
+            self.assertEqual(st, 401)
+            self.assertIn('meteo_auth=; Path=/; Max-Age=0', set_c)
             # preferenze per utente: all'inizio nessuna, poi salvate e rilette
             st, body, _ = req('GET', '/api/settings', headers={'Cookie': sess})
             self.assertEqual((st, json.loads(body)['settings']), (200, None))
@@ -672,7 +683,9 @@ class AuthTest(unittest.TestCase):
             self.assertEqual(c.getresponse().status, 415)
             c.close()
             # logout: la sessione non vale più
-            req('POST', '/api/logout', '{}', {'Cookie': sess})
+            _, _, set_c = req('POST', '/api/logout', '{}', {'Cookie': sess})
+            self.assertIn('meteo_session=; Path=/; Max-Age=0', set_c)
+            self.assertIn('meteo_auth=; Path=/; Max-Age=0', set_c)
             self.assertEqual(req('GET', '/api/me', headers={'Cookie': sess})[0], 401)
             # troppi tentativi dallo stesso indirizzo
             for _ in range(self.auth.MAX_FAILURES):
