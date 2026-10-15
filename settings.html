@@ -50,132 +50,132 @@
     </div>
   </header>
 
-  <main class="container info settings">
-    <h1>Impostazioni</h1>
-    <p class="info-lead">Le impostazioni sono salvate con il tuo utente e valgono su tutti i dispositivi.</p>
+  <main class="container settings">
+    <div class="settings-head">
+      <h1>Impostazioni</h1>
+      <p>Le scelte si salvano subito con il tuo utente e valgono su tutti i dispositivi. Grafico, sezioni e Verifica si cambiano anche nelle loro pagine: vale l'ultima scelta.</p>
+    </div>
 
-    <!-- Da 900 px due colonne: a sinistra aspetto, modelli e grafico, a destra sezioni,
-         verifica e account. Sotto, una colonna sola nello stesso ordine. I pulsanti con
-         data-pref / data-value li gestisce settings.js. -->
+    <!-- Gruppi con il titolo sopra e una riga per preferenza (voce a sinistra, controllo a
+         destra); da 900 px due colonne: a sinistra aspetto, grafico e verifica, a destra
+         sezioni e account. I controlli con data-pref (pulsanti .seg, select, interruttori
+         .switch) li gestisce settings.js. -->
     <div class="settings-grid">
-    <div class="settings-col">
-    <section class="card">
-      <h2>Aspetto</h2>
-      <p class="info-note">"Automatico" segue l'impostazione chiara o scura del dispositivo.</p>
-      <div class="seg theme-seg" data-pref="theme" role="group" aria-label="Tema">
-        <button type="button" data-value="auto">Automatico</button>
-        <button type="button" data-value="light">Chiaro</button>
-        <button type="button" data-value="dark">Scuro</button>
-      </div>
-    </section>
+      <div class="settings-col">
+        <section class="set-group" aria-labelledby="g-look">
+          <h2 class="set-title" id="g-look">Aspetto</h2>
+          <div class="set-list">
+            <div class="set-row">
+              <div class="set-text"><span class="set-label" id="pl-theme">Tema</span><span class="set-hint">Automatico segue il dispositivo</span></div>
+              <div class="seg" data-pref="theme" role="group" aria-labelledby="pl-theme">
+                <button type="button" data-value="auto">Automatico</button>
+                <button type="button" data-value="light">Chiaro</button>
+                <button type="button" data-value="dark">Scuro</button>
+              </div>
+            </div>
+            <div class="set-row">
+              <div class="set-text"><span class="set-label" id="pl-models">Modelli</span><span class="set-hint">La probabilità di pioggia resta sempre</span></div>
+              <div class="seg" data-pref="models" role="group" aria-labelledby="pl-models">
+                <button type="button" data-value="both">Entrambi</button>
+                <button type="button" data-value="i2i" aria-label="ICON-2I"><i class="dot-i2i" aria-hidden="true"></i>2I</button>
+                <button type="button" data-value="eu" aria-label="ICON-EU"><i class="dot-eu" aria-hidden="true"></i>EU</button>
+              </div>
+            </div>
+          </div>
+        </section>
 
-    <section class="card">
-      <h2>Modelli</h2>
-      <p class="info-note">Previsioni da mostrare: giorni, grafico (anche il verdetto ora per ora) e dettaglio orario. La probabilità di pioggia, calcolata dagli ensemble, resta sempre visibile. Con un solo modello non c'è il giudizio di concordanza.</p>
-      <div class="seg theme-seg" data-pref="models" role="group" aria-label="Modelli mostrati">
-        <button type="button" data-value="both">Entrambi</button>
-        <button type="button" data-value="i2i">ICON-2I</button>
-        <button type="button" data-value="eu">ICON-EU</button>
+        <section class="set-group" aria-labelledby="g-chart">
+          <h2 class="set-title" id="g-chart">Grafico all'apertura</h2>
+          <div class="set-list">
+            <div class="set-row">
+              <div class="set-text"><label class="set-label" for="pl-variable">Dato mostrato</label></div>
+              <span class="select"><select id="pl-variable" data-pref="variable">
+                <option value="rain">Precipitazioni</option>
+                <option value="temp">Temperatura</option>
+                <option value="wind">Vento</option>
+                <option value="cloud">Nuvolosità</option>
+                <option value="humidity">Umidità</option>
+                <option value="pressure">Pressione</option>
+              </select></span>
+            </div>
+            <div class="set-row">
+              <div class="set-text"><span class="set-label" id="pl-from">Inizio</span></div>
+              <div class="seg" data-pref="chartFrom" role="group" aria-labelledby="pl-from">
+                <button type="button" data-value="now">Da ora</button>
+                <button type="button" data-value="today">Da 00:00</button>
+              </div>
+            </div>
+            <div class="set-row">
+              <div class="set-text"><span class="set-label" id="pl-range">Ore mostrate</span></div>
+              <div class="seg" data-pref="range" role="group" aria-labelledby="pl-range">
+                <button type="button" data-value="24">24 h</button>
+                <button type="button" data-value="72">72 h</button>
+                <button type="button" data-value="all">Tutto</button>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="set-group" aria-labelledby="g-verify">
+          <h2 class="set-title" id="g-verify">Verifica</h2>
+          <div class="set-list">
+            <div class="set-row">
+              <div class="set-text"><label class="set-label" for="pl-lead">Previsione giudicata</label><span class="set-hint">Quella disponibile alle 23</span></div>
+              <span class="select"><select id="pl-lead" data-pref="verifyLead">
+                <option value="1">Il giorno prima</option>
+                <option value="2">Due giorni prima</option>
+              </select></span>
+            </div>
+            <div class="set-row">
+              <div class="set-text"><span class="set-label" id="pl-days">Periodo</span></div>
+              <div class="seg" data-pref="verifyDays" role="group" aria-labelledby="pl-days">
+                <button type="button" data-value="7">7 giorni</button>
+                <button type="button" data-value="30">30 giorni</button>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
-    </section>
 
-    <section class="card">
-      <h2>Andamento orario</h2>
-      <p class="info-note">Come si presenta il grafico all'apertura dell'app. Le stesse scelte si possono cambiare sopra il grafico: l'app ricorda l'ultima.</p>
-      <div class="pref">
-        <span class="field-label" id="pl-variable">Dato mostrato</span>
-        <div class="seg pref-seg seg-wrap" data-pref="variable" role="group" aria-labelledby="pl-variable">
-          <button type="button" data-value="rain">Precipitazioni</button>
-          <button type="button" data-value="temp">Temperatura</button>
-          <button type="button" data-value="wind">Vento</button>
-          <button type="button" data-value="cloud">Nuvolosità</button>
-          <button type="button" data-value="humidity">Umidità</button>
-          <button type="button" data-value="pressure">Pressione</button>
-        </div>
+      <div class="settings-col">
+        <section class="set-group" aria-labelledby="g-sections">
+          <h2 class="set-title" id="g-sections">Sezioni aperte all'apertura</h2>
+          <div class="set-list">
+            <div class="set-row">
+              <div class="set-text"><span class="set-label" id="pl-radar">Radar</span></div>
+              <button type="button" class="switch" role="switch" data-pref="radarOpen" aria-checked="false" aria-labelledby="pl-radar"></button>
+            </div>
+            <div class="set-row">
+              <div class="set-text"><span class="set-label" id="pl-rivers">Fiumi</span></div>
+              <button type="button" class="switch" role="switch" data-pref="riversOpen" aria-checked="false" aria-labelledby="pl-rivers"></button>
+            </div>
+            <div class="set-row">
+              <div class="set-text"><span class="set-label" id="pl-hourly">Dettaglio orario</span></div>
+              <button type="button" class="switch" role="switch" data-pref="hourlyOpen" aria-checked="false" aria-labelledby="pl-hourly"></button>
+            </div>
+            <div class="set-row">
+              <div class="set-text"><span class="set-label" id="pl-hours">Ore del dettaglio</span></div>
+              <div class="seg" data-pref="showAllHours" role="group" aria-labelledby="pl-hours">
+                <button type="button" data-value="false">Prossime 48</button>
+                <button type="button" data-value="true">Tutte</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="set-group" aria-labelledby="g-account">
+          <h2 class="set-title" id="g-account">Account</h2>
+          <div class="set-list">
+            <div class="set-row">
+              <div class="set-who">
+                <span id="account-avatar" class="avatar" aria-hidden="true"></span>
+                <div class="set-text"><span id="account-user" class="set-label muted">Accesso in corso…</span><span class="set-hint">Uscendo, le copie di previsioni e impostazioni in questo browser vengono cancellate</span></div>
+              </div>
+              <button id="logout-btn" type="button" class="btn btn-ghost">Esci</button>
+            </div>
+          </div>
+        </section>
       </div>
-      <div class="pref">
-        <span class="field-label" id="pl-from">Inizio</span>
-        <div class="seg pref-seg" data-pref="chartFrom" role="group" aria-labelledby="pl-from">
-          <button type="button" data-value="now">Da ora</button>
-          <button type="button" data-value="today">Da 00:00</button>
-        </div>
-      </div>
-      <div class="pref">
-        <span class="field-label" id="pl-range">Ore mostrate</span>
-        <div class="seg pref-seg" data-pref="range" role="group" aria-labelledby="pl-range">
-          <button type="button" data-value="24">24 h</button>
-          <button type="button" data-value="72">72 h</button>
-          <button type="button" data-value="all">Tutto</button>
-        </div>
-      </div>
-    </section>
     </div>
-
-    <div class="settings-col">
-    <section class="card">
-      <h2>Sezioni della pagina</h2>
-      <p class="info-note">Sezioni aperte o chiuse all'apertura dell'app. Aprendole o chiudendole nella pagina principale, l'app ricorda l'ultima scelta.</p>
-      <div class="pref pref-line">
-        <span class="field-label" id="pl-radar">Radar</span>
-        <div class="seg pref-seg" data-pref="radarOpen" role="group" aria-labelledby="pl-radar">
-          <button type="button" data-value="false">Chiusa</button>
-          <button type="button" data-value="true">Aperta</button>
-        </div>
-      </div>
-      <div class="pref pref-line">
-        <span class="field-label" id="pl-rivers">Fiumi</span>
-        <div class="seg pref-seg" data-pref="riversOpen" role="group" aria-labelledby="pl-rivers">
-          <button type="button" data-value="false">Chiusa</button>
-          <button type="button" data-value="true">Aperta</button>
-        </div>
-      </div>
-      <div class="pref pref-line">
-        <span class="field-label" id="pl-hourly">Dettaglio orario</span>
-        <div class="seg pref-seg" data-pref="hourlyOpen" role="group" aria-labelledby="pl-hourly">
-          <button type="button" data-value="false">Chiusa</button>
-          <button type="button" data-value="true">Aperta</button>
-        </div>
-      </div>
-      <div class="pref pref-line">
-        <span class="field-label" id="pl-hours">Ore del dettaglio</span>
-        <div class="seg pref-seg" data-pref="showAllHours" role="group" aria-labelledby="pl-hours">
-          <button type="button" data-value="false">Prossime 48</button>
-          <button type="button" data-value="true">Tutte</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Verifica</h2>
-      <p class="info-note">Scelte iniziali della pagina <a href="verify.html">Verifica</a>, che confronta le previsioni con la pioggia e le temperature misurate.</p>
-      <div class="pref">
-        <span class="field-label" id="pl-lead">Previsione giudicata</span>
-        <div class="seg pref-seg" data-pref="verifyLead" role="group" aria-labelledby="pl-lead">
-          <button type="button" data-value="1">Il giorno prima</button>
-          <button type="button" data-value="2">Due giorni prima</button>
-        </div>
-      </div>
-      <div class="pref">
-        <span class="field-label" id="pl-days">Periodo</span>
-        <div class="seg pref-seg" data-pref="verifyDays" role="group" aria-labelledby="pl-days">
-          <button type="button" data-value="7">7 giorni</button>
-          <button type="button" data-value="30">30 giorni</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Account</h2>
-      <p class="info-note">Le impostazioni sono salvate sul server con il tuo utente: valgono su tutti i dispositivi da cui accedi. Uscendo, le copie di previsioni e impostazioni in questo browser vengono cancellate.</p>
-      <div class="account-row">
-        <span id="account-user" class="muted">Accesso in corso…</span>
-        <button id="logout-btn" type="button" class="btn btn-ghost">Esci</button>
-      </div>
-    </section>
-
-    </div>
-    </div>
-
   </main>
 </body>
 </html>

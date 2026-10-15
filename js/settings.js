@@ -9,29 +9,42 @@ import { getJSON, goToLogin } from './api.js';
 
 const $ = (sel) => document.querySelector(sel);
 // --- Preferenze a scelta singola (tema, modelli, grafico, sezioni, verifica) ---
-// Ogni gruppo .seg[data-pref] ha un pulsante per valore (data-value = String(valore) di
-// PREF_VALUES in storage.js); la scelta si salva subito sul server, senza pulsante Salva. Il
-// tema si applica anche a questa pagina (vale anche se lo storage è bloccato).
-const prefGroups = [...document.querySelectorAll('.seg[data-pref]')];
+// Tre tipi di controllo con data-pref: gruppi di pulsanti .seg (un pulsante per valore,
+// data-value = String(valore) di PREF_VALUES in storage.js), menu a tendina (option value =
+// String(valore)) e interruttori .switch (preferenze true/false). La scelta si salva subito
+// sul server, senza pulsante Salva. Il tema si applica anche a questa pagina (vale anche se
+// lo storage è bloccato).
+const segs = [...document.querySelectorAll('.seg[data-pref]')];
+const selects = [...document.querySelectorAll('select[data-pref]')];
+const switches = [...document.querySelectorAll('.switch[data-pref]')];
 
 function syncPrefs(settings = store.getSettings()) {
-  for (const g of prefGroups) {
+  for (const g of segs) {
     const current = String(settings[g.dataset.pref]);
     for (const b of g.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.value === current));
   }
+  for (const sel of selects) sel.value = String(settings[sel.dataset.pref]);
+  for (const sw of switches) sw.setAttribute('aria-checked', String(settings[sw.dataset.pref] === true));
 }
 
-for (const g of prefGroups) {
-  const key = g.dataset.pref;
+// Il valore vero (stringa, numero o booleano) è quello di PREF_VALUES con lo stesso testo.
+function savePref(key, raw) {
+  const value = store.PREF_VALUES[key]?.find((v) => String(v) === raw);
+  if (value === undefined || !store.validPref(key, value)) return;
+  store.saveSettings({ [key]: value });
+  if (key === 'theme') window.meteoTheme?.apply(value);
+  syncPrefs({ ...store.getSettings(), [key]: value });
+}
+
+for (const g of segs) {
   g.addEventListener('click', (e) => {
     const raw = e.target.closest('button[data-value]')?.dataset.value;
-    // Il valore vero (stringa, numero o booleano) è quello di PREF_VALUES con lo stesso testo.
-    const value = store.PREF_VALUES[key]?.find((v) => String(v) === raw);
-    if (value === undefined || !store.validPref(key, value)) return;
-    store.saveSettings({ [key]: value });
-    if (key === 'theme') window.meteoTheme?.apply(value);
-    syncPrefs({ ...store.getSettings(), [key]: value });
+    if (raw !== undefined) savePref(g.dataset.pref, raw);
   });
+}
+for (const sel of selects) sel.addEventListener('change', () => savePref(sel.dataset.pref, sel.value));
+for (const sw of switches) {
+  sw.addEventListener('click', () => savePref(sw.dataset.pref, String(sw.getAttribute('aria-checked') !== 'true')));
 }
 // Preferenze cambiate da un'altra scheda (anche dalla pagina principale) o arrivate dal
 // server (cambiate su un altro dispositivo).
@@ -47,8 +60,8 @@ window.addEventListener('pageshow', (e) => { if (e.persisted) store.syncSettings
 getJSON('api/me').then((me) => {
   const el = $('#account-user');
   el.classList.remove('muted');
-  el.textContent = '';
-  el.append('Accesso come ', Object.assign(document.createElement('b'), { textContent: me.user }));
+  el.textContent = me.user;
+  $('#account-avatar').textContent = (me.user || '?').charAt(0).toUpperCase();
 }).catch(() => { $('#account-user').textContent = 'Utente non disponibile'; });
 
 $('#logout-btn').addEventListener('click', async () => {
