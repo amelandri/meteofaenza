@@ -1342,8 +1342,8 @@ function rainLegend(shown) {
 }
 
 // Cella della probabilità oraria: stesso calcolo del verdetto (scenari dell'ensemble con
-// almeno 0,2 mm nell'ora), dettaglio in tooltip/avviso al tocco; "~" = stima Open-Meteo
-// (oltre l'orizzonte dell'ensemble). Sfondo azzurro più intenso al crescere della probabilità.
+// almeno 0,2 mm nell'ora); "~" = stima Open-Meteo (oltre l'orizzonte dell'ensemble). Niente
+// dettaglio al tocco: la probabilità con gli scenari è già nel dettaglio dell'ora (cella dell'ora). Sfondo azzurro più intenso al crescere della probabilità.
 function popCell(i) {
   const t = state.data.hourly.time[i];
   const x = windowRainChance([{ stamp: t, weight: 1, i }]);
@@ -1351,8 +1351,7 @@ function popCell(i) {
   if (x.pop == null) return '<td class="first num prob na">—</td>';
   const tint = `background: color-mix(in srgb, var(--rain) ${Math.round(x.pop * 0.3)}%, transparent)`;
   const val = x.pop > 0 ? `${x.popExact ? '' : '~'}${fmt(x.pop)}<small>%</small>` : '<span class="muted">0</span>';
-  // Dettaglio costruito solo al tocco (hourTip()): con tutte le ore sarebbero ~150 KB di HTML.
-  return `<td class="first num prob" style="${tint}" data-tip data-tip-key="hour|${t}" aria-label="${esc(`${hourRange(i)}: ${chancePlain(x, "nell'ora")}`)}">${val}</td>`;
+  return `<td class="first num prob" style="${tint}" aria-label="${esc(`${hourRange(i)}: ${chancePlain(x, "nell'ora")}`)}">${val}</td>`;
 }
 
 // "lun 12 · ore 13–14": il valore delle 00:00 riguarda le 23–24 del giorno prima.
@@ -1368,13 +1367,7 @@ function hourSpan(t) {
   return `${String((h + 23) % 24).padStart(2, '0')}–${h === 0 ? '24' : t.slice(11, 13)}`;
 }
 
-function hourTip(t) {
-  const i = state.data.hourly.time.indexOf(t);
-  if (i < 0) return '';
-  return tipHead(hourRange(i)) + tipChance(windowRainChance([{ stamp: t, weight: 1, i }]), "nell'ora");
-}
-
-// Contenuto del dettaglio: in data-tip, oppure costruito al momento dalla chiave (celle "Prob.").
+// Contenuto del dettaglio: in data-tip, oppure costruito al momento dalla chiave (verdetti).
 function tipContent(el) {
   if (el.dataset.tip) return el.dataset.tip;
   const key = el.dataset.tipKey || '';
@@ -1384,7 +1377,7 @@ function tipContent(el) {
     const t = key.slice(key.indexOf('|') + 1);
     return verdictTip(hourVerdict(t, verdictCtx()), `${dayShort(t)} · ore ${hourSpan(t)}`, "nell'ora");
   }
-  return key.startsWith('hour|') ? hourTip(key.slice(5)) : '';
+  return '';
 }
 
 // Porta una scheda in cima allo schermo, sotto la barra in alto (fissa: con scrollIntoView
@@ -1506,7 +1499,7 @@ function renderHourlyTable() {
   const marks = shown.map((m, j) => `<th class="mk ${j === 0 ? 'first ' : ''}c-${m.key}" scope="col" aria-label="${m.name}" title="${m.name}"><span class="mk-name">${m.short}</span></th>`).join('');
   $('#hourly-table').innerHTML = `
     <thead>
-      <tr class="group">${head('Ora', '', 'scope="col" class="col-hour"')}${head('Cielo', '')}${head('Temp.', '°C')}${head('Pioggia', 'mm')}${head('Prob.', '%', 'scope="col" class="first" title="Probabilità di pioggia nell\'ora: scenari degli ensemble con almeno 0,2 mm (dato comune, non di un singolo modello). Tocca una cella per il dettaglio."')}${head('Vento', 'km/h')}</tr>
+      <tr class="group">${head('Ora', '', 'scope="col" class="col-hour"')}${head('Cielo', '')}${head('Temp.', '°C')}${head('Pioggia', 'mm')}${head('Prob.', '%', 'scope="col" class="first" title="Probabilità di pioggia nell\'ora: scenari degli ensemble con almeno 0,2 mm (dato comune, non di un singolo modello). Per il dettaglio tocca l\'ora."')}${head('Vento', 'km/h')}</tr>
       <tr class="models"><td></td>${marks.repeat(3)}<td class="first"></td>${marks}</tr>
     </thead>
     <tbody>${body}</tbody>`;
@@ -1525,8 +1518,7 @@ function bindControls() {
 
   const showTip = (e) => {
     // Etichetta di concordanza, probabilità delle fasce, striscia del verdetto (e ore della
-    // tabella oraria), celle "Prob." e
-    // icona della centralina:
+    // tabella oraria) e icona della centralina:
     // al clic il dettaglio, nel riquadro accanto all'elemento con il mouse, in un avviso in
     // basso al tocco. Secondo clic/tap sullo stesso elemento: chiude.
     const el = e.target.closest('[data-tip]');

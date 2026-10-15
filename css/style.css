@@ -732,7 +732,6 @@ button { font: inherit; color: inherit; }
   border-bottom: 1px solid var(--border);
 }
 .hourly td.prob { color: var(--text); font-size: .85em; }
-.hourly td.prob[data-tip] { cursor: pointer; } /* al tocco: dettaglio della probabilità */
 .hourly td.prob small { color: var(--muted); margin-left: 1px; }
 /* Cella dell'ora con il colore del verdetto (stessi colori della striscia del grafico):
    barretta a sinistra e velo leggero; al tocco il dettaglio del verdetto */
