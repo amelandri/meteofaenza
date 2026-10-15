@@ -734,6 +734,12 @@ button { font: inherit; color: inherit; }
 .hourly td.prob { color: var(--text); font-size: .85em; }
 .hourly td.prob[data-tip] { cursor: pointer; } /* al tocco: dettaglio della probabilità */
 .hourly td.prob small { color: var(--muted); margin-left: 1px; }
+/* Cella dell'ora con il colore del verdetto (stessi colori della striscia del grafico):
+   barretta a sinistra e velo leggero; al tocco il dettaglio del verdetto */
+.hourly tbody th.vh { cursor: pointer; padding-left: 10px; box-shadow: inset 4px 0 0 var(--vc); background: color-mix(in srgb, var(--vc) 14%, transparent); }
+.hourly th.vh.st-dry { --vc: color-mix(in srgb, var(--good) 60%, transparent); }
+.hourly th.vh.st-risk, .hourly th.vh.st-mixed { --vc: var(--mid); }
+.hourly th.vh.st-wet { --vc: var(--rain); }
 .hourly .wind { display: inline-flex; align-items: center; gap: 3px; }
 
 .wind-arrow { fill: currentColor; opacity: .75; flex: none; transition: none; }
@@ -1298,6 +1304,7 @@ body.loading #forecast { opacity: .5; }
   .hourly { font-size: .82rem; }
   .hourly th, .hourly td { padding: 3px 2px; }
   .hourly .col-hour { width: 26px; }
+  .hourly tbody th.vh { padding-left: 5px; box-shadow: inset 3px 0 0 var(--vc); }
   .hourly thead th { font-size: .66rem; letter-spacing: 0; }
   .hourly thead .mk-name { display: none; } /* solo il colore del modello */
   .hourly td .wi { width: 20px; height: 20px; }

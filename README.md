@@ -30,7 +30,7 @@ Il menu in alto è uguale in tutte le pagine (Previsioni, Verifica, Impostazioni
   Nella temperatura due linee tratteggiate mostrano le previsioni corrette con la misura della centralina per le ore successive, e due linee punteggiate massima e minima medie del periodo.
 - **Radar** (chiuso di default): animazione del radar della Protezione Civile nell'ultima ora più la stima dei prossimi 60 minuti, su una cartina di 60 km attorno a Faenza; accanto, la stima su Faenza ogni 15 minuti per i prossimi 90.
 - **Fiumi** (chiuso di default; l'intestazione mostra comunque il livello a Faenza): livelli di Lamone (Marradi, Strada Casale, Sarna, Faenza) e Marzeno (Modigliana, Rivalta), con tendenza, soglie di allerta e grafico delle ultime 48 ore.
-- **Dettaglio orario** (chiuso di default): tabella ora per ora con entrambi i modelli e la probabilità di pioggia.
+- **Dettaglio orario** (chiuso di default): tabella ora per ora con entrambi i modelli e la probabilità di pioggia; la cella dell'ora ha il colore del verdetto (come la striscia del grafico) e al tocco ne mostra il dettaglio.
 
 Concordanza, probabilità delle fasce, caselle della striscia, colonna della probabilità e icona della centralina aprono un **dettaglio**: con il mouse un riquadro accanto all'elemento (al clic), al tocco un avviso in basso. Al tocco, con l'avviso aperto, il primo tocco fuori lo chiude soltanto e non attiva link o pulsanti sotto.
 

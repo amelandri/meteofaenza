@@ -298,6 +298,7 @@ function renderStationViews() {
   renderNow();
   renderDaily();
   renderChartSection();
+  renderHourlyTable(); // colore del verdetto delle ore (pioggia in corso, radar)
 }
 
 function stationIsFresh() {
@@ -1377,8 +1378,10 @@ function hourTip(t) {
 function tipContent(el) {
   if (el.dataset.tip) return el.dataset.tip;
   const key = el.dataset.tipKey || '';
-  if (key.startsWith('verdict|')) {
-    const t = key.slice(8);
+  // verdict| = striscia del grafico, vhour| = ora della tabella (chiavi distinte: syncTipCard()
+  // riaggancia il riquadro all'elemento con la stessa chiave)
+  if (key.startsWith('verdict|') || key.startsWith('vhour|')) {
+    const t = key.slice(key.indexOf('|') + 1);
     return verdictTip(hourVerdict(t, verdictCtx()), `${dayShort(t)} · ore ${hourSpan(t)}`, "nell'ora");
   }
   return key.startsWith('hour|') ? hourTip(key.slice(5)) : '';
@@ -1463,6 +1466,7 @@ function renderHourlyTable() {
   const H = (k) => hourly.models[k];
   const shown = shownModels();
   const span = shown.length; // colonne per variabile
+  const ctx = verdictCtx();
 
   let body = '';
   let prevDay = '';
@@ -1478,8 +1482,14 @@ function renderHourlyTable() {
       const classes = [j === 0 ? 'first' : '', cls, `m-${m.key}`].filter(Boolean).join(' ');
       return h.temperature_2m[i] == null ? `<td class="${classes} na">—</td>` : `<td class="${classes}">${render(h)}</td>`;
     }).join('');
+    // Cella dell'ora con il colore del verdetto (come la striscia del grafico): l'ora della riga
+    // è la stessa del verdetto (T-1, T]; al tocco il dettaglio del verdetto.
+    const v = hourVerdict(t, ctx);
+    const hour = `<span class="hh">${t.slice(11, 13)}</span><span class="mm">:00</span>`;
     body += `<tr>
-      <th scope="row"><span class="hh">${t.slice(11, 13)}</span><span class="mm">:00</span></th>
+      ${v.status === 'na'
+    ? `<th scope="row">${hour}</th>`
+    : `<th scope="row" class="vh st-${v.status}" data-tip data-tip-key="vhour|${t}" aria-label="${esc(`${dayShort(t)} · ore ${hourSpan(t)}: ${VERDICT_STATUS[v.status].label}`)}">${hour}</th>`}
       ${pair((h) => icon(h.weather_code[i], h.is_day[i], 26))}
       ${pair((h) => `${fmt(h.temperature_2m[i])}°`, 'num')}
       ${pair((h) => (h.precipitation[i] > 0 ? `<span class="wet">${fmt(h.precipitation[i], 1)}</span>` : '<span class="muted">0</span>'), 'num')}
@@ -1514,7 +1524,8 @@ function bindControls() {
   $('#retry-btn').addEventListener('click', () => load({ force: true }));
 
   const showTip = (e) => {
-    // Etichetta di concordanza, probabilità delle fasce, striscia del verdetto, celle "Prob." e
+    // Etichetta di concordanza, probabilità delle fasce, striscia del verdetto (e ore della
+    // tabella oraria), celle "Prob." e
     // icona della centralina:
     // al clic il dettaglio, nel riquadro accanto all'elemento con il mouse, in un avviso in
     // basso al tocco. Secondo clic/tap sullo stesso elemento: chiude.
