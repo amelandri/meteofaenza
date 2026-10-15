@@ -4,7 +4,12 @@
     <circle cx="178" cy="217" r="62"/>
     <circle cx="262" cy="179" r="88"/>
     <circle cx="340" cy="225" r="54"/>
-    <rect x="130" y="189" width="250" height="90" rx="45"/>
+    <rect x="133" y="189" width="252" height="90" rx="45"/>
+  </g>
+  <g fill="none" stroke="#121826" stroke-width="16" stroke-linecap="round">
+    <path d="M207 202Q226 176 245 202"/>
+    <path d="M271 202Q290 176 309 202"/>
+    <path d="M228 228Q258 268 288 228"/>
   </g>
   <g fill="#ff9346">
     <rect x="149" y="311" width="26" height="40" rx="13"/>

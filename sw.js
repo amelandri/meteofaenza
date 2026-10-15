@@ -3,7 +3,7 @@
 // logout): l'app ne tiene una copia nel localStorage per l'uso offline.
 // Ad ogni modifica dei file dell'app incrementare VERSION.
 
-const VERSION = 'v201';
+const VERSION = 'v202';
 const CACHE = `meteo-shell-${VERSION}`;
 
 const SHELL = [
@@ -27,11 +27,11 @@ const SHELL = [
   './js/theme.js',
   './js/verify.js',
   './js/login.js',
-  './icons/icon-v2.svg',
-  './icons/icon-192-v2.png',
-  './icons/icon-512-v2.png',
-  './icons/icon-maskable-512-v2.png',
-  './icons/apple-touch-icon-v2.png',
+  './icons/icon-v3.svg',
+  './icons/icon-192-v3.png',
+  './icons/icon-512-v3.png',
+  './icons/icon-maskable-512-v3.png',
+  './icons/apple-touch-icon-v3.png',
 ];
 
 // Shell scaricata sempre dalla rete (cache: 'reload'): le immagini hanno 7 giorni di cache HTTP
