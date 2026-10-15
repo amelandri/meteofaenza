@@ -28,6 +28,8 @@ import argparse
 import copy
 import hashlib
 import json
+import sqlite3
+import sys
 import threading
 from http.cookies import CookieError, SimpleCookie
 from datetime import datetime, timedelta, timezone
@@ -339,6 +341,15 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(400, {'error': 'richiesta non valida'})
         if not isinstance(data, dict):
             data = {}
+        try:
+            return self._post(name, data)
+        except sqlite3.Error as err:
+            # es. database non scrivibile dall'utente dell'API (file creati da root): lo si dice
+            # al browser invece di chiudere la connessione, e lo si scrive nel log del servizio
+            print(f'api/{name}: errore del database: {err}', file=sys.stderr)
+            return self._json(500, {'error': 'errore del server (database): avvisa l\'amministratore'})
+
+    def _post(self, name, data):
         conn = db.connect()
         try:
             if name == 'settings':

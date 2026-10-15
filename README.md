@@ -51,16 +51,23 @@ Senza login il server non dà nessun dato: la pagina `login.html` chiede nome ut
 - **Tentativi**: dopo 5 errori in 15 minuti dallo stesso indirizzo il login risponde "troppi tentativi" fino alla fine dei 15 minuti.
 - **Token personali**, per programmi senza browser come il plugin SwiftBar: si inviano con `Authorization: Bearer <token>`, non scadono e si revocano dal server.
 
-Gestione degli utenti, solo sul server:
+Gestione degli utenti, solo sul server. **Va sempre fatta sul database dell'API e come suo proprietario**, altrimenti l'utente finisce in un database che il sito non legge (senza `METEO_DB` lo script userebbe `data/meteo.db` nella cartella del codice):
 
 ```bash
-python3 -m server.users add <nome>                 # crea (chiede la password due volte)
-python3 -m server.users passwd <nome>              # cambia la password, chiude le sessioni aperte
-python3 -m server.users del <nome>                 # elimina utente, sessioni, token e preferenze
-python3 -m server.users list                       # utenti (con ultimo accesso) e token
-python3 -m server.users token <nome> --label "…"   # token personale, mostrato una sola volta
-python3 -m server.users revoke <nome> [--tokens]   # chiude le sessioni e revoca i token
+sudo -u meteo env METEO_DB=/var/lib/meteo/meteo.db sh -c 'cd /opt/meteo && python3 -B -m server.users <comando>'
 ```
+
+| Comando | Cosa fa |
+|---|---|
+| `add <nome>` | crea un utente (chiede la password due volte, senza mostrarla) |
+| `passwd <nome>` | cambia la password e chiude le sessioni aperte |
+| `del <nome>` | elimina utente, sessioni, token e preferenze |
+| `list` | utenti con ultimo accesso e sessioni aperte, token personali |
+| `check <nome>` | controlla se una password è quella giusta, senza cambiare nulla |
+| `token <nome> --label "…"` | crea un token personale, mostrato una sola volta |
+| `revoke <nome> [--tokens]` | chiude le sessioni e revoca i token (solo i token con `--tokens`) |
+
+Lo script mostra sempre quale database sta usando, non ne crea uno nuovo, avvisa se il database non contiene previsioni (quindi probabilmente non è quello dell'API) e si ferma se lo si lancia con un utente diverso dal proprietario del database: da root SQLite potrebbe creare file che l'API, utente `meteo`, poi non riesce a scrivere, e il login fallirebbe proprio con la password giusta. In quel caso il login risponde "errore del server (database)" e il dettaglio è in `journalctl -u meteo-api`.
 
 ### Come funziona
 

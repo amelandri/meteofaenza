@@ -217,6 +217,7 @@ sudo systemctl restart meteo-api                 # solo se è cambiato qualcosa 
 | Creare un utente | `sudo -u meteo env METEO_DB=/var/lib/meteo/meteo.db sh -c 'cd /opt/meteo && python3 -B -m server.users add <nome>'` |
 | Cambiare la password (chiude le sessioni aperte) | `… python3 -B -m server.users passwd <nome>` |
 | Elenco di utenti e token | `… python3 -B -m server.users list` |
+| Controllare una password | `… python3 -B -m server.users check <nome>` |
 | Eliminare un utente | `… python3 -B -m server.users del <nome>` |
 | Token personale (plugin SwiftBar) | `… python3 -B -m server.users token <nome> --label "SwiftBar"` (mostrato una sola volta) |
 | Chiudere tutte le sessioni e revocare i token | `… python3 -B -m server.users revoke <nome>` (`--tokens` per i soli token) |
@@ -231,7 +232,8 @@ Il database è piccolo: qualche centinaio di KB per previsioni e medie, più cir
 | Il sito mostra "dati non ancora disponibili" | i job non hanno ancora girato | eseguire il passo 4, controllare `journalctl -t meteo` |
 | `502 Bad Gateway` su `/api/` | l'API non è in esecuzione | `systemctl status meteo-api`, `journalctl -u meteo-api` |
 | La centralina risulta "non aggiornata" | il job `station` fallisce o il sito della centralina non risponde | `journalctl -t meteo`; l'ultimo esito è anche in `api/status` |
-| La pagina di accesso non accetta la password | utente inesistente o password sbagliata; dopo 5 errori in 15 minuti dallo stesso indirizzo il login risponde "troppi tentativi" | `… server.users list`, `… server.users passwd <nome>`; il blocco si toglie da solo o riavviando l'API |
+| La pagina di accesso non accetta la password | utente creato in un altro database (script lanciato senza `METEO_DB=/var/lib/meteo/meteo.db`: finisce in `/opt/meteo/data/meteo.db`), nome scritto diversamente, password sbagliata; dopo 5 errori in 15 minuti dallo stesso indirizzo il login risponde "troppi tentativi" | `… server.users list` (mostra il database usato e i nomi esatti), `… server.users check <nome>` per provare la password, `… server.users passwd <nome>`; il blocco dei tentativi si toglie da solo o riavviando l'API; un `/opt/meteo/data/meteo.db` creato per errore si può cancellare |
+| Il login risponde "errore del server (database)" | file del database non scrivibili dall'utente `meteo` (script lanciato da root) | `ls -l /var/lib/meteo/`, poi `sudo chown meteo:meteo /var/lib/meteo/meteo.db*`; dettaglio in `journalctl -u meteo-api` |
 | Dopo il login si torna subito alla pagina di accesso | il browser non salva o non rimanda il cookie (cookie bloccati, app in una sottocartella con percorsi diversi da quelli della variante di nginx) | consentire i cookie per il sito; controllare la variante di nginx per la sottocartella |
 | `normals: troppe richieste (HTTP 429)` | limite delle richieste all'archivio di Open-Meteo | nessuna azione: il job riprova il giorno dopo |
 | Dopo un aggiornamento il browser mostra la versione vecchia | `VERSION` in `sw.js` non incrementato | incrementarlo, fare commit e `git pull` |
