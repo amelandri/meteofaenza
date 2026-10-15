@@ -32,7 +32,7 @@ Il menu in alto è uguale in tutte le pagine (Previsioni, Verifica, Impostazioni
 - **Fiumi** (chiuso di default; l'intestazione mostra comunque il livello a Faenza): livelli di Lamone (Marradi, Strada Casale, Sarna, Faenza) e Marzeno (Modigliana, Rivalta), con tendenza, soglie di allerta e grafico delle ultime 48 ore.
 - **Dettaglio orario** (chiuso di default): tabella ora per ora con entrambi i modelli e la probabilità di pioggia; la cella dell'ora ha il colore del verdetto (come la striscia del grafico) e al tocco ne mostra il dettaglio.
 
-Concordanza, probabilità delle fasce, caselle della striscia, colonna della probabilità e icona della centralina aprono un **dettaglio**: con il mouse un riquadro accanto all'elemento (al clic), al tocco un avviso in basso. Al tocco, con l'avviso aperto, il primo tocco fuori lo chiude soltanto e non attiva link o pulsanti sotto.
+Concordanza, probabilità delle fasce, caselle della striscia, ore del dettaglio orario e icona della centralina aprono un **dettaglio**: con il mouse un riquadro accanto all'elemento (al clic), al tocco un avviso in basso. Al tocco, con l'avviso aperto, il primo tocco fuori lo chiude soltanto e non attiva link o pulsanti sotto.
 
 ### Verifica
 
