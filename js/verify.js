@@ -47,7 +47,7 @@ const state = {
   data: null,
 };
 const shownModels = () => {
-  const only = MODELS.find((m) => m.key === settings.models);
+  const only = MODELS.find((m) => m.key === store.getSettings().models);
   return only ? [only] : MODELS;
 };
 // Nella verifica anche i modelli di supporto (ICON-D2, AROME), che votano nel verdetto
@@ -294,15 +294,24 @@ $('#verify-legend').innerHTML = [
 syncControls();
 load();
 
-// Ritorno alla pagina dalla cache del browser (bfcache), per esempio dopo le Impostazioni:
-// se le scelte salvate sono cambiate le si applica e si ricarica.
-window.addEventListener('pageshow', (e) => {
-  if (!e.persisted) return;
+// Preferenze dal server (storage.js): all'avvio la copia locale, poi il riallineamento; al
+// ritorno dalla cache del browser (bfcache), per esempio dopo le Impostazioni, si rilegge la
+// copia e si risincronizza. Se sono cambiate le scelte le si applica (nuovo caricamento per
+// anticipo e periodo, nuovo disegno per i modelli mostrati).
+let shownKey = store.getSettings().models;
+function applyStoredSettings() {
   const s = store.getSettings();
   const lead = [1, 2].includes(s.verifyLead) ? s.verifyLead : 1;
   const days = [7, 30].includes(s.verifyDays) ? s.verifyDays : 7;
-  if (lead === state.lead && days === state.days) return;
-  Object.assign(state, { lead, days });
-  syncControls();
-  load();
-});
+  if (lead !== state.lead || days !== state.days) {
+    Object.assign(state, { lead, days });
+    syncControls();
+    load();
+  } else if (s.models !== shownKey && state.data) {
+    render();
+  }
+  shownKey = s.models;
+}
+window.addEventListener('pageshow', (e) => { if (e.persisted) { applyStoredSettings(); store.syncSettings(); } });
+window.addEventListener('meteo-settings', applyStoredSettings);
+store.syncSettings();

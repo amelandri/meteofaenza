@@ -2,7 +2,7 @@
 
   python3 -m server.users add <nome>                 crea un utente (chiede la password due volte)
   python3 -m server.users passwd <nome>              cambia la password (chiude le sessioni aperte)
-  python3 -m server.users del <nome>                 elimina l'utente, le sue sessioni e i suoi token
+  python3 -m server.users del <nome>                 elimina l'utente, sessioni, token e preferenze
   python3 -m server.users list                       elenca utenti e token personali
   python3 -m server.users token <nome> [--label L]   crea un token personale (es. plugin SwiftBar)
   python3 -m server.users revoke <nome> [--tokens]   chiude tutte le sessioni e revoca i token

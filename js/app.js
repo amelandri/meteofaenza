@@ -1771,10 +1771,11 @@ function placeFooter() {
 DESKTOP.addEventListener('change', placeFooter);
 placeFooter();
 
-// Tornando dalla pagina Impostazioni la pagina può essere ripristinata dalla cache del
-// browser (bfcache) senza ricaricare i moduli: rilegge le preferenze della pagina Impostazioni
-// (modelli mostrati, grafico e sezioni) e ridisegna se sono cambiate.
-// Vale anche per i cambi fatti in un'altra scheda.
+// Le preferenze stanno sul server (storage.js): all'avvio si mostra la copia locale e intanto
+// si riallinea con il server; se cambia qualcosa (anche da un altro dispositivo) arriva
+// l'evento "meteo-settings". Tornando dalla pagina Impostazioni la pagina può essere
+// ripristinata dalla cache del browser (bfcache) senza ricaricare i moduli: si rilegge la
+// copia e si risincronizza. Vale anche per i cambi fatti in un'altra scheda.
 const RELOADED_SETTINGS = ['models', 'variable', 'range', 'chartFrom', 'showAllHours', 'hourlyOpen', 'radarOpen', 'riversOpen'];
 function reloadSettings() {
   const fresh = store.getSettings();
@@ -1789,7 +1790,9 @@ function reloadSettings() {
   if (state.data) render();
   else syncHourlyCollapse();
 }
-window.addEventListener('pageshow', (e) => { if (e.persisted) reloadSettings(); });
+window.addEventListener('pageshow', (e) => { if (e.persisted) { reloadSettings(); store.syncSettings(); } });
 window.addEventListener('storage', (e) => { if (e.key === 'meteo:settings') reloadSettings(); });
+window.addEventListener('meteo-settings', reloadSettings);
 
 init();
+store.syncSettings();

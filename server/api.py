@@ -8,6 +8,8 @@
                     esiti della verifica dei giorni passati (previsione della sera prima,
                     lead=1, o di due giorni prima, lead=2)
   GET api/me        utente collegato
+  GET api/settings  preferenze dell'utente: {"settings": {...} | null, "updatedAt"}
+  POST api/settings {"settings": {chiave: valore}} → unisce e restituisce le preferenze
   POST api/login    {"username", "password"} → cookie di sessione (vedi auth.py)
   POST api/logout   chiude la sessione
 
@@ -34,7 +36,7 @@ from zoneinfo import ZoneInfo
 
 from urllib.parse import parse_qs, urlsplit
 
-from . import auth, config, db, radar, rivers, sources, verify
+from . import auth, config, db, prefs, radar, rivers, sources, verify
 
 _cache = {}  # chiave → (corpo, etag): JSON già composto delle previsioni
 _offset_memo = (None, None)  # (download delle previsioni, utcOffset)
@@ -280,6 +282,9 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json(401, {'error': 'accesso richiesto'})
             if name == 'me':
                 return self._json(200, {'user': user})
+            if name == 'settings':
+                data, at = prefs.get(conn, user)
+                return self._json(200, {'settings': data, 'updatedAt': at})
             if name == 'verify':
                 q = query or {}
                 try:
@@ -317,7 +322,7 @@ class Handler(SimpleHTTPRequestHandler):
         self._cache_control = None
         self._extra_headers = []
         name = urlsplit(self.path).path.rstrip('/').split('/api/')[-1] if '/api/' in self.path else ''
-        if name not in ('login', 'logout'):
+        if name not in ('login', 'logout', 'settings'):
             return self._json(404, {'error': 'non trovato'})
         # Solo JSON: un modulo di un altro sito non può inviarlo senza il permesso del browser.
         if (self.headers.get('Content-Type') or '').split(';')[0].strip() != 'application/json':
@@ -336,6 +341,15 @@ class Handler(SimpleHTTPRequestHandler):
             data = {}
         conn = db.connect()
         try:
+            if name == 'settings':
+                user = self._user(conn)
+                if not user:
+                    return self._json(401, {'error': 'accesso richiesto'})
+                patch = data.get('settings')
+                if not isinstance(patch, dict):
+                    return self._json(400, {'error': 'richiesta non valida'})
+                saved, ignored = prefs.update(conn, user, patch)
+                return self._json(200, {'settings': saved, 'ignored': ignored})
             if name == 'logout':
                 auth.end_session(conn, self._cookie_token())
                 self._set_cookie('', 0)

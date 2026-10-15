@@ -1,5 +1,5 @@
-// Tema dell'interfaccia: "auto" (segue il sistema), "light" o "dark", salvato in
-// settings.theme (pagina Impostazioni).
+// Tema dell'interfaccia: "auto" (segue il sistema), "light" o "dark", salvato sul server con
+// le altre preferenze (pagina Impostazioni) e letto dalla copia locale meteo:settings.
 // Script classico (non modulo) caricato in modo sincrono nel <head> di ogni pagina: imposta
 // data-theme su <html>, sempre "light" o "dark", prima del primo disegno, così non compare
 // per un attimo il tema sbagliato. Lo stile scuro è in :root[data-theme="dark"] (style.css).
@@ -30,5 +30,7 @@
   // Cambio fatto in un'altra scheda, o ritorno dalle Impostazioni con la pagina in bfcache.
   window.addEventListener('storage', (e) => { if (e.key === KEY) apply(); });
   window.addEventListener('pageshow', (e) => { if (e.persisted) apply(); });
+  // Preferenze riallineate dal server (storage.js, syncSettings()): copia locale cambiata.
+  window.addEventListener('meteo-settings', () => apply());
   window.meteoTheme = { apply, saved };
 })();

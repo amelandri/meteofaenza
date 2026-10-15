@@ -656,6 +656,16 @@ class AuthTest(unittest.TestCase):
             self.assertEqual((st, json.loads(body)['user']), (200, 'mario'))
             pt = self.auth.create_token(self.conn, 'mario', 'swiftbar')
             self.assertEqual(req('GET', '/api/me', headers={'Authorization': f'Bearer {pt}'})[0], 200)
+            # preferenze per utente: all'inizio nessuna, poi salvate e rilette
+            st, body, _ = req('GET', '/api/settings', headers={'Cookie': sess})
+            self.assertEqual((st, json.loads(body)['settings']), (200, None))
+            st, body, _ = req('POST', '/api/settings', '{"settings":{"theme":"dark","verifyLead":2,"radarOpen":1,"x":5}}', {'Cookie': sess})
+            out = json.loads(body)
+            self.assertEqual(out['settings'], {'theme': 'dark', 'verifyLead': 2})
+            self.assertEqual(sorted(out['ignored']), ['radarOpen', 'x'])  # 1 non è true
+            st, body, _ = req('GET', '/api/settings', headers={'Cookie': sess})
+            self.assertEqual(json.loads(body)['settings'], {'theme': 'dark', 'verifyLead': 2})
+            self.assertEqual(req('POST', '/api/settings', '{"settings":{"theme":"light"}}')[0], 401)
             # solo JSON
             c = http.client.HTTPConnection('127.0.0.1', port, timeout=10)
             c.request('POST', '/api/login', body='username=mario', headers={'Content-Type': 'application/x-www-form-urlencoded'})
@@ -672,3 +682,14 @@ class AuthTest(unittest.TestCase):
         finally:
             srv.shutdown()
             srv.server_close()
+
+    def test_prefs(self):
+        from server import prefs
+        self.assertTrue(prefs.valid('verifyDays', 30))
+        self.assertFalse(prefs.valid('verifyDays', '30'))
+        self.assertFalse(prefs.valid('hourlyOpen', 0))  # 0 non è false
+        self.assertFalse(prefs.valid('theme', 'blu'))
+        saved, ignored = prefs.update(self.conn, 'mario', {'models': 'eu', 'range': 72})
+        self.assertEqual((saved.get('models'), ignored), ('eu', ['range']))
+        saved, _ = prefs.update(self.conn, 'mario', {'range': '24'})
+        self.assertEqual((saved['models'], saved['range']), ('eu', '24'))  # unite, non sostituite

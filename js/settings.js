@@ -1,8 +1,8 @@
 // Pagina Impostazioni: tema (automatico/chiaro/scuro, settings.theme, applicato da
 // js/theme.js), modelli mostrati (entrambi / solo ICON-2I / solo ICON-EU, settings.models,
 // letti da app.js), grafico e sezioni all'apertura (app.js), scelte della Verifica
-// (verify.js) e account (utente collegato, Esci). I valori sono salvati nel localStorage.
-// Esportazione e importazione di tutte le preferenze in un file JSON.
+// (verify.js) e account (utente collegato, Esci). Le preferenze sono salvate sul server per
+// utente (api/settings); il browser ne tiene solo una copia di lettura (storage.js).
 
 import * as store from './storage.js';
 import { getJSON, goToLogin } from './api.js';
@@ -10,8 +10,8 @@ import { getJSON, goToLogin } from './api.js';
 const $ = (sel) => document.querySelector(sel);
 // --- Preferenze a scelta singola (tema, modelli, grafico, sezioni, verifica) ---
 // Ogni gruppo .seg[data-pref] ha un pulsante per valore (data-value = String(valore) di
-// PREF_VALUES in storage.js); la scelta si salva subito, senza pulsante Salva. Il tema si
-// applica anche a questa pagina (vale anche se lo storage è bloccato).
+// PREF_VALUES in storage.js); la scelta si salva subito sul server, senza pulsante Salva. Il
+// tema si applica anche a questa pagina (vale anche se lo storage è bloccato).
 const prefGroups = [...document.querySelectorAll('.seg[data-pref]')];
 
 function syncPrefs(settings = store.getSettings()) {
@@ -33,66 +33,14 @@ for (const g of prefGroups) {
     syncPrefs({ ...store.getSettings(), [key]: value });
   });
 }
-// Preferenze cambiate da un'altra scheda (anche dalla pagina principale).
+// Preferenze cambiate da un'altra scheda (anche dalla pagina principale) o arrivate dal
+// server (cambiate su un altro dispositivo).
 window.addEventListener('storage', (e) => { if (e.key === 'meteo:settings') syncPrefs(); });
+window.addEventListener('meteo-settings', () => syncPrefs());
 
-syncPrefs();
-
-// --- Esporta / importa: file JSON con le preferenze ---
-// Il file importato non è fidato: lo legge e lo filtra parseSettingsFile() di storage.js, e
-// nulla del file finisce in innerHTML (messaggi con textContent, conferma con confirm()).
-
-function showIo(error, done = '') {
-  const err = $('#io-error');
-  err.textContent = error || '';
-  err.hidden = !error;
-  const ok = $('#io-done');
-  ok.textContent = done;
-  ok.hidden = !done;
-}
-
-$('#export-settings').addEventListener('click', () => {
-  const data = store.exportSettings();
-  const blob = new Blob([`${JSON.stringify(data, null, 2)}\n`], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `meteo-faenza-impostazioni-${data.exportedAt.slice(0, 10)}.json`;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  showIo('', 'File esportato.');
-});
-
-const importInput = $('#import-file');
-$('#import-settings').addEventListener('click', () => importInput.click());
-importInput.addEventListener('change', async () => {
-  const file = importInput.files?.[0];
-  importInput.value = ''; // così si può riscegliere lo stesso file
-  if (!file) return;
-  showIo('');
-  if (file.size > store.MAX_IMPORT_BYTES) { showIo('Il file è troppo grande per essere un file di impostazioni.'); return; }
-  let text;
-  try {
-    text = await file.text();
-  } catch {
-    showIo('Impossibile leggere il file.');
-    return;
-  }
-  const { error, settings, ignored } = store.parseSettingsFile(text);
-  if (error) { showIo(error); return; }
-
-  if (!Object.keys(settings).length) { showIo('Il file non contiene impostazioni riconosciute.'); return; }
-  if (!window.confirm('Sostituire le impostazioni con quelle del file?')) return;
-  if (!store.importSettings(settings)) { showIo('Impossibile salvare: lo storage del browser non è disponibile.'); return; }
-
-  // Mostra i valori come salvati.
-  window.meteoTheme?.apply(store.getSettings().theme);
-  syncPrefs();
-  const skipped = ignored.length ? ` (${ignored.length} ${ignored.length === 1 ? 'voce non riconosciuta ignorata' : 'voci non riconosciute ignorate'})` : '';
-  showIo('', `Impostazioni importate${skipped}.`);
-});
+syncPrefs(); // subito dalla copia locale, poi dal server
+store.syncSettings();
+window.addEventListener('pageshow', (e) => { if (e.persisted) store.syncSettings(); });
 
 // --- Account: utente collegato e uscita ---
 // api/me richiede l'accesso: senza, getJSON() porta alla pagina di login.
@@ -104,6 +52,7 @@ getJSON('api/me').then((me) => {
 }).catch(() => { $('#account-user').textContent = 'Utente non disponibile'; });
 
 $('#logout-btn').addEventListener('click', async () => {
+  await store.syncSettings(); // prima di uscire: le ultime modifiche arrivano al server
   try {
     await fetch('api/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', cache: 'no-store' });
   } catch { /* offline: il cookie resta, ma i dati salvati si tolgono comunque */ }

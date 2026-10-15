@@ -6,7 +6,7 @@ Web app (PWA) che mette a confronto le previsioni di due modelli meteorologici p
 - **ICON-EU**: modello europeo (7 km) del servizio meteorologico tedesco DWD, copre circa 5 giorni e mezzo;
 - **Centralina**: Osservatorio Meteorologico "E. Torricelli" ([meteofaenza.it](https://www.meteofaenza.it/)). L'app è un progetto indipendente, non collegato all'Osservatorio.
 
-È composta da un **frontend statico** (HTML, CSS e JavaScript senza passaggio di build né dipendenze npm) e da un **piccolo server in Python** (libreria standard; numpy e Pillow solo per il radar) con un database **SQLite**. Il server scarica le fonti esterne a intervalli regolari, via cron, e le serve al frontend come API JSON: le fonti vengono interrogate una volta per tutti gli utenti e mai dal browser. Non serve alcuna API key. L'app richiede un **accesso con nome utente e password**: gli utenti si creano solo sul server, con uno script (vedi [Accesso](#accesso)). Le preferenze restano nel browser. Le previsioni vengono salvate anche nel browser e restano consultabili offline (fino a un giorno dal download).
+È composta da un **frontend statico** (HTML, CSS e JavaScript senza passaggio di build né dipendenze npm) e da un **piccolo server in Python** (libreria standard; numpy e Pillow solo per il radar) con un database **SQLite**. Il server scarica le fonti esterne a intervalli regolari, via cron, e le serve al frontend come API JSON: le fonti vengono interrogate una volta per tutti gli utenti e mai dal browser. Non serve alcuna API key. L'app richiede un **accesso con nome utente e password**: gli utenti si creano solo sul server, con uno script (vedi [Accesso](#accesso)). Le preferenze sono salvate sul server per utente, quindi valgono su tutti i dispositivi. Il browser tiene solo una copia delle preferenze e delle previsioni per l'uso offline (fino a un giorno dal download), cancellata quando si esce.
 
 La località è fissa (costante `LOCATION` in `js/app.js`, `LAT` / `LON` in `server/config.py`): non c'è ricerca né geolocalizzazione.
 
@@ -40,7 +40,7 @@ Per i giorni passati, pioggia e temperature previste la sera prima alle 23 (o du
 
 ### Impostazioni
 
-Tema (automatico, chiaro o scuro), previsioni mostrate (entrambi i modelli, solo ICON-2I o solo ICON-EU; la probabilità di pioggia resta sempre visibile), come si apre il grafico, sezioni aperte o chiuse all'avvio e scelte iniziali della Verifica. Le preferenze si possono esportare e reimportare in un file JSON.
+Tema (automatico, chiaro o scuro), previsioni mostrate (entrambi i modelli, solo ICON-2I o solo ICON-EU; la probabilità di pioggia resta sempre visibile), come si apre il grafico, sezioni aperte o chiuse all'avvio e scelte iniziali della Verifica. Le scelte si salvano subito sul server con il proprio utente (anche quelle fatte direttamente sul grafico o nella Verifica) e valgono su ogni dispositivo. La card **Account** mostra l'utente collegato e il pulsante **Esci**.
 
 ### Accesso
 
@@ -56,7 +56,7 @@ Gestione degli utenti, solo sul server:
 ```bash
 python3 -m server.users add <nome>                 # crea (chiede la password due volte)
 python3 -m server.users passwd <nome>              # cambia la password, chiude le sessioni aperte
-python3 -m server.users del <nome>                 # elimina utente, sessioni e token
+python3 -m server.users del <nome>                 # elimina utente, sessioni, token e preferenze
 python3 -m server.users list                       # utenti (con ultimo accesso) e token
 python3 -m server.users token <nome> --label "…"   # token personale, mostrato una sola volta
 python3 -m server.users revoke <nome> [--tokens]   # chiude le sessioni e revoca i token
@@ -121,6 +121,8 @@ Tutte richiedono l'accesso (cookie di sessione o token personale; senza: `401`),
 | `api/verify?days=30&lead=1` | esiti della verifica per giorno: misure delle fasce e del giorno, previsto ed esito per ogni modello, probabilità degli ensemble, minime e massime; `lead=1` previsione del giorno prima alle 23, `lead=2` di due giorni prima |
 | `api/status` | stato dei job (ultimo aggiornamento, errori) |
 | `api/me` | utente collegato |
+| `api/settings` | preferenze dell'utente (`null` se non ne ha ancora) |
+| `POST api/settings` | `{"settings": {chiave: valore}}`: unisce le modifiche (solo valori ammessi) e restituisce le preferenze |
 | `POST api/login` | `{"username", "password"}` (solo JSON) → cookie di sessione |
 | `POST api/logout` | chiude la sessione |
 
@@ -131,7 +133,7 @@ Tutte richiedono l'accesso (cookie di sessione o token personale; senza: `401`),
 | Letture della centralina, archivio delle previsioni (ogni run, ora per ora) e degli ensemble (quali scenari danno pioggia), livelli dei fiumi, dato radar su Faenza | circa 400 giorni |
 | Esiti della verifica (un record per giorno e per anticipo) | 2 anni, anche dopo che i dati grezzi sono stati tolti |
 | Immagini e ritagli del radar | 3 ore |
-| Utenti (nome, hash della password, ultimo accesso) e token personali | finché non si eliminano o revocano |
+| Utenti (nome, hash della password, ultimo accesso), preferenze e token personali | finché non si eliminano o revocano |
 | Sessioni del browser | 30 giorni dall'ultimo uso |
 | Registro dei job | 30 giorni |
 | Copie del database | ultime 7 notti |
@@ -155,6 +157,7 @@ La regola generale: il **server** fa tutto ciò che richiede fonti esterne, stor
 | Fiumi: soglie, serie di 48 ore, livello di allerta e tendenza per stazione | `rivers.py` |
 | Verifica: archivio di ogni run e degli scenari degli ensemble; pioggia oraria misurata dalle letture (con azzeramento della centralina e cambio dell'ora); esiti per fascia e per giorno, probabilità, minime e massime; salvataggio degli esiti dei giorni conclusi | `verify.py` |
 | Accesso: verifica delle password (hash), sessioni e token, blocco dei tentativi ripetuti, controllo su ogni richiesta all'API; creazione degli utenti con uno script | `auth.py`, `api.py`, `users.py` |
+| Preferenze per utente: salvataggio e controllo dei valori ammessi | `prefs.py`, `api.py` |
 | Manutenzione degli archivi, delle sessioni scadute e backup del database | `db.py`, `jobs.py` |
 
 ### Lato browser (`js/`)
@@ -162,7 +165,7 @@ La regola generale: il **server** fa tutto ciò che richiede fonti esterne, stor
 | Logica | Dove |
 |---|---|
 | Quando chiedere i dati al server: previsioni ogni 10 minuti (con ETag), centralina ai minuti :00, :10…, fiumi ogni 15 minuti; sospensione con l'app in background | `app.js`, `api.js` |
-| Copia offline delle previsioni e dell'ultima misura, scadenza dopo un giorno, preferenze ed esportazione/importazione | `storage.js` |
+| Copia offline delle previsioni e dell'ultima misura, scadenza dopo un giorno; copia di lettura delle preferenze, invio delle modifiche al server (anche dopo, se si è offline) e riallineamento a ogni apertura | `storage.js` |
 | Fasce di 6 ore: icona pesata sulla fascia, temperatura media, pioggia; totale del giorno | `app.js` |
 | Probabilità di pioggia di fasce e ore dagli scenari degli ensemble (media tra ensemble, dati ogni 3 ore) | `app.js` (`windowRainChance()`) |
 | Concordanza dei modelli | `app.js` (`agreement()`) |
@@ -280,7 +283,7 @@ js/api.js              accesso all'API del server
 js/station.js          misure della centralina (dall'API)
 js/radar.js            radar: riga del box della centralina, verdetto di oggi, sezione con l'animazione
 js/rivers.js           sezione Fiumi
-js/storage.js          salvataggio nel browser (localStorage), esportazione e importazione
+js/storage.js          copie nel browser (localStorage) e sincronizzazione delle preferenze con il server
 js/chart.js            grafico SVG (con la striscia del verdetto)
 js/weather.js          icone meteo e formattazione
 sw.js                  service worker (funzionamento offline, versione dell'app)
@@ -294,6 +297,7 @@ server/db.py           database SQLite e pulizia
 server/verify.py       archivio delle previsioni, esiti della verifica
 server/auth.py         accesso: hash delle password, sessioni, token, blocco dei tentativi
 server/users.py        script per creare e gestire gli utenti
+server/prefs.py        preferenze degli utenti (api/settings)
 server/rivers.py       livelli dei fiumi
 server/radar.py        radar: lettura delle immagini, movimento, stima, immagini PNG (numpy, Pillow)
 tests/                 test del server (senza rete)
@@ -314,4 +318,4 @@ Nota tecnica sulla centralina: il suo file dati è un piccolo file JavaScript co
 
 ## Privacy
 
-Oltre ai dati meteo (previsioni, misure della centralina, medie, radar, livelli dei fiumi, esiti della verifica), il server conserva solo i dati di accesso: nome utente, hash della password (non reversibile), data dell'ultimo accesso e hash dei token di sessione e personali. Preferenze di visualizzazione, tema e modelli mostrati restano solo nel `localStorage` del browser, insieme a una copia delle previsioni (al massimo di un giorno prima) e dell'ultima misura per l'uso offline, cancellata quando si esce. Come ogni server web, nginx registra nei suoi log gli indirizzi IP delle richieste.
+Oltre ai dati meteo (previsioni, misure della centralina, medie, radar, livelli dei fiumi, esiti della verifica), il server conserva solo i dati di accesso: nome utente, hash della password (non reversibile), data dell'ultimo accesso hash dei token di sessione e personali, e le preferenze di visualizzazione (tema, modelli mostrati, grafico, sezioni, verifica). Nel `localStorage` del browser restano solo copie per l'uso offline (preferenze, previsioni al massimo di un giorno prima, ultima misura), cancellate quando si esce. Come ogni server web, nginx registra nei suoi log gli indirizzi IP delle richieste.

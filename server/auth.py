@@ -106,6 +106,7 @@ def set_password(conn, username, password):
 def delete_user(conn, username):
     cur = conn.execute('DELETE FROM users WHERE username = ?', (username,))
     conn.execute('DELETE FROM sessions WHERE username = ?', (username,))
+    conn.execute('DELETE FROM user_settings WHERE username = ?', (username,))
     conn.commit()
     if not cur.rowcount:
         raise ValueError(f'utente "{username}" inesistente')

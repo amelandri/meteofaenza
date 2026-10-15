@@ -2,8 +2,8 @@
 <html lang="it">
 <head>
   <meta charset="utf-8">
-  <!-- La pagina importa file scelti dall'utente: solo script e stili dei nostri file, niente
-       codice inline né risorse esterne, anche se un testo riuscisse a entrare nell'HTML. -->
+  <!-- Solo script e stili dei nostri file, niente codice inline né risorse esterne, anche se
+       un testo riuscisse a entrare nell'HTML (es. il nome utente). -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Impostazioni – Meteo Faenza</title>
@@ -52,10 +52,11 @@
 
   <main class="container info settings">
     <h1>Impostazioni</h1>
-    <p class="info-lead">Le impostazioni sono salvate solo in questo browser.</p>
+    <p class="info-lead">Le impostazioni sono salvate con il tuo utente e valgono su tutti i dispositivi.</p>
 
     <!-- Da 900 px due colonne: a sinistra aspetto, modelli e grafico, a destra sezioni,
-         verifica e file delle impostazioni. Sotto, una colonna sola nello stesso ordine. I pulsanti con data-pref / data-value li gestisce settings.js. -->
+         verifica e account. Sotto, una colonna sola nello stesso ordine. I pulsanti con
+         data-pref / data-value li gestisce settings.js. -->
     <div class="settings-grid">
     <div class="settings-col">
     <section class="card">
@@ -165,24 +166,13 @@
 
     <section class="card">
       <h2>Account</h2>
-      <p class="info-note">Uscendo, le copie delle previsioni salvate in questo browser vengono cancellate; le impostazioni restano.</p>
+      <p class="info-note">Le impostazioni sono salvate sul server con il tuo utente: valgono su tutti i dispositivi da cui accedi. Uscendo, le copie di previsioni e impostazioni in questo browser vengono cancellate.</p>
       <div class="account-row">
         <span id="account-user" class="muted">Accesso in corso…</span>
         <button id="logout-btn" type="button" class="btn btn-ghost">Esci</button>
       </div>
     </section>
 
-    <section class="card">
-      <h2>Esporta e importa</h2>
-      <p class="info-note">Salva tutte le impostazioni di questa pagina in un file JSON, per ripristinarle o portarle su un altro dispositivo. Importando un file, le impostazioni che contiene sostituiscono quelle attuali; le voci non riconosciute vengono ignorate.</p>
-      <div class="form-actions io-actions">
-        <button id="export-settings" type="button" class="btn btn-ghost">Esporta</button>
-        <button id="import-settings" type="button" class="btn btn-ghost">Importa…</button>
-        <input id="import-file" type="file" accept=".json,application/json" hidden>
-      </div>
-      <p id="io-error" class="form-error" role="alert" hidden></p>
-      <p id="io-done" class="form-saved io-done" role="status" hidden></p>
-    </section>
     </div>
     </div>
 

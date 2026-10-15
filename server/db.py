@@ -86,6 +86,13 @@ CREATE TABLE IF NOT EXISTS sessions (
   renewed_at  INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS sessions_user ON sessions (username);
+-- Preferenze di ogni utente (server/prefs.py, api/settings), in JSON: il browser ne tiene solo
+-- una copia di lettura.
+CREATE TABLE IF NOT EXISTS user_settings (
+  username    TEXT PRIMARY KEY,
+  data        TEXT NOT NULL,
+  updated_at  INTEGER NOT NULL     -- ms
+);
 -- Radar (server/radar.py). Ritagli intorno a Faenza (float16 compressi, NaN = fuori
 -- copertura) per movimento e proiezione, e immagini PNG già pronte: si tengono RADAR_KEEP_S.
 CREATE TABLE IF NOT EXISTS radar_frames (

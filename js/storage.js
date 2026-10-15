@@ -42,6 +42,16 @@ function remove(key) {
 export const locationId = (loc) => `${loc.lat.toFixed(3)},${loc.lon.toFixed(3)}`;
 
 // --- Impostazioni ---------------------------------------------------------------
+// Le preferenze sono salvate sul server, per utente (api/settings, server/prefs.py). Qui ne
+// resta solo una copia di lettura (meteo:settings), aggiornata dal server, che serve a
+// leggerle subito all'apertura (theme.js applica il tema prima del primo disegno) e offline;
+// clearData() la cancella all'uscita.
+// - saveSettings(): aggiorna subito la copia e mette la modifica in meteo:settings-pending;
+//   syncSettings() la invia al server (anche più tardi, se si è offline).
+// - syncSettings(): legge le preferenze dal server e riscrive la copia; se l'utente non ne ha
+//   ancora e la copia è dei tempi in cui stavano solo nel browser (manca meteo:settings-sync),
+//   le invia al server (importazione al primo accesso). A ogni cambio della copia invia
+//   l'evento "meteo-settings" sulla finestra.
 
 // theme: "auto" (segue il sistema), "light" o "dark"; applicato da js/theme.js.
 export const THEMES = ['auto', 'light', 'dark'];
@@ -51,13 +61,15 @@ export const MODEL_VIEWS = ['both', 'i2i', 'eu'];
 // chartFrom: inizio del grafico "Andamento orario", "now" (ora precedente a quella attuale)
 // o "today" (mezzanotte di oggi).
 const DEFAULT_SETTINGS = { variable: 'rain', range: '72', chartFrom: 'now', showAllHours: false, hourlyOpen: false, radarOpen: false, riversOpen: false, theme: 'auto', models: 'both', verifyLead: 1, verifyDays: 7 };
+const SYNC_KEY = `${PREFIX}settings-sync`;
+const PENDING_KEY = `${PREFIX}settings-pending`;
 export const getSettings = () => ({ ...DEFAULT_SETTINGS, ...read(KEYS.settings, {}) });
-export const saveSettings = (patch) => write(KEYS.settings, { ...getSettings(), ...patch });
 
-// Valori ammessi di ogni preferenza: li usano la pagina
-// Impostazioni (un pulsante per valore) e l'importazione (valori diversi scartati).
-// variable = chiavi di VARIABLES in app.js, range / chartFrom = pulsanti del grafico in
-// index.html, verifyLead / verifyDays = selettori di verify.html: se cambiano là, aggiornarli qui.
+// Valori ammessi di ogni preferenza: li usano la pagina Impostazioni (un pulsante per valore) e
+// il controllo di quanto si invia al server, che li ricontrolla (PREF_VALUES di
+// server/prefs.py: devono restare uguali). variable = chiavi di VARIABLES in app.js, range /
+// chartFrom = pulsanti del grafico in index.html, verifyLead / verifyDays = selettori di
+// verify.html: se cambiano là, aggiornarli qui e sul server.
 export const PREF_VALUES = {
   theme: THEMES,
   models: MODEL_VIEWS,
@@ -73,58 +85,51 @@ export const PREF_VALUES = {
 };
 // Confronto stretto: un oggetto, un array o "true" al posto di true non passano.
 export const validPref = (key, v) => Object.prototype.hasOwnProperty.call(PREF_VALUES, key) && PREF_VALUES[key].includes(v);
+const onlyValid = (o) => Object.fromEntries(Object.entries(o || {}).filter(([k, v]) => validPref(k, v)));
 
-// --- Esportazione e importazione delle preferenze (pagina Impostazioni) -------------
-// File JSON { app, kind, version, exportedAt, settings }. Il file importato è un dato non
-// fidato: si legge solo con JSON.parse (mai eseguito), entro MAX_IMPORT_BYTES, e si tengono
-// solo le chiavi di PREF_VALUES con un valore ammesso; il resto si scarta (watch, gli intervalli
-// monitorati delle versioni precedenti, senza segnalarlo). Le preferenze si ricostruiscono
-// in un oggetto nuovo, mai copiando quello del file.
-
-export const SETTINGS_FILE = { app: 'meteo-faenza', kind: 'settings', version: 1 };
-export const MAX_IMPORT_BYTES = 16 * 1024;
-const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
-const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
-
-export function exportSettings() {
-  const current = getSettings();
-  const settings = {};
-  for (const k of Object.keys(PREF_VALUES)) if (validPref(k, current[k])) settings[k] = current[k];
-  return { ...SETTINGS_FILE, exportedAt: new Date().toISOString(), settings };
+export function saveSettings(patch) {
+  const p = onlyValid(patch);
+  const ok = write(KEYS.settings, { ...read(KEYS.settings, {}), ...p });
+  write(PENDING_KEY, { ...read(PENDING_KEY, {}), ...p });
+  syncSettings();
+  return ok;
 }
 
-// Legge il testo di un file esportato: { settings, ignored } (chiavi scartate) o { error }.
-export function parseSettingsFile(text) {
-  if (typeof text !== 'string' || text.length > MAX_IMPORT_BYTES) return { error: 'Il file è troppo grande per essere un file di impostazioni.' };
-  let data;
+// Una sincronizzazione alla volta, in ordine (le modifiche ravvicinate partono una dopo l'altra).
+let chain = Promise.resolve(null);
+export const syncSettings = () => (chain = chain.then(doSync, doSync));
+
+const JSON_POST = { method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store' };
+
+async function doSync() {
   try {
-    data = JSON.parse(text, (k, v) => (UNSAFE_KEYS.has(k) ? undefined : v));
+    const res = await fetch('api/settings', { cache: 'no-store' });
+    if (!res.ok) return null; // senza accesso (401) ci pensa getJSON() delle pagine
+    let fresh = (await res.json()).settings;
+    const pending = onlyValid(read(PENDING_KEY, {}));
+    // Importazione al primo accesso: l'utente non ha preferenze sul server e la copia locale è
+    // dei tempi in cui le preferenze stavano solo nel browser.
+    const legacy = fresh === null && !read(SYNC_KEY, false) ? onlyValid(read(KEYS.settings, {})) : {};
+    const patch = { ...legacy, ...pending };
+    if (Object.keys(patch).length) {
+      const r = await fetch('api/settings', { ...JSON_POST, body: JSON.stringify({ settings: patch }) });
+      if (!r.ok) return null;
+      fresh = (await r.json()).settings;
+      // tolte dalle modifiche in sospeso quelle inviate (non quelle cambiate nel frattempo)
+      const now = read(PENDING_KEY, {});
+      for (const [k, v] of Object.entries(patch)) if (now[k] === v) delete now[k];
+      if (Object.keys(now).length) write(PENDING_KEY, now);
+      else remove(PENDING_KEY);
+    }
+    const before = JSON.stringify(getSettings());
+    write(KEYS.settings, { ...(fresh || {}), ...onlyValid(read(PENDING_KEY, {})) });
+    write(SYNC_KEY, true);
+    const after = getSettings();
+    if (JSON.stringify(after) !== before) window.dispatchEvent(new Event('meteo-settings'));
+    return after;
   } catch {
-    return { error: 'Il file non è un JSON valido.' };
+    return null; // offline: la copia resta, le modifiche partono alla prossima occasione
   }
-  if (!isObject(data) || data.app !== SETTINGS_FILE.app || data.kind !== SETTINGS_FILE.kind || !isObject(data.settings)) {
-    return { error: 'Il file non contiene impostazioni di Meteo Faenza.' };
-  }
-  if (!Number.isInteger(data.version) || data.version < 1 || data.version > SETTINGS_FILE.version) {
-    return { error: 'Il file è di una versione dell\'app non supportata.' };
-  }
-  const src = data.settings;
-  const settings = {};
-  const ignored = [];
-  for (const k of Object.keys(src)) {
-    if (k === 'watch') continue; // intervalli monitorati: non più usati
-    if (validPref(k, src[k])) settings[k] = src[k];
-    else ignored.push(k);
-  }
-  return { settings, ignored };
-}
-
-// Salva le preferenze importate (già controllate) sopra quelle attuali.
-export function importSettings(settings) {
-  const patch = {};
-  for (const k of Object.keys(PREF_VALUES)) if (own(settings, k) && validPref(k, settings[k])) patch[k] = settings[k];
-  return saveSettings(patch);
 }
 
 // --- Medie del periodo (climatologia, fetchNormals() di api.js) --------------------
@@ -183,15 +188,15 @@ export const isFresh = (forecast) => !!forecast && Date.now() < nextDownloadAt(f
 
 // --- Pulizia ----------------------------------------------------------------------
 
-// Uscita dall'app (o sessione scaduta): toglie le copie dei dati (previsioni, misura della
-// centralina, medie), così senza accesso non restano consultabili offline. Le preferenze
-// (meteo:settings) restano: non sono dati riservati.
+// Uscita dall'app (o sessione scaduta): toglie tutte le copie (previsioni, misura della
+// centralina, medie e preferenze, che stanno sul server), così senza accesso non resta niente
+// consultabile offline.
 export function clearData() {
   try {
     const keys = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k?.startsWith(PREFIX) && k !== KEYS.settings) keys.push(k);
+      if (k?.startsWith(PREFIX)) keys.push(k);
     }
     keys.forEach(remove);
   } catch { /* storage non accessibile */ }
