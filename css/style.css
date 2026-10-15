@@ -10,7 +10,15 @@
   --border: #e3e6eb;
   --text: #121826;
   --muted: #5d6676;
-  --accent: #1f4fd1;
+  /* Colori dell'icona: blu notte (--ink, il riquadro) e verde acqua (--brand, la nuvola).
+     --accent = verde acqua scuro nel tema chiaro (il verde dell'icona su bianco non ha
+     abbastanza contrasto) per focus, icone e scritte; --brand per segni sottili (sottolineatura
+     dei link, barretta della voce attiva del menu) e veli. */
+  --accent: #0b6f66;
+  --brand: #34c7b5;
+  --ink: #121826;
+  --btn-bg: var(--ink);
+  --btn-fg: var(--brand);
 
   --i2i: #0f8a7e;
   --i2i-soft: #e1f3f0;
@@ -52,8 +60,8 @@
   --slot-sep: color-mix(in srgb, var(--text) 11%, transparent); /* separatore tra le fasce orarie */
   --shadow: 0 1px 2px rgb(16 24 40 / .04), 0 2px 8px rgb(16 24 40 / .05);
   /* Avviso / riquadro del dettaglio (.toast, .tipcard): devono staccare dalle schede */
-  --tip-bg: color-mix(in srgb, var(--accent) 6%, var(--surface));
-  --tip-border: color-mix(in srgb, var(--accent) 35%, var(--border));
+  --tip-bg: color-mix(in srgb, var(--brand) 7%, var(--surface));
+  --tip-border: color-mix(in srgb, var(--brand) 45%, var(--border));
   --tip-scrim: rgb(16 24 40 / .28); /* velo sulla pagina dietro l'avviso al tocco */
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   color-scheme: light;
@@ -68,7 +76,9 @@
   --border: #263042;
   --text: #e8ecf3;
   --muted: #94a0b4;
-  --accent: #7ea2ff;
+  --accent: #34c7b5;
+  --btn-bg: #34c7b5;
+  --btn-fg: #121826;
 
   --i2i: #34c7b5;
   --i2i-soft: #11312f;
@@ -98,8 +108,8 @@
   --moon-box: #ffd75e;
 
   --shadow: none;
-  --tip-bg: color-mix(in srgb, var(--accent) 10%, #222c3e); /* più chiaro delle schede */
-  --tip-border: color-mix(in srgb, var(--accent) 45%, var(--border));
+  --tip-bg: color-mix(in srgb, var(--brand) 10%, #222c3e); /* più chiaro delle schede */
+  --tip-border: color-mix(in srgb, var(--brand) 45%, var(--border));
   --tip-scrim: rgb(0 0 0 / .5);
   color-scheme: dark;
 }
@@ -123,7 +133,8 @@ body {
 h1, h2 { margin: 0; line-height: 1.2; }
 h1 { font-size: 1.6rem; letter-spacing: -.02em; }
 h2 { font-size: 1.02rem; letter-spacing: -.005em; }
-a { color: var(--accent); }
+/* Link nel colore del testo, sottolineati in verde acqua (colori dell'icona) */
+a { color: var(--text); text-decoration-color: var(--brand); text-decoration-thickness: 1.5px; text-underline-offset: 2px; }
 button { font: inherit; color: inherit; }
 .muted { color: var(--muted); }
 .small { font-size: .82rem; }
@@ -177,9 +188,12 @@ button { font: inherit; color: inherit; }
 /* Menu di navigazione, uguale in tutte le pagine (la pagina attuale ha aria-current="page"):
    da 900 px icona ed etichetta, sotto solo l'icona (etichetta nel title e in aria-label). */
 .topbar-nav { display: flex; align-items: center; gap: 4px; }
-.topbar-nav .icon-btn { text-decoration: none; }
+.topbar-nav .icon-btn { text-decoration: none; position: relative; }
+/* Voce attiva: testo pieno e barretta verde acqua sul bordo inferiore della barra in alto
+   (sotto la voce ci sono i 10 px di padding di .topbar-inner e 1 px di bordo), come una scheda */
 .topbar-nav .icon-btn[aria-current="page"],
-.topbar-nav .icon-btn[aria-current="page"]:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.topbar-nav .icon-btn[aria-current="page"]:hover { color: var(--text); background: none; }
+.topbar-nav .icon-btn[aria-current="page"]::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: -11px; height: 3px; border-radius: 3px 3px 0 0; background: var(--brand); }
 .nav-label { display: none; }
 @media (min-width: 900px) {
   .topbar-nav .icon-btn { width: auto; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px 0 10px; font-size: .93rem; font-weight: 500; white-space: nowrap; }
@@ -192,8 +206,8 @@ button { font: inherit; color: inherit; }
   height: 40px; padding: 0 16px;
   border-radius: 10px;
   border: 1px solid transparent;
-  background: var(--accent);
-  color: #fff;
+  background: var(--btn-bg);
+  color: var(--btn-fg);
   font-weight: 600;
   cursor: pointer;
 }
@@ -338,12 +352,12 @@ button { font: inherit; color: inherit; }
 }
 .day:first-child { border-top: 0; padding-top: 15px; }
 .day:last-child { padding-bottom: 4px; }
-/* Card "Previsioni" (renderDaily()): titolo come "Centralina" (.obs-tag, colore --accent) e
+/* Card "Previsioni" (renderDaily()): titolo come "Centralina" (.obs-tag, colore del testo) e
    legenda delle fonti in alto, poi un blocco per giorno (.day-block) con nome e data; la riga
    del giorno non ha spaziature né bordi propri, i blocchi sono separati da una linea. */
 .day-card .day { padding: 0; border-top: 0; }
 .fc-head { display: flex; align-items: center; justify-content: space-between; gap: 4px 10px; flex-wrap: wrap; margin-bottom: 14px; }
-.fc-tag { color: var(--accent); }
+.fc-tag { color: var(--text); }
 .day-block + .day-block { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
 .day-head h3 { margin: 0; font-size: 1.02rem; letter-spacing: -.005em; line-height: 1.2; }
 .day-date { margin-left: 6px; font-size: .82rem; font-weight: 500; color: var(--muted); white-space: nowrap; }
@@ -784,7 +798,6 @@ button { font: inherit; color: inherit; }
 .info > h1 { margin: 4px 0 8px; }
 .info-lead { color: var(--muted); margin: 0 0 16px; max-width: 70ch; text-wrap: pretty; }
 .info-toc { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .88rem; font-weight: 600; }
-.info-toc a { text-decoration: none; }
 .info .card { scroll-margin-top: 80px; }
 .info .card h2 { font-size: 1.15rem; margin-bottom: 10px; }
 .info h3 { font-size: .95rem; margin: 18px 0 6px; }
@@ -1139,7 +1152,7 @@ button { font: inherit; color: inherit; }
   z-index: 50;
 }
 /* Avviso e riquadro del dettaglio: sul colore delle schede (non nero) ma ben distinti da
-   queste: velo di --accent, bordo colorato e ombra marcata (--tip-*, più chiaro delle
+   queste: velo di --brand, bordo colorato e ombra marcata (--tip-*, più chiaro delle
    schede nel tema scuro). */
 .toast, .tipcard {
   background: var(--tip-bg);
@@ -1203,7 +1216,7 @@ button { font: inherit; color: inherit; }
 .tp-list { margin: 0 0 8px; padding-left: 18px; }
 .tp-list li { margin: 1px 0; }
 .tp-note { margin: 4px 0 0; font-size: .74rem; color: var(--muted); }
-.tp-why a, .tp-note a { color: var(--accent); }
+.tp-why a, .tp-note a { color: var(--text); }
 
 body.loading #forecast { opacity: .5; }
 
