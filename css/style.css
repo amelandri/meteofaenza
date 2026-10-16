@@ -301,7 +301,7 @@ button { font: inherit; color: inherit; }
 .obs-stale { color: var(--mid); font-weight: 650; }
 /* "Sta piovendo" nell'intestazione del box, a destra di "Centralina". */
 .obs-rain { display: inline-flex; align-items: center; gap: 4px; color: var(--rain); font-weight: 700; white-space: nowrap; }
-/* Box della centralina: 4 dati in griglia 2×2 a destra della temperatura */
+/* Box della centralina: 6 dati in griglia 2×3 a destra della temperatura */
 @container (min-width: 560px) {
   .obs-body { flex-direction: row; align-items: center; gap: 24px; }
   /* i dati a destra alla loro larghezza naturale, la temperatura nello spazio che resta: se

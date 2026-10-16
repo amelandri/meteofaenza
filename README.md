@@ -16,7 +16,7 @@ Il menu in alto è uguale in tutte le pagine (Previsioni, Verifica, Impostazioni
 
 ### Previsioni (pagina principale)
 
-- **Centralina**: l'ultima misura (temperatura con minima e massima del giorno e scarto dalla media del periodo, umidità, vento, pioggia di oggi, raffica massima). Si aggiorna ai minuti :00, :10, :20, :30, :40, :50; i valori del giorno contano da mezzanotte (la centralina li azzera all'01:00 con l'ora legale: il server li ricalcola). Se i millimetri aumentano tra una lettura e l'altra compare "Sta piovendo". In fondo la riga **Radar**: pioggia su Faenza, in arrivo (con l'orario stimato), la più vicina entro 50 km o nessuna. L'icona "i" accanto al titolo spiega da dove vengono le misure.
+- **Centralina**: l'ultima misura (temperatura con minima e massima del giorno e scarto dalla media del periodo, umidità, vento, pioggia di oggi, raffica massima, pioggia del mese e dell'anno). Si aggiorna ai minuti :00, :10, :20, :30, :40, :50; i valori del giorno contano da mezzanotte (la centralina li azzera all'01:00 con l'ora legale: il server li ricalcola). Se i millimetri aumentano tra una lettura e l'altra compare "Sta piovendo". In fondo la riga **Radar**: pioggia su Faenza, in arrivo (con l'orario stimato), la più vicina entro 50 km o nessuna. L'icona "i" accanto al titolo spiega da dove vengono le misure.
 - **Previsioni**: un'unica scheda con oggi, domani e dopodomani, i due modelli a confronto:
   - massima e minima con lo scarto dalla media del periodo, e quattro fasce di 6 ore (notte, mattina, pomeriggio, sera) con icona, temperatura e pioggia;
   - sotto i due modelli, la probabilità di pioggia di ogni fascia (calcolata dagli ensemble);

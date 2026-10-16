@@ -411,6 +411,8 @@ function renderObservation() {
     ? mmRow('max', st.tMax, st.tMaxTime, nm?.tmax, 'Massima di oggi') + mmRow('min', st.tMin, st.tMinTime, nm?.tmin, 'Minima di oggi')
     : '';
   const stat = (label, value) => (value ? `<div><dt>${label}</dt><dd>${value}</dd></div>` : '');
+  // Totali di pioggia: un decimale, senza decimali da 100 mm (es. "430 mm" per l'anno)
+  const rainTotal = (v) => (v != null && sameDay ? `${fmt(v, v >= 100 ? 0 : 1)} mm` : '');
   const rn = stationRainNow();
   // Nell'intestazione del box, a destra di "Centralina". Stessa icona "pioggia" delle
   // previsioni (codice WMO 63), con lo stesso dettaglio del testo come titolo
@@ -431,6 +433,8 @@ function renderObservation() {
           ${stat('Vento', st.windSpeed != null ? `${windArrow(st.windDirection)} ${fmt(st.windSpeed)} <small>${windDir(st.windDirection)}</small>` : '')}
           ${stat('Pioggia oggi', st.rainToday != null && sameDay ? `${fmt(st.rainToday, 1)} mm` : '')}
           ${stat('Raffica max', st.windMax != null && sameDay ? `${fmt(st.windMax)} km/h${st.windMaxTime ? ` <small>${st.windMaxTime}</small>` : ''}` : '')}
+          ${stat('Pioggia mese', rainTotal(st.rainMonth))}
+          ${stat('Pioggia anno', rainTotal(st.rainYear))}
         </dl>
       </div>
       ${radarRow(timezone, utcOffset)}
