@@ -290,6 +290,9 @@ button { font: inherit; color: inherit; }
    .obs-card), separa le temperature dagli altri dati come lo spazio tra fasce e probabilità. */
 .obs-main { --now-t: 2.6rem; display: flex; align-items: center; justify-content: space-between; gap: 4px 14px; flex-wrap: wrap; margin: 0 -14px; padding: 0 14px 10px; border-bottom: 1px solid var(--surface); }
 .obs-main .now-temp { font-size: var(--now-t); }
+/* Pioggia del mese e dell'anno: riga a parte sotto gli altri dati, con la stessa linea bianca
+   da bordo a bordo (margini negativi = padding di .obs-card) che separa temperature e radar */
+.obs-totals { margin: 10px -14px 0; padding: 9px 14px 0; border-top: 1px solid var(--surface); }
 /* Massima e minima di oggi, una sopra l'altra, a destra della temperatura e allineate al bordo destro */
 .obs-mm { display: grid; grid-template-columns: repeat(4, auto); align-content: space-between; align-items: baseline; height: var(--now-t); column-gap: 6px; margin-left: auto; font-size: .9rem; line-height: 1; font-variant-numeric: tabular-nums; }
 .obs-mm .mm-k { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
@@ -301,7 +304,7 @@ button { font: inherit; color: inherit; }
 .obs-stale { color: var(--mid); font-weight: 650; }
 /* "Sta piovendo" nell'intestazione del box, a destra di "Centralina". */
 .obs-rain { display: inline-flex; align-items: center; gap: 4px; color: var(--rain); font-weight: 700; white-space: nowrap; }
-/* Box della centralina: 6 dati in griglia 2×3 a destra della temperatura */
+/* Box della centralina: 4 dati in griglia 2×2 a destra della temperatura */
 @container (min-width: 560px) {
   .obs-body { flex-direction: row; align-items: center; gap: 24px; }
   /* i dati a destra alla loro larghezza naturale, la temperatura nello spazio che resta: se
