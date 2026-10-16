@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Favicon (scheda del browser, segnalibri): come icon-v3.svg ma più leggibile a 16 px,
+       con la nuvola 1,4 volte più grande, il viso più marcato e tre gocce tonde al posto
+       delle cinque barre. L'icona dell'app (schermata Home, manifest) resta icon-v3. -->
+  <rect width="512" height="512" rx="112" fill="#121826"/>
+  <g transform="translate(-101 -43) scale(1.4)">
+    <g fill="#34c7b5">
+      <circle cx="178" cy="217" r="62"/>
+      <circle cx="262" cy="179" r="88"/>
+      <circle cx="340" cy="225" r="54"/>
+      <rect x="133" y="189" width="252" height="90" rx="45"/>
+    </g>
+    <g fill="none" stroke="#121826" stroke-width="21" stroke-linecap="round">
+      <path d="M197 199Q218 172 239 199"/>
+      <path d="M277 199Q298 172 319 199"/>
+      <path d="M226 234Q258 274 290 234"/>
+    </g>
+  </g>
+  <g fill="#ff9346">
+    <circle cx="164" cy="402" r="31"/>
+    <circle cx="256" cy="402" r="31"/>
+    <circle cx="348" cy="402" r="31"/>
+  </g>
+</svg>
