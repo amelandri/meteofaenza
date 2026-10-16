@@ -583,7 +583,9 @@ button { font: inherit; color: inherit; }
 .seg button { border: 0; background: none; padding: 4px 10px; border-radius: 7px; font-size: .82rem; font-weight: 600; color: var(--muted); cursor: pointer; }
 .seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
 
-.tabs { display: flex; gap: 6px; overflow-x: auto; margin: 0 -16px 10px; padding: 0 16px 2px; scrollbar-width: none; }
+/* Pill dei dati del grafico: scorrono dentro il padding della scheda (non fino al bordo), come
+   gli altri contenuti */
+.tabs { display: flex; gap: 6px; overflow-x: auto; margin: 0 0 10px; padding: 0 0 2px; scrollbar-width: none; }
 .tabs::-webkit-scrollbar { display: none; }
 .tabs button {
   flex: none;
@@ -1332,15 +1334,14 @@ body.loading #forecast { opacity: .5; }
 }
 
 @media (max-width: 560px) {
-  /* Margini laterali ridotti: pagina 8 px, card 10 px (anche .table-wrap / .tabs) */
+  /* Margini laterali ridotti: pagina 8 px, card 10 px (anche .table-wrap) */
   .container { padding: 10px 8px 20px; }
   .topbar-inner { gap: 10px; padding-left: 12px; padding-right: 12px; }
   .topbar-actions, .topbar-nav { gap: 2px; }
   h1 { font-size: 1.35rem; }
   .brand-sub .coords { display: none; }
   .card { padding: 14px 10px; margin-bottom: 10px; }
-  .table-wrap, .tabs { margin: 0 -10px; padding: 0 10px; }
-  .tabs { margin-bottom: 10px; }
+  .table-wrap { margin: 0 -10px; padding: 0 10px; }
   .hourly { font-size: .82rem; }
   .hourly th, .hourly td { padding: 3px 2px; }
   .hourly .col-hour { width: 26px; }

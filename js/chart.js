@@ -36,11 +36,6 @@ export function renderChart(el, opts) {
   const W = Math.max(280, el.clientWidth);
   const H = W < 520 ? 220 : 270;
   const stripH = strip?.some(Boolean) ? 13 : 0; // striscia del verdetto sotto l'area del grafico
-  const pad = { l: 40, r: right ? 36 : 10, t: dayBar ? 36 : 24, b: 26 + stripH }; // in alto spazio per la barra giorno/notte
-  const plotW = W - pad.l - pad.r;
-  const plotH = H - pad.t - pad.b;
-  const step = plotW / n;
-  const x = (i) => pad.l + step * (i + 0.5);
 
   // --- Scala Y -----------------------------------------------------------------
   const main = series.filter((s) => s.axis !== 'y2');
@@ -59,6 +54,24 @@ export function renderChart(el, opts) {
   let y0 = Math.floor(lo / tickStep) * tickStep;
   if (yFloor != null) y0 = Math.max(y0, yFloor);
   const y1 = Math.ceil(hi / tickStep) * tickStep;
+  const tickLabel = (v) => fmt(v, tickStep < 1 ? 1 : 0);
+
+  // Margini laterali stretti quanto le etichette delle scale (cifre da 10,5 px, ~6,2 px l'una,
+  // più 6 px di distanza dall'asse), così su telefono il grafico usa tutta la larghezza della
+  // scheda come gli altri contenuti; in alto spazio per la barra giorno/notte.
+  const labelW = (texts) => Math.max(...texts.map((t) => String(t).length)) * 6.2;
+  const leftLabels = [unit];
+  for (let v = y0; v <= y1 + 1e-9; v += tickStep) leftLabels.push(tickLabel(v));
+  const pad = {
+    l: Math.ceil(labelW(leftLabels) + 8),
+    r: right ? Math.ceil(labelW([...(right.ticks || [100]), right.unit || '']) + 9) : 8,
+    t: dayBar ? 36 : 24,
+    b: 26 + stripH,
+  };
+  const plotW = W - pad.l - pad.r;
+  const plotH = H - pad.t - pad.b;
+  const step = plotW / n;
+  const x = (i) => pad.l + step * (i + 0.5);
   const y = (v) => pad.t + plotH * (1 - (v - y0) / (y1 - y0 || 1));
   // Scala destra: da 0 a right.max (es. 100%)
   const yR = (v) => pad.t + plotH * (1 - v / (right?.max || 100));
@@ -93,7 +106,7 @@ export function renderChart(el, opts) {
   for (let v = y0; v <= y1 + 1e-9; v += tickStep) {
     const yy = y(v).toFixed(1);
     html += `<line class="grid" x1="${pad.l}" x2="${W - pad.r}" y1="${yy}" y2="${yy}"/>`;
-    html += `<text class="tick" x="${pad.l - 6}" y="${yy}" dy="0.32em" text-anchor="end">${fmt(v, tickStep < 1 ? 1 : 0)}</text>`;
+    html += `<text class="tick" x="${pad.l - 6}" y="${yy}" dy="0.32em" text-anchor="end">${tickLabel(v)}</text>`;
   }
   html += `<text class="tick unit" x="${pad.l - 6}" y="${pad.t - 9}" text-anchor="end">${unit}</text>`;
   if (right) {
