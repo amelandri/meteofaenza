@@ -1080,15 +1080,14 @@ button { font: inherit; color: inherit; }
 .login-card { width: 100%; max-width: 380px; padding: 24px 22px; }
 .login-card h1 { margin: 0 0 6px; }
 .login-field { display: block; margin-top: 16px; }
-.login-field input, .account-row input {
+.login-field input, .pw-field input {
   display: block; width: 100%; height: 42px; padding: 0 12px;
   font: inherit; color: var(--text); background: var(--surface-2);
   border: 1px solid var(--border); border-radius: 10px;
 }
-.login-field input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.login-field input:focus, .pw-field input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .login-btn { width: 100%; margin-top: 20px; }
 .login-btn:disabled { opacity: .6; cursor: default; }
-.account-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
 
 /* --- Pagina Impostazioni (settings.html) ------------------------------------------- */
 
@@ -1117,6 +1116,8 @@ button { font: inherit; color: inherit; }
 .set-row:first-child { border-radius: 10px 10px 0 0; }
 .set-row:last-child { border-radius: 0 0 10px 10px; }
 .set-row:only-child { border-radius: 10px; }
+/* Ultima riga visibile prima di una riga nascosta in fondo (modulo della password chiuso) */
+.set-row:has(+ .set-row[hidden]:last-child) { border-radius: 0 0 10px 10px; }
 .set-text { min-width: 0; flex: 1 1 140px; }
 .set-label { display: block; font-weight: 600; font-size: .93rem; }
 .set-hint { display: block; margin-top: 1px; color: var(--muted); font-size: .78rem; line-height: 1.35; }
@@ -1145,6 +1146,20 @@ button { font: inherit; color: inherit; }
 .avatar { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--brand); font-weight: 700; }
 .avatar:empty { visibility: hidden; }
 .set-row .btn { height: 36px; padding: 0 16px; background: var(--surface); }
+.set-row .btn:not(.btn-ghost) { background: var(--btn-bg); }
+/* "Cambia password" sotto il nome utente: pulsante con l'aspetto di un link */
+.link-btn { padding: 0; border: 0; background: none; font: inherit; font-weight: 600; color: var(--text); text-decoration: underline; text-decoration-color: var(--brand); text-decoration-thickness: 1.5px; text-underline-offset: 2px; cursor: pointer; }
+.link-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+.pw-done { display: block; margin-top: 2px; color: var(--accent); font-weight: 600; }
+
+/* Cambio della password: i tre campi affiancati se c'è spazio, sotto messaggio e pulsanti */
+.pw-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); align-items: end; gap: 10px 12px; padding: 12px; }
+.pw-form[hidden] { display: none; }
+.pw-field { display: block; min-width: 0; }
+.pw-field input { height: 38px; background: var(--surface); }
+.pw-msg { grid-column: 1 / -1; margin: 0; color: var(--bad); font-size: .86rem; font-weight: 600; }
+.pw-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.pw-actions .btn:disabled { opacity: .6; cursor: default; }
 
 /* Usati anche da login.html e verify.html */
 .field-label { display: block; padding: 0; margin-bottom: 6px; font-size: .78rem; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }

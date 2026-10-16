@@ -11,6 +11,7 @@
   GET api/settings  preferenze dell'utente: {"settings": {...} | null, "updatedAt"}
   POST api/settings {"settings": {chiave: valore}} → unisce e restituisce le preferenze
   POST api/login    {"username", "password"} → cookie di sessione (vedi auth.py)
+  POST api/password {"current", "new"} → nuova password (chiude le altre sessioni)
   POST api/logout   chiude la sessione
 
 Tutte le risorse richiedono l'accesso (cookie di sessione o "Authorization: Bearer <token>"),
@@ -343,7 +344,7 @@ class Handler(SimpleHTTPRequestHandler):
         self._cache_control = None
         self._extra_headers = []
         name = urlsplit(self.path).path.rstrip('/').split('/api/')[-1] if '/api/' in self.path else ''
-        if name not in ('login', 'logout', 'settings'):
+        if name not in ('login', 'logout', 'settings', 'password'):
             return self._json(404, {'error': 'non trovato'})
         # Solo JSON: un modulo di un altro sito non può inviarlo senza il permesso del browser.
         if (self.headers.get('Content-Type') or '').split(';')[0].strip() != 'application/json':
@@ -380,6 +381,8 @@ class Handler(SimpleHTTPRequestHandler):
                     return self._json(400, {'error': 'richiesta non valida'})
                 saved, ignored = prefs.update(conn, user, patch)
                 return self._json(200, {'settings': saved, 'ignored': ignored})
+            if name == 'password':
+                return self._change_password(conn, data)
             if name == 'logout':
                 auth.end_session(conn, self._cookie_token())
                 self._set_cookie('', 0)
@@ -397,6 +400,34 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(200, {'user': user})
         finally:
             conn.close()
+
+    def _change_password(self, conn, data):
+        """Cambio della password dalle Impostazioni: serve la password attuale (tentativi
+        sbagliati contati come quelli del login, stesso blocco). auth.set_password() chiude
+        tutte le sessioni dell'utente (gli altri dispositivi tornano al login, i token
+        personali restano): a questo browser se ne dà subito una nuova."""
+        user = self._user(conn)
+        if not user:
+            return self._json(401, {'error': 'accesso richiesto'})
+        addr = self._client()
+        if auth.blocked(addr):
+            return self._json(429, {'error': 'troppi tentativi: riprova tra qualche minuto'})
+        current, new = data.get('current'), data.get('new')
+        if not isinstance(current, str) or not isinstance(new, str):
+            return self._json(400, {'error': 'richiesta non valida'})
+        # 403, non 401: la sessione è valida, è sbagliata solo la password attuale
+        if not auth.authenticate(conn, user, current):
+            auth.record_failure(addr)
+            return self._json(403, {'error': 'la password attuale non è corretta'})
+        if new == current:
+            return self._json(400, {'error': 'la nuova password è uguale a quella attuale'})
+        try:
+            auth.set_password(conn, user, new)
+        except ValueError as err:
+            return self._json(400, {'error': str(err)})
+        auth.clear_failures(addr)
+        self._set_cookie(auth.create_session(conn, user), auth.SESSION_DAYS * 86400)
+        return self._json(200, {'ok': True})
 
     def do_GET(self):
         self._cache_control = None  # per richiesta (con keep-alive l'oggetto serve più richieste)

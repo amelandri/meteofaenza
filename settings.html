@@ -70,10 +70,23 @@
           <div class="set-row">
             <div class="set-who">
               <span id="account-avatar" class="avatar" aria-hidden="true"></span>
-              <div class="set-text"><span id="account-user" class="set-label muted">Accesso in corso…</span><span class="set-hint">Uscendo, le copie di previsioni e impostazioni in questo browser vengono cancellate</span></div>
+              <div class="set-text"><span id="account-user" class="set-label muted">Accesso in corso…</span><span class="set-hint"><button id="pw-toggle" type="button" class="link-btn" aria-expanded="false" aria-controls="pw-form">Cambia password</button><span id="pw-done" class="pw-done" role="status" hidden>Password cambiata: gli altri dispositivi dovranno accedere di nuovo.</span></span></div>
             </div>
             <button id="logout-btn" type="button" class="btn btn-ghost">Esci</button>
           </div>
+          <!-- Cambio della password (POST api/password), aperto da "Cambia password". Il campo nascosto
+               con il nome utente serve ai gestori di password per abbinare la nuova password. -->
+          <form id="pw-form" class="set-row pw-form" novalidate hidden>
+            <input id="pw-user" type="text" autocomplete="username" tabindex="-1" aria-hidden="true" hidden>
+            <label class="pw-field"><span class="field-label">Password attuale</span><input id="pw-current" type="password" autocomplete="current-password" required></label>
+            <label class="pw-field"><span class="field-label">Nuova password</span><input id="pw-new" type="password" autocomplete="new-password" minlength="8" required></label>
+            <label class="pw-field"><span class="field-label">Ripeti la nuova</span><input id="pw-repeat" type="password" autocomplete="new-password" minlength="8" required></label>
+            <p class="pw-msg" id="pw-msg" role="status" hidden></p>
+            <div class="pw-actions">
+              <button id="pw-cancel" type="button" class="btn btn-ghost">Annulla</button>
+              <button id="pw-save" type="submit" class="btn">Salva la nuova password</button>
+            </div>
+          </form>
         </div>
       </section>
     </div>

@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -687,6 +688,27 @@ class AuthTest(unittest.TestCase):
             self.assertIn('meteo_session=; Path=/; Max-Age=0', set_c)
             self.assertIn('meteo_auth=; Path=/; Max-Age=0', set_c)
             self.assertEqual(req('GET', '/api/me', headers={'Cookie': sess})[0], 401)
+            # cambio della password: serve quella attuale; chiude le altre sessioni e ne dà una
+            # nuova a questo browser
+            _, _, cookie = req('POST', '/api/login', '{"username":"mario","password":"password-lunga"}')
+            s1 = cookie.split(';')[0]
+            _, _, cookie = req('POST', '/api/login', '{"username":"mario","password":"password-lunga"}')
+            s2 = cookie.split(';')[0]  # un altro dispositivo
+            pw = lambda cur, new: req('POST', '/api/password', json.dumps({'current': cur, 'new': new}), {'Cookie': s1})
+            self.assertEqual(req('POST', '/api/password', '{"current":"password-lunga","new":"nuova-password"}')[0], 401)
+            st, body, _ = pw('sbagliata', 'nuova-password')
+            self.assertEqual((st, json.loads(body)['error']), (403, 'la password attuale non è corretta'))
+            self.assertEqual(pw('password-lunga', 'corta')[0], 400)
+            self.assertEqual(pw('password-lunga', 'password-lunga')[0], 400)
+            st, _, cookie = pw('password-lunga', 'nuova-password')
+            self.assertEqual(st, 200)
+            self.assertIn('meteo_auth=1', cookie)
+            s3 = re.search(r'meteo_session=[^;]+', cookie).group(0)  # il primo Set-Cookie può essere il segnale
+            self.assertEqual(req('GET', '/api/me', headers={'Cookie': s3})[0], 200)
+            self.assertEqual(req('GET', '/api/me', headers={'Cookie': s1})[0], 401)
+            self.assertEqual(req('GET', '/api/me', headers={'Cookie': s2})[0], 401)
+            self.assertEqual(req('POST', '/api/login', '{"username":"mario","password":"nuova-password"}')[0], 200)
+            self.auth.set_password(self.conn, 'mario', 'password-lunga')  # per gli altri test
             # troppi tentativi dallo stesso indirizzo
             for _ in range(self.auth.MAX_FAILURES):
                 req('POST', '/api/login', '{"username":"mario","password":"no"}', {'X-Forwarded-For': '198.51.100.9'})

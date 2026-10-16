@@ -44,7 +44,7 @@ Tema (automatico, chiaro o scuro), previsioni mostrate (entrambi i modelli, solo
 
 ### Accesso
 
-Senza login il server non dà nessun dato: la pagina `login.html` chiede nome utente e password e poi riporta alla pagina da cui si era arrivati. Le pagine HTML, gli script e lo stile restano scaricabili senza accesso (il codice è pubblico), ma senza dati; la pagina Come funziona, che non usa dati, resta leggibile. Nelle Impostazioni la card **Account** mostra l'utente collegato e il pulsante **Esci**, che cancella anche le copie delle previsioni salvate nel browser.
+Senza login il server non dà nessun dato: la pagina `login.html` chiede nome utente e password e poi riporta alla pagina da cui si era arrivati. Le pagine HTML, gli script e lo stile restano scaricabili senza accesso (il codice è pubblico), ma senza dati; la pagina Come funziona, che non usa dati, resta leggibile. Nelle Impostazioni la card **Account** mostra l'utente collegato e il pulsante **Esci**, che cancella anche le copie delle previsioni salvate nel browser, e permette di **cambiare la password**: serve quella attuale (i tentativi sbagliati contano come quelli del login), la nuova ha almeno 8 caratteri; le altre sessioni si chiudono, il browser da cui la si cambia resta collegato e i token personali restano validi.
 
 - **Password**: nel database c'è solo il loro hash scrypt con sale casuale, non reversibile (PBKDF2-SHA256 se il Python del server non ha scrypt). La verifica confronta in tempo costante e, per un utente inesistente, impiega lo stesso tempo.
 - **Sessioni**: cookie `meteo_session` `HttpOnly` (JavaScript non lo legge), `SameSite=Strict`, `Secure` quando il sito è in HTTPS; durano 30 giorni e si rinnovano usando l'app. Nel database c'è solo l'hash SHA-256 del token, non il token. Insieme c'è il cookie `meteo_auth=1`, leggibile da JavaScript e senza segreti, che dice solo "c'è una sessione": le pagine con dati (`js/auth-guard.js`) se manca vanno subito al login, prima di disegnarsi, invece di mostrare per un attimo l'app vuota. Il server lo toglie all'uscita e quando la sessione non vale più.
@@ -139,6 +139,7 @@ Tutte richiedono l'accesso (cookie di sessione o token personale; senza: `401`),
 | `api/settings` | preferenze dell'utente (`null` se non ne ha ancora) |
 | `POST api/settings` | `{"settings": {chiave: valore}}`: unisce le modifiche (solo valori ammessi) e restituisce le preferenze |
 | `POST api/login` | `{"username", "password"}` (solo JSON) → cookie di sessione |
+| `POST api/password` | `{"current", "new"}` (solo JSON, con la sessione) → nuova password; 403 se quella attuale è sbagliata, 400 se la nuova non va bene; chiude le altre sessioni e rimanda il cookie |
 | `POST api/logout` | chiude la sessione |
 
 ### Dati conservati

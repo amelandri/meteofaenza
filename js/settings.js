@@ -62,6 +62,7 @@ getJSON('api/me').then((me) => {
   el.classList.remove('muted');
   el.textContent = me.user;
   $('#account-avatar').textContent = (me.user || '?').charAt(0).toUpperCase();
+  $('#pw-user').value = me.user;
 }).catch(() => { $('#account-user').textContent = 'Utente non disponibile'; });
 
 $('#logout-btn').addEventListener('click', async () => {
@@ -70,4 +71,69 @@ $('#logout-btn').addEventListener('click', async () => {
     await fetch('api/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', cache: 'no-store' });
   } catch { /* offline: il cookie resta, ma i dati salvati si tolgono comunque */ }
   goToLogin();
+});
+
+// --- Cambio della password (POST api/password) ---
+// "Cambia password" (sotto il nome utente) apre il modulo sotto, nella stessa pillola. Controlli nel browser (campi pieni,
+// lunghezza minima come MIN_PASSWORD di server/auth.py, ripetizione uguale), poi il server
+// verifica la password attuale. Il server chiude le altre sessioni e ne dà una nuova a questo
+// browser: si resta collegati.
+const MIN_PASSWORD = 8;
+const pwForm = $('#pw-form');
+
+function pwMessage(msg) {
+  const el = $('#pw-msg');
+  el.textContent = msg || '';
+  el.hidden = !msg;
+}
+
+function pwOpen(open) {
+  pwForm.hidden = !open;
+  $('#pw-toggle').setAttribute('aria-expanded', String(open));
+  $('#pw-toggle').hidden = open;
+  pwMessage('');
+  if (open) {
+    $('#pw-done').hidden = true;
+    $('#pw-current').focus();
+  } else {
+    for (const id of ['#pw-current', '#pw-new', '#pw-repeat']) $(id).value = '';
+  }
+}
+
+$('#pw-toggle').addEventListener('click', () => pwOpen(true));
+$('#pw-cancel').addEventListener('click', () => { pwOpen(false); $('#pw-toggle').focus(); });
+
+pwForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const current = $('#pw-current').value, next = $('#pw-new').value, repeat = $('#pw-repeat').value;
+  if (!current || !next || !repeat) return pwMessage('Compila tutti e tre i campi.');
+  if (next.length < MIN_PASSWORD) return pwMessage(`La nuova password deve avere almeno ${MIN_PASSWORD} caratteri.`);
+  if (next !== repeat) return pwMessage('Le due nuove password non coincidono.');
+  if (next === current) return pwMessage('La nuova password è uguale a quella attuale.');
+  const btn = $('#pw-save');
+  btn.disabled = true;
+  pwMessage('');
+  try {
+    const res = await fetch('api/password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current, new: next }),
+      cache: 'no-store',
+    });
+    if (res.status === 401) { goToLogin(); return; }
+    if (!res.ok) {
+      let body = null;
+      try { body = await res.json(); } catch { /* risposta non JSON */ }
+      const err = body?.error || `errore del server (${res.status})`;
+      pwMessage(`${err.charAt(0).toUpperCase()}${err.slice(1)}.`);
+      return;
+    }
+    pwOpen(false);
+    $('#pw-done').hidden = false;
+    $('#pw-toggle').focus();
+  } catch {
+    pwMessage('Server non raggiungibile: controlla la connessione e riprova.');
+  } finally {
+    btn.disabled = false;
+  }
 });
