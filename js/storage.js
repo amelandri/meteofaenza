@@ -58,24 +58,21 @@ export const THEMES = ['auto', 'light', 'dark'];
 // models: previsioni mostrate, "both" (entrambi i modelli), "i2i" o "eu" (vedi shownModels()
 // in app.js). Non riguarda le probabilità di pioggia, sempre visibili.
 export const MODEL_VIEWS = ['both', 'i2i', 'eu'];
-// chartFrom: inizio del grafico "Andamento orario", "now" (ora precedente a quella attuale)
-// o "today" (mezzanotte di oggi).
-const DEFAULT_SETTINGS = { variable: 'rain', range: '72', chartFrom: 'now', showAllHours: false, hourlyOpen: false, radarOpen: false, riversOpen: false, theme: 'auto', models: 'both', verifyLead: 1, verifyDays: 7 };
+const DEFAULT_SETTINGS = { variable: 'rain', range: '72', showAllHours: false, hourlyOpen: false, radarOpen: false, riversOpen: false, theme: 'auto', models: 'both', verifyLead: 1, verifyDays: 7 };
 const SYNC_KEY = `${PREFIX}settings-sync`;
 const PENDING_KEY = `${PREFIX}settings-pending`;
 export const getSettings = () => ({ ...DEFAULT_SETTINGS, ...read(KEYS.settings, {}) });
 
 // Valori ammessi di ogni preferenza: li usano la pagina Impostazioni (un pulsante per valore) e
 // il controllo di quanto si invia al server, che li ricontrolla (PREF_VALUES di
-// server/prefs.py: devono restare uguali). variable = chiavi di VARIABLES in app.js, range /
-// chartFrom = pulsanti del grafico in index.html, verifyLead / verifyDays = selettori di
+// server/prefs.py: devono restare uguali). variable = chiavi di VARIABLES in app.js, range =
+// pulsanti del grafico in index.html, verifyLead / verifyDays = selettori di
 // verify.html: se cambiano là, aggiornarli qui e sul server.
 export const PREF_VALUES = {
   theme: THEMES,
   models: MODEL_VIEWS,
   variable: ['rain', 'temp', 'wind', 'cloud', 'humidity', 'pressure'],
   range: ['24', '72', 'all'],
-  chartFrom: ['now', 'today'],
   showAllHours: [false, true],
   hourlyOpen: [false, true],
   radarOpen: [false, true],
@@ -210,8 +207,10 @@ export function removeLegacyKeys(keep) {
   remove(`${PREFIX}lastLocation`);
   remove(`${PREFIX}cacheIndex`);
   const saved = read(KEYS.settings, null);
-  if (saved && typeof saved === 'object' && 'watch' in saved) {
+  // preferenze tolte: watch (intervalli monitorati), chartFrom (inizio del grafico da 00:00)
+  if (saved && typeof saved === 'object' && ('watch' in saved || 'chartFrom' in saved)) {
     delete saved.watch;
+    delete saved.chartFrom;
     write(KEYS.settings, saved);
   }
   const keepKey = CACHE_PREFIX + locationId(keep);

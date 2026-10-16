@@ -1218,10 +1218,9 @@ function buildVarTabs() {
 }
 
 function syncControls() {
-  const { variable, range, chartFrom } = state.settings;
+  const { variable, range } = state.settings;
   document.querySelectorAll('#var-tabs button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.var === variable)));
   document.querySelectorAll('#range-seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.range === range)));
-  document.querySelectorAll('#from-seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.from === (chartFrom === 'today' ? 'today' : 'now'))));
 }
 
 function renderChartSection() {
@@ -1229,10 +1228,8 @@ function renderChartSection() {
   syncControls();
   const { hourly } = state.data;
   const cfg = VARIABLES[state.settings.variable] || VARIABLES.rain;
-  // Parte dall'ora piena precedente a quella attuale (alle 20:32 → dalle 19), oppure, a scelta
-  // (settings.chartFrom = "today"), dalla mezzanotte di oggi per rivedere le ore già passate.
-  const midnight = hourly.time.indexOf(`${localNowIso(state.data.utcOffset).slice(0, 10)}T00:00`);
-  const start = state.settings.chartFrom === 'today' && midnight >= 0 ? midnight : Math.max(0, nowIndex() - 1);
+  // Parte dall'ora piena precedente a quella attuale (alle 20:32 → dalle 19).
+  const start = Math.max(0, nowIndex() - 1);
   const len = state.settings.range === 'all' ? Infinity : Number(state.settings.range);
   const end = Math.min(hourly.time.length, start + len);
   const times = hourly.time.slice(start, end);
@@ -1577,13 +1574,6 @@ function bindControls() {
     renderChartSection();
   });
 
-  $('#from-seg').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-from]');
-    if (!b) return;
-    state.settings.chartFrom = b.dataset.from;
-    store.saveSettings({ chartFrom: b.dataset.from });
-    renderChartSection();
-  });
   $('#range-seg').addEventListener('click', (e) => {
     const b = e.target.closest('[data-range]');
     if (!b) return;
@@ -1779,7 +1769,7 @@ placeFooter();
 // l'evento "meteo-settings". Tornando dalla pagina Impostazioni la pagina può essere
 // ripristinata dalla cache del browser (bfcache) senza ricaricare i moduli: si rilegge la
 // copia e si risincronizza. Vale anche per i cambi fatti in un'altra scheda.
-const RELOADED_SETTINGS = ['models', 'variable', 'range', 'chartFrom', 'showAllHours', 'hourlyOpen', 'radarOpen', 'riversOpen'];
+const RELOADED_SETTINGS = ['models', 'variable', 'range', 'showAllHours', 'hourlyOpen', 'radarOpen', 'riversOpen'];
 function reloadSettings() {
   const fresh = store.getSettings();
   const changed = RELOADED_SETTINGS.filter((k) => fresh[k] !== state.settings[k]);

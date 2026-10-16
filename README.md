@@ -22,7 +22,7 @@ Il menu in alto è uguale in tutte le pagine (Previsioni, Verifica, Impostazioni
   - sotto i due modelli, la probabilità di pioggia di ogni fascia (calcolata dagli ensemble);
   - alba e tramonto (oggi sulla linea dell'intera giornata, con sole o luna all'ora attuale);
   - un giudizio sulla **concordanza dei modelli** (concordi / lievi differenze / discordi), con il motivo.
-- **Andamento orario**: grafico che sovrappone i due modelli per precipitazioni, temperatura, vento, nuvolosità, umidità e pressione, da adesso o dalla mezzanotte, per 24 ore, 72 ore o tutto l'orizzonte. Nelle precipitazioni:
+- **Andamento orario**: grafico che sovrappone i due modelli per precipitazioni, temperatura, vento, nuvolosità, umidità e pressione, dall'ora attuale, per 24 ore, 72 ore o tutto l'orizzonte. Nelle precipitazioni:
   - barre dei mm di ciascun modello;
   - area azzurra con la **probabilità** di pioggia ora per ora (solo ensemble);
   - sotto il grafico, la **striscia del verdetto** ora per ora (Asciutto, Rischio, Incerto, Pioggia), vedi sotto.

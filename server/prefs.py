@@ -16,7 +16,6 @@ PREF_VALUES = {
     'models': ['both', 'i2i', 'eu'],
     'variable': ['rain', 'temp', 'wind', 'cloud', 'humidity', 'pressure'],
     'range': ['24', '72', 'all'],
-    'chartFrom': ['now', 'today'],
     'showAllHours': [False, True],
     'hourlyOpen': [False, True],
     'radarOpen': [False, True],
