@@ -1116,8 +1116,10 @@ button { font: inherit; color: inherit; }
 .set-row:first-child { border-radius: 10px 10px 0 0; }
 .set-row:last-child { border-radius: 0 0 10px 10px; }
 .set-row:only-child { border-radius: 10px; }
-/* Ultima riga visibile prima di una riga nascosta in fondo (modulo della password chiuso) */
-.set-row:has(+ .set-row[hidden]:last-child) { border-radius: 0 0 10px 10px; }
+/* Ultima riga visibile prima di una riga nascosta in fondo (modulo della password chiuso):
+   arrotonda solo gli angoli in basso, senza toccare quelli in alto (la riga dell'utente è
+   anche la prima della pillola) */
+.set-row:has(+ .set-row[hidden]:last-child) { border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; }
 .set-text { min-width: 0; flex: 1 1 140px; }
 .set-label { display: block; font-weight: 600; font-size: .93rem; }
 .set-hint { display: block; margin-top: 1px; color: var(--muted); font-size: .78rem; line-height: 1.35; }
