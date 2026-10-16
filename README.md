@@ -40,7 +40,7 @@ Per i giorni passati, pioggia e temperature previste la sera prima alle 23 (o du
 
 ### Impostazioni
 
-Tema (automatico, chiaro o scuro), previsioni mostrate (entrambi i modelli, solo ICON-2I o solo ICON-EU; la probabilità di pioggia resta sempre visibile), come si apre il grafico, sezioni aperte o chiuse all'avvio e scelte iniziali della Verifica. Le scelte si salvano subito sul server con il proprio utente (anche quelle fatte direttamente sul grafico o nella Verifica) e valgono su ogni dispositivo. La pagina sta in uno schermo: gruppi con una riga per preferenza (pulsanti affiancati per le scelte brevi, menu a tendina per il dato del grafico e la previsione giudicata, interruttori per le sezioni), in due colonne su schermi larghi. Il gruppo **Account** mostra l'utente collegato e il pulsante **Esci**.
+Tema (automatico, chiaro o scuro), previsioni mostrate (entrambi i modelli, solo ICON-2I o solo ICON-EU; la probabilità di pioggia resta sempre visibile), come si apre il grafico, sezioni aperte o chiuse all'avvio e scelte iniziali della Verifica. Le scelte si salvano subito sul server con il proprio utente (anche quelle fatte direttamente sul grafico o nella Verifica) e valgono su ogni dispositivo. La pagina sta in uno schermo: gruppi con una riga per preferenza (pulsanti affiancati per le scelte brevi, menu a tendina per il dato del grafico e la previsione giudicata, interruttori per le sezioni), con lo stesso aspetto delle previsioni giornaliere, in due colonne su schermi larghi. In alto il gruppo **Account** mostra l'utente collegato e il pulsante **Esci**.
 
 ### Accesso
 

@@ -57,12 +57,29 @@
       <p>Le scelte si salvano subito con il tuo utente e valgono su tutti i dispositivi. Grafico, sezioni e Verifica si cambiano anche nelle loro pagine: vale l'ultima scelta.</p>
     </div>
 
-    <!-- Gruppi con il titolo sopra e una riga per preferenza (voce a sinistra, controllo a
-         destra); da 900 px due colonne: a sinistra aspetto, grafico e verifica, a destra
-         sezioni e account. I controlli con data-pref (pulsanti .seg, select, interruttori
-         .switch) li gestisce settings.js. -->
+    <!-- Come la card "Previsioni" della pagina principale: in ogni scheda un blocco per gruppo
+         (titolo come "Oggi" / "Domani", blocchi separati da una linea) con le preferenze in una
+         pillola di righe grigie divise da 1 px (come i box dei modelli). In alto l'account, poi
+         da 900 px due schede affiancate: a sinistra aspetto e grafico, a destra sezioni e
+         verifica. I controlli con data-pref (pulsanti .seg, select, interruttori .switch) li
+         gestisce settings.js. -->
+    <div class="card set-card set-account">
+      <section class="set-group" aria-labelledby="g-account">
+        <h2 class="set-title" id="g-account">Account</h2>
+        <div class="set-list">
+          <div class="set-row">
+            <div class="set-who">
+              <span id="account-avatar" class="avatar" aria-hidden="true"></span>
+              <div class="set-text"><span id="account-user" class="set-label muted">Accesso in corso…</span><span class="set-hint">Uscendo, le copie di previsioni e impostazioni in questo browser vengono cancellate</span></div>
+            </div>
+            <button id="logout-btn" type="button" class="btn btn-ghost">Esci</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
     <div class="settings-grid">
-      <div class="settings-col">
+      <div class="card set-card settings-col">
         <section class="set-group" aria-labelledby="g-look">
           <h2 class="set-title" id="g-look">Aspetto</h2>
           <div class="set-list">
@@ -116,28 +133,9 @@
             </div>
           </div>
         </section>
-        <section class="set-group" aria-labelledby="g-verify">
-          <h2 class="set-title" id="g-verify">Verifica</h2>
-          <div class="set-list">
-            <div class="set-row">
-              <div class="set-text"><label class="set-label" for="pl-lead">Previsione giudicata</label><span class="set-hint">Quella disponibile alle 23</span></div>
-              <span class="select"><select id="pl-lead" data-pref="verifyLead">
-                <option value="1">Il giorno prima</option>
-                <option value="2">Due giorni prima</option>
-              </select></span>
-            </div>
-            <div class="set-row">
-              <div class="set-text"><span class="set-label" id="pl-days">Periodo</span></div>
-              <div class="seg" data-pref="verifyDays" role="group" aria-labelledby="pl-days">
-                <button type="button" data-value="7">7 giorni</button>
-                <button type="button" data-value="30">30 giorni</button>
-              </div>
-            </div>
-          </div>
-        </section>
       </div>
 
-      <div class="settings-col">
+      <div class="card set-card settings-col">
         <section class="set-group" aria-labelledby="g-sections">
           <h2 class="set-title" id="g-sections">Sezioni aperte all'apertura</h2>
           <div class="set-list">
@@ -163,15 +161,22 @@
           </div>
         </section>
 
-        <section class="set-group" aria-labelledby="g-account">
-          <h2 class="set-title" id="g-account">Account</h2>
+        <section class="set-group" aria-labelledby="g-verify">
+          <h2 class="set-title" id="g-verify">Verifica</h2>
           <div class="set-list">
             <div class="set-row">
-              <div class="set-who">
-                <span id="account-avatar" class="avatar" aria-hidden="true"></span>
-                <div class="set-text"><span id="account-user" class="set-label muted">Accesso in corso…</span><span class="set-hint">Uscendo, le copie di previsioni e impostazioni in questo browser vengono cancellate</span></div>
+              <div class="set-text"><label class="set-label" for="pl-lead">Previsione giudicata</label><span class="set-hint">Quella disponibile alle 23</span></div>
+              <span class="select"><select id="pl-lead" data-pref="verifyLead">
+                <option value="1">Il giorno prima</option>
+                <option value="2">Due giorni prima</option>
+              </select></span>
+            </div>
+            <div class="set-row">
+              <div class="set-text"><span class="set-label" id="pl-days">Periodo</span></div>
+              <div class="seg" data-pref="verifyDays" role="group" aria-labelledby="pl-days">
+                <button type="button" data-value="7">7 giorni</button>
+                <button type="button" data-value="30">30 giorni</button>
               </div>
-              <button id="logout-btn" type="button" class="btn btn-ghost">Esci</button>
             </div>
           </div>
         </section>
