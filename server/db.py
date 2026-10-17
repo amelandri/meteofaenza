@@ -22,6 +22,15 @@ CREATE TABLE IF NOT EXISTS station_readings (
   fetched_at INTEGER NOT NULL,
   data       TEXT NOT NULL
 );
+-- Bollettini METAR degli aeroporti vicini (server/clouds.py): nuvolosità osservata, per
+-- correggere le previsioni di oggi quando la radiazione della centralina non basta.
+CREATE TABLE IF NOT EXISTS metar (
+  icao   TEXT NOT NULL,
+  time   INTEGER NOT NULL,         -- ms, istante dell'osservazione
+  cover  INTEGER,                  -- copertura massima riportata (0–100), solo nubi basse
+  raw    TEXT NOT NULL,
+  PRIMARY KEY (icao, time)
+);
 -- Registro dei job (esito, durata), per /api/status e per capire cosa non va.
 CREATE TABLE IF NOT EXISTS fetch_log (
   id      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -184,6 +193,19 @@ def station_since(conn, since_ms):
     return [json.loads(r['data']) for r in rows]
 
 
+def put_metar(conn, rows):
+    """Salva i bollettini METAR (quelli già presenti si ignorano). Restituisce i nuovi."""
+    before = conn.total_changes
+    conn.executemany('INSERT OR IGNORE INTO metar (icao, time, cover, raw) VALUES (:icao, :time, :cover, :raw)', rows)
+    conn.commit()
+    return conn.total_changes - before
+
+
+def latest_metar(conn, icao):
+    row = conn.execute('SELECT icao, time, cover, raw FROM metar WHERE icao = ? ORDER BY time DESC LIMIT 1', (icao,)).fetchone()
+    return dict(row) if row else None
+
+
 def prune(conn):
     """Toglie ritagli e immagini del radar oltre RADAR_KEEP_S (tabelle piccole: a ogni job)."""
     recent = now_ms() - config.RADAR_KEEP_S * 1000
@@ -199,6 +221,7 @@ def prune_archives(conn):
     righe e il DELETE per data le scorre per intero."""
     old = now_ms() - config.STATION_KEEP_DAYS * 86400000
     conn.execute('DELETE FROM station_readings WHERE time < ?', (old,))
+    conn.execute('DELETE FROM metar WHERE time < ?', (old,))
     conn.execute('DELETE FROM fetch_log WHERE at < ?', (now_ms() - 30 * 86400000,))
     conn.execute('DELETE FROM forecast_archive WHERE issued_at < ?', (old,))
     conn.execute('DELETE FROM ensemble_archive WHERE issued_at < ?', (old,))

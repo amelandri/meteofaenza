@@ -566,6 +566,63 @@ class BackupTest(unittest.TestCase):
             config.DB_PATH, config.BACKUP_DIR, config.BACKUP_KEEP = old
 
 
+class CloudsTest(unittest.TestCase):
+    """Nuvolosità osservata (server/clouds.py): METAR, radiazione della centralina, stima."""
+
+    @classmethod
+    def setUpClass(cls):
+        from server import clouds
+        cls.clouds = clouds
+        cls.old = config.DB_PATH
+        config.DB_PATH = Path(_tmp.name) / 'clouds.db'
+        cls.conn = db.connect()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.conn.close()
+        config.DB_PATH = cls.old
+
+    def test_parse_metar(self):
+        p = self.clouds.parse_metar
+        base = {'icaoId': 'LIPE', 'obsTime': 1792228800}
+        self.assertEqual(p({**base, 'cover': 'CLR', 'clouds': [], 'rawOb': 'METAR LIPE ... NSC'})['cover'], 0)
+        self.assertEqual(p({**base, 'clouds': [{'cover': 'FEW', 'base': 3000}, {'cover': 'BKN', 'base': 1200}]})['cover'], 75)
+        self.assertEqual(p({**base, 'clouds': [{'cover': 'VV', 'base': 100}]})['cover'], 100)  # nebbia
+        self.assertEqual(p({**base, 'rawOb': 'METAR LIPC 170855Z 27003KT CAVOK 18/15 Q1018'})['cover'], 0)
+        self.assertIsNone(p({**base, 'cover': '', 'clouds': []})['cover'])  # non riportata
+        self.assertIsNone(p({'icaoId': 'LIPE'}))
+        self.assertEqual(p(base)['time'], 1792228800000)
+
+    def test_sun(self):
+        c = self.clouds
+        self.assertAlmostEqual(c.clear_sky(30), 488, delta=2)
+        self.assertEqual(c.clear_sky(-5), 0)
+        self.assertEqual([c.cover_from_k(k) for k in (1.1, 0.95, 0.62, 0.3, 0.1)], [0, 0, 51, 100, 100])
+
+    def test_estimate(self):
+        c = self.clouds
+        c._cal.update(at=0, value=1.0)
+        now = 1792230900000
+        conn = self.conn
+        # Di giorno, sole a 35°: metà della radiazione attesa a cielo sereno → nuvoloso
+        clear = c.clear_sky(35)
+        for k, minutes in ((0.5, 20), (0.5, 10), (0.5, 0)):
+            db.put_station(conn, {'time': now - minutes * 60000, 'fetchedAt': now, 'temperature': 15,
+                                  'radiation': clear * k, 'sunAltitude': 35})
+        st = db.latest_station(conn)
+        e = c.estimate(conn, st, now)
+        self.assertEqual((e['source'], e['kind']), ('sun', 'total'))
+        self.assertEqual(e['cover'], c.cover_from_k(0.5 / c.calibration(conn, now / 1000)))
+        # Sole basso: si passa al METAR più vicino ancora recente (solo nubi basse: "almeno")
+        db.put_metar(conn, [{'icao': 'LIPK', 'time': now - 100 * 60000, 'cover': 100, 'raw': 'vecchio'},
+                            {'icao': 'LIPE', 'time': now - 20 * 60000, 'cover': 75, 'raw': 'METAR LIPE BKN012'}])
+        low = {**st, 'sunAltitude': 5}
+        e = c.estimate(conn, low, now)
+        self.assertEqual((e['source'], e['kind'], e['cover'], e['station']), ('metar', 'min', 75, 'Bologna'))
+        # Niente di recente: nessuna stima
+        self.assertIsNone(c.estimate(conn, low, now + 3 * 3600 * 1000))
+
+
 class AuthTest(unittest.TestCase):
     """Accesso (server/auth.py): password solo come hash, sessioni, token personali, API protette."""
 

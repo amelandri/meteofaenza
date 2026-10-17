@@ -26,7 +26,7 @@ import traceback
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from . import auth, config, db, radar, rivers, sources, verify
+from . import auth, clouds, config, db, radar, rivers, sources, verify
 
 
 def _locked(name):
@@ -169,6 +169,7 @@ def job_backup(conn, force=False):
 
 
 JOBS = {'station': job_station, 'forecast': job_forecast, 'normals': job_normals, 'radar': job_radar, 'rivers': rivers.run,
+        'clouds': clouds.run,
         'verify': job_verify, 'backup': job_backup}
 # Esclusi da "all" (prima installazione): non scaricano dati.
 NOT_IN_ALL = {'backup', 'verify'}

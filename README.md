@@ -27,7 +27,9 @@ Il menu in alto è uguale in tutte le pagine (Previsioni, Verifica, Impostazioni
   - area azzurra con la **probabilità** di pioggia ora per ora (solo ensemble);
   - sotto il grafico, la **striscia del verdetto** ora per ora (Asciutto, Rischio, Incerto, Pioggia), vedi sotto.
 
-  Nella temperatura due linee tratteggiate mostrano le previsioni corrette con la misura della centralina per le ore successive, e due linee punteggiate massima e minima medie del periodo.
+  Nella temperatura due linee tratteggiate mostrano le previsioni corrette con la misura della centralina per le ore successive, e due linee punteggiate massima e minima medie del periodo. Nella nuvolosità le linee tratteggiate sono le previsioni corrette con la nuvolosità osservata (vedi sotto).
+
+  **Nuvolosità osservata**: di giorno dalla radiazione solare della centralina, di notte dai bollettini METAR degli aeroporti di Forlì e Bologna (solo nubi basse). Non si mostra da sola: corregge, solo per oggi e per qualche ora, la nuvolosità prevista, quindi le icone delle fasce senza pioggia e il grafico della nuvolosità.
 - **Radar** (chiuso di default): animazione del radar della Protezione Civile nell'ultima ora più la stima dei prossimi 60 minuti, su una cartina di 60 km attorno a Faenza; accanto, la stima su Faenza ogni 15 minuti per i prossimi 90.
 - **Fiumi** (chiuso di default; l'intestazione mostra comunque il livello a Faenza): livelli di Lamone (Marradi, Strada Casale, Sarna, Faenza) e Marzeno (Modigliana, Rivalta), con tendenza, soglie di allerta e grafico delle ultime 48 ore.
 - **Dettaglio orario** (chiuso di default): tabella ora per ora con entrambi i modelli e la probabilità di pioggia; la cella dell'ora ha il colore del verdetto (come la striscia del grafico) e al tocco ne mostra il dettaglio.
@@ -128,7 +130,7 @@ Tutte richiedono l'accesso (cookie di sessione o token personale; senza: `401`),
 | Percorso | Contenuto |
 |---|---|
 | `api/forecast` | previsioni dei modelli (da ieri alle 23), scenari degli ensemble e metadati dei run |
-| `api/station` | ultima misura della centralina (valori del giorno da mezzanotte), letture delle ultime 2 ore e riepilogo del radar |
+| `api/station` | ultima misura della centralina (valori del giorno da mezzanotte), letture delle ultime 2 ore, riepilogo del radar e nuvolosità osservata (`clouds`: copertura, fonte `sun` o `metar`, `kind` `total` o `min` = solo nubi basse) |
 | `api/radar` | radar: riepilogo, stima dei prossimi 90 minuti, elenco delle immagini e geometria della cartina (città, costa, confini) |
 | `api/radar/<nome>.png` | immagini dell'animazione (misurate e stimate) |
 | `api/rivers` | livelli di Lamone e Marzeno: soglie, ultimo valore, tendenza e serie di 48 ore per stazione |
@@ -146,7 +148,7 @@ Tutte richiedono l'accesso (cookie di sessione o token personale; senza: `401`),
 
 | Dati | Per quanto |
 |---|---|
-| Letture della centralina, archivio delle previsioni (ogni run, ora per ora) e degli ensemble (quali scenari danno pioggia), livelli dei fiumi, dato radar su Faenza | circa 400 giorni |
+| Letture della centralina, archivio delle previsioni (ogni run, ora per ora) e degli ensemble (quali scenari danno pioggia), livelli dei fiumi, dato radar su Faenza, bollettini METAR | circa 400 giorni |
 | Esiti della verifica (un record per giorno e per anticipo) | 2 anni, anche dopo che i dati grezzi sono stati tolti |
 | Immagini e ritagli del radar | 3 ore |
 | Utenti (nome, hash della password, ultimo accesso), preferenze e token personali | finché non si eliminano o revocano |
@@ -171,6 +173,7 @@ La regola generale: il **server** fa tutto ciò che richiede fonti esterne, stor
 | Tagliare le previsioni al momento della richiesta ("da ieri alle 23") e allineare gli orari dell'ensemble | `api.py` |
 | Radar: lettura del GeoTIFF, ritaglio attorno a Faenza, calcolo del movimento della pioggia, stima dei prossimi 90 minuti, immagini PNG, riepilogo per la centralina | `radar.py` (numpy, Pillow) |
 | Fiumi: soglie, serie di 48 ore, livello di allerta e tendenza per stazione | `rivers.py` |
+| Nuvolosità osservata: METAR di Forlì e Bologna, quota di sole che passa dalla radiazione della centralina (con taratura automatica), stima per `api/station` | `clouds.py` |
 | Verifica: archivio di ogni run e degli scenari degli ensemble; pioggia oraria misurata dalle letture (con azzeramento della centralina e cambio dell'ora); esiti per fascia e per giorno, probabilità, minime e massime; salvataggio degli esiti dei giorni conclusi | `verify.py` |
 | Accesso: verifica delle password (hash), sessioni e token, blocco dei tentativi ripetuti, controllo su ogni richiesta all'API; creazione degli utenti con uno script | `auth.py`, `api.py`, `users.py` |
 | Preferenze per utente: salvataggio e controllo dei valori ammessi | `prefs.py`, `api.py` |
@@ -188,6 +191,7 @@ La regola generale: il **server** fa tutto ciò che richiede fonti esterne, stor
 | Verdetto ora per ora (modelli mostrati e di supporto, probabilità, pioggia in corso, radar) e temperatura media dell'ora | `app.js` (`hourVerdict()`), `radar.js` |
 | Pioggia in corso dalle ultime letture della centralina | `app.js` (`stationRainNow()`) |
 | Temperatura corretta con la centralina nel grafico | `app.js` (`tempFix()`) |
+| Nuvolosità corretta con quella osservata: grafico e icone delle fasce di oggi | `app.js` (`cloudFix()`, `cloudCode()`) |
 | Scarti dalla media del periodo | `app.js` (`anomaly()`) |
 | Grafico SVG, tabella oraria, linea di alba e tramonto, animazione del radar, sezione dei fiumi | `chart.js`, `app.js`, `radar.js`, `rivers.js` |
 | Pagina di accesso; passaggio al login quando il server risponde 401, con cancellazione delle copie dei dati; uscita dalle Impostazioni | `login.js`, `api.js`, `settings.js`, `storage.js` |
@@ -206,7 +210,7 @@ python3 -m server.users add <nome>  # un utente per accedere (nel database data/
 python3 -m server.api --static      # API + file del frontend su http://127.0.0.1:8085
 ```
 
-poi aprire <http://127.0.0.1:8085> e accedere. In locale i job si rilanciano a mano (`python3 -m server.jobs station`, `forecast`, `normals`, `radar`, `rivers`, `verify`, `backup`; `--force` per forzare). Il database è in `data/meteo.db` (variabile `METEO_DB` per cambiarlo), escluso da git. Test: `python3 -m unittest discover -s tests`.
+poi aprire <http://127.0.0.1:8085> e accedere. In locale i job si rilanciano a mano (`python3 -m server.jobs station`, `forecast`, `normals`, `radar`, `rivers`, `clouds`, `verify`, `backup`; `--force` per forzare). Il database è in `data/meteo.db` (variabile `METEO_DB` per cambiarlo), escluso da git. Test: `python3 -m unittest discover -s tests`.
 
 Il service worker funziona solo su `http://localhost`/`127.0.0.1` o in HTTPS.
 
@@ -315,6 +319,7 @@ server/auth.py         accesso: hash delle password, sessioni, token, blocco dei
 server/users.py        script per creare e gestire gli utenti
 server/prefs.py        preferenze degli utenti (api/settings)
 server/rivers.py       livelli dei fiumi
+server/clouds.py       nuvolosità osservata (radiazione della centralina, METAR)
 server/radar.py        radar: lettura delle immagini, movimento, stima, immagini PNG (numpy, Pillow)
 tests/                 test del server (senza rete)
 swiftbar/              plugin SwiftBar per la barra dei menu del Mac
@@ -327,6 +332,7 @@ deploy/                nginx, systemd, crontab, guida di installazione (INSTALL.
 - Medie del periodo 1991–2020: reanalisi ERA5-Land (Copernicus Climate Change Service), dall'archivio storico di Open-Meteo.
 - ICON-2I © [ItaliaMeteo-ARPAE](https://www.arpae.it/); ICON-EU, ICON-D2, ICON-EU-EPS e ICON-D2-EPS © [Deutscher Wetterdienst](https://www.dwd.de/); AROME © [Météo-France](https://meteofrance.com/); ECMWF ENS © [ECMWF](https://www.ecmwf.int/) (CC BY 4.0).
 - Misure: Osservatorio Meteorologico "E. Torricelli", [meteofaenza.it](https://www.meteofaenza.it/).
+- Nuvolosità osservata di notte: bollettini METAR degli aeroporti di Forlì e Bologna, dal [NOAA Aviation Weather Center](https://aviationweather.gov/).
 - Livelli dei fiumi: [ARPAE Emilia-Romagna – Allerta Meteo](https://allertameteo.regione.emilia-romagna.it/) (API del portale, non documentata come servizio pubblico).
 - Radar: [Dipartimento della Protezione Civile](https://radar.protezionecivile.it/), licenza CC BY-SA 4.0 (con la stessa licenza le immagini radar prodotte dall'app). Costa nell'immagine: Natural Earth (dominio pubblico); confini di regione: ISTAT (CC BY, tramite openpolis/geojson-italy).
 

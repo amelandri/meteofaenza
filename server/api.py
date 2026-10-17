@@ -39,7 +39,7 @@ from zoneinfo import ZoneInfo
 
 from urllib.parse import parse_qs, urlsplit
 
-from . import auth, config, db, prefs, radar, rivers, sources, verify
+from . import auth, clouds, config, db, prefs, radar, rivers, sources, verify
 
 _cache = {}  # chiave → (corpo, etag): JSON già composto delle previsioni
 _offset_memo = (None, None)  # (download delle previsioni, utcOffset)
@@ -167,6 +167,9 @@ def compose_station(conn):
                 values['rainYear'] = values['rainToday']
         st = {**st, **values}
     st['radar'] = radar.compose(conn, full=False)  # riepilogo del radar, letto con la misura
+    # nuvolosità osservata (radiazione della centralina o METAR), per correggere le previsioni
+    # di oggi nel browser (cloudFix() in js/app.js)
+    st['clouds'] = clouds.estimate(conn, st)
     log = [
         {'t': r['time'], 'day': datetime.fromtimestamp(r['time'] / 1000, tz).strftime('%Y-%m-%d'),
          'mm': cum_mm.get(r['time'], r.get('rainToday'))}

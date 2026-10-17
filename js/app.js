@@ -21,7 +21,7 @@ const VARIABLES = {
   temp: {
     label: 'Temperatura', unit: '°C', decimals: 1, minSpan: 4,
     series: [{ v: 'temperature_2m' }],
-    fix: true, // anche la temperatura corretta con la centralina (tratteggio, prossime ore)
+    fix: (key) => tempFix(key), // anche la temperatura corretta con la centralina (tratteggio, prossime ore)
     normals: true, // anche massima e minima medie del periodo (puntini)
   },
   wind: {
@@ -31,6 +31,7 @@ const VARIABLES = {
   cloud: {
     label: 'Nuvolosità', unit: '%', decimals: 0, yFloor: 0, yCeil: 100,
     series: [{ v: 'cloud_cover' }],
+    fix: (key) => cloudFix(key), // anche la nuvolosità corretta con quella osservata (tratteggio)
   },
   humidity: {
     label: 'Umidità', unit: '%', decimals: 0, yFloor: 0, yCeil: 100,
@@ -361,6 +362,55 @@ function tempFix(key) {
   return { bias, time: lt.time, at };
 }
 
+// --- Nuvolosità corretta con quella osservata (grafico e icone delle fasce di oggi) ---
+// Il server manda con la misura della centralina la nuvolosità osservata (station.clouds,
+// server/clouds.py): di giorno dalla radiazione solare della centralina (tutte le nuvole,
+// kind "total"), altrimenti dai METAR di Forlì / Bologna (solo nubi basse: kind "min", le
+// nuvole sono almeno tante, quindi la correzione può solo aggiungerne). Per ogni modello:
+// osservata − prevista nello stesso istante, applicata alle ore successive dimezzandosi
+// ogni CLOUD_FIX_HALF_H ore e nulla oltre CLOUD_FIX_MAX_H (le nuvole cambiano più in fretta
+// della temperatura). Differenze sotto CLOUD_FIX_MIN punti non si usano.
+const CLOUD_FIX_HALF_H = 2;
+const CLOUD_FIX_MAX_H = 6;
+const CLOUD_FIX_MIN = 15;
+const CLOUD_OBS_MAX_MS = 75 * 60000; // osservazione più vecchia: non si usa
+
+function cloudFix(key) {
+  const obs = state.station?.clouds;
+  if (!obs || obs.cover == null || Date.now() - obs.time > CLOUD_OBS_MAX_MS) return null;
+  const { hourly, timezone, utcOffset } = state.data;
+  const lt = localDateTime(obs.time, timezone, utcOffset);
+  const i = hourly.time.indexOf(`${lt.date}T${lt.time.slice(0, 2)}:00`);
+  const c = hourly.models[key].cloud_cover;
+  if (!c || i < 0 || c[i] == null || c[i + 1] == null) return null;
+  const frac = Number(lt.time.slice(3, 5)) / 60;
+  const model = c[i] + (c[i + 1] - c[i]) * frac;
+  const bias = obs.kind === 'min' ? Math.max(0, obs.cover - model) : obs.cover - model;
+  if (Math.abs(bias) < CLOUD_FIX_MIN) return null;
+  // Correzione all'indice orario j (null prima dell'osservazione e oltre CLOUD_FIX_MAX_H).
+  const delta = (j) => {
+    const dt = j - (i + frac);
+    return j < i || dt > CLOUD_FIX_MAX_H ? null : bias * 0.5 ** (Math.max(0, dt) / CLOUD_FIX_HALF_H);
+  };
+  const at = (j) => {
+    const d = delta(j);
+    return d == null || c[j] == null ? null : Math.min(100, Math.max(0, c[j] + d));
+  };
+  return { bias, model, obs, time: lt.time, delta, at };
+}
+
+// Codice WMO del cielo per una nuvolosità: sereno, poco nuvoloso, parzialmente, coperto.
+const coverCode = (v) => (v < 20 ? 0 : v < 50 ? 1 : v < 80 ? 2 : 3);
+// Codice dell'ora i corretto con la nuvolosità osservata: solo per le ore di solo cielo
+// (codici 0–3; nebbia, pioggia, neve e temporali restano) e correzioni ancora sensibili.
+function cloudCode(fix, i, code) {
+  if (!fix || code > 3) return code;
+  const d = fix.delta(i);
+  if (d == null || Math.abs(d) < CLOUD_FIX_MIN) return code;
+  const v = fix.at(i);
+  return v == null ? code : coverCode(v);
+}
+
 // Ultimo istante di lettura programmata (:00, :10, … + ritardo) e il successivo.
 function lastStationSlot(now = Date.now()) {
   return Math.floor((now - STATION_SLOT_DELAY_MS) / STATION_SLOT_MS) * STATION_SLOT_MS + STATION_SLOT_DELAY_MS;
@@ -642,7 +692,8 @@ function dayPrecipitation(h, day, hourIdx) {
 // Riassume una fascia di 6 ore dai dati orari di un modello. Restituisce null se
 // il modello copre meno di metà della fascia (es. oltre il suo orizzonte).
 // `nowIso`: per la fascia in corso l'icona considera solo le ore non ancora trascorse.
-function slotSummary(h, indices, nowIso = null) {
+// `fix`: nuvolosità corretta con quella osservata (cloudFix(), solo oggi) per l'icona.
+function slotSummary(h, indices, nowIso = null, fix = null) {
   const idx = indices.filter((i) => i != null && h.temperature_2m[i] != null);
   if (idx.length < SLOT_HOURS / 2) return null;
   const temps = idx.map((i) => h.temperature_2m[i]);
@@ -650,8 +701,11 @@ function slotSummary(h, indices, nowIso = null) {
   // l'ora corrente è ancora "da venire" solo se T è successivo all'ora piena attuale.
   const ahead = nowIso ? idx.filter((i) => state.data.hourly.time[i] > nowIso) : [];
   const codeIdx = ahead.length ? ahead : idx;
+  const raw = codeIdx.map((i) => h.weather_code[i] ?? 0);
+  const codes = codeIdx.map((i, k) => cloudCode(fix, i, raw[k]));
   return {
-    ...slotCode(codeIdx.map((i) => h.weather_code[i] ?? 0), codeIdx.map((i) => h.precipitation[i])), // code, desc
+    ...slotCode(codes, codeIdx.map((i) => h.precipitation[i])), // code, desc
+    cloudFixed: codes.some((c, k) => c !== raw[k]),
     isDay: h.is_day[codeIdx[Math.floor(codeIdx.length / 2)]],
     temp: temps.reduce((a, b) => a + b, 0) / temps.length,
     tmin: Math.min(...temps),
@@ -667,7 +721,7 @@ function renderSlots(m, slots, pastUntil) {
     const past = k < pastUntil ? ' past' : '';
     const label = `${SLOTS[k].name} (${slotRange(SLOTS[k])})`;
     if (!sl) return `<div class="slot na${past}" title="${m.name} · ${label}: dati non disponibili">—</div>`;
-    const tip = `${m.name} · ${label}: ${sl.desc}, ${fmt(sl.tmin)}–${fmt(sl.tmax)} °C, ${fmt(sl.prec, 1)} mm`;
+    const tip = `${m.name} · ${label}: ${sl.desc}${sl.cloudFixed ? ' (nuvolosità corretta con quella osservata)' : ''}, ${fmt(sl.tmin)}–${fmt(sl.tmax)} °C, ${fmt(sl.prec, 1)} mm`;
     return `<div class="slot${past}" title="${esc(tip)}">
       ${icon(sl.code, sl.isDay, 24, sl.desc)}
       <b>${fmt(sl.temp)}<span class="deg">°</span></b>
@@ -1141,8 +1195,9 @@ function renderDaily() {
 
     const vals = Object.fromEntries(MODELS.map((m) => {
       const x = daily.models[m.key];
+      const fix = day === today ? cloudFix(m.key) : null; // nuvole osservate: solo oggi
       const slots = SLOTS.map((s) => slotSummary(hourly.models[m.key], slotIndices(day, s, hourIdx),
-        day === today ? nowIso : null));
+        day === today ? nowIso : null, fix));
       return [m.key, {
         code: x.weather_code[d], tmax: x.temperature_2m_max[d], tmin: x.temperature_2m_min[d],
         prec: dayPrecipitation(hourly.models[m.key], day, hourIdx) ?? x.precipitation_sum[d],
@@ -1250,9 +1305,9 @@ function renderChartSection() {
     }
   }
 
-  // Temperatura corretta con la centralina (dopo le serie dei modelli: il Δ del tooltip usa
-  // le prime due).
-  const fixes = cfg.fix ? shown.map((m) => ({ m, fix: tempFix(m.key) })).filter((x) => x.fix) : [];
+  // Temperatura corretta con la centralina e nuvolosità corretta con quella osservata (dopo
+  // le serie dei modelli: il Δ del tooltip usa le prime due).
+  const fixes = cfg.fix ? shown.map((m) => ({ m, fix: cfg.fix(m.key) })).filter((x) => x.fix) : [];
   for (const { m, fix } of fixes) {
     series.push({
       cls: `s-${m.key}`, dash: true, model: m, varLabel: 'corretta',
@@ -1317,9 +1372,16 @@ function renderChartSection() {
 
   const note = [];
   let legend = cfg.series.some((s) => s.dash) ? 'Linea continua: velocità media · tratteggio: raffiche. ' : '';
-  if (fixes.length) {
+  if (fixes.length && cfg === VARIABLES.temp) {
     const diffs = fixes.map(({ m, fix }) => `${m.name} ${fmtSigned(fix.bias, 1)}°`).join(', ');
     legend = `Tratteggio: previsione corretta con la centralina (alle ${fixes[0].fix.time} misurato − previsto: ${diffs}), correzione dimezzata ogni ${TEMP_FIX_HALF_H} ore. `;
+  } else if (fixes.length) {
+    const { obs, time } = fixes[0].fix;
+    const diffs = fixes.map(({ m, fix }) => `${m.name} ${fmtSigned(fix.bias, 0)}`).join(', ');
+    const src = obs.source === 'sun'
+      ? `dalla radiazione solare della centralina: ${fmt(obs.cover)}%`
+      : `dal bollettino dell'aeroporto di ${obs.station}, solo nubi basse: almeno ${fmt(obs.cover)}%`;
+    legend = `Tratteggio: nuvolosità corretta con quella osservata alle ${time} (${src}; osservata − prevista: ${diffs} punti), correzione dimezzata ogni ${CLOUD_FIX_HALF_H} ore e nulla dopo ${CLOUD_FIX_MAX_H}. `;
   }
   if (normals.length) legend += `Puntini grigi: massima e minima medie del periodo (${NORMALS.from}–${NORMALS.to}, ${NORMALS.name}). `;
   for (const m of shown) {
