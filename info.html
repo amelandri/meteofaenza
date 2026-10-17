@@ -147,6 +147,19 @@
       <h3>Nelle fasce della giornata</h3>
       <p>Sotto i box dei due modelli c'è una riga, segnata da una goccia, con la probabilità che piova in ciascuna fascia (notte, mattina, pomeriggio, sera): una barra che si riempie in proporzione e la percentuale. È un dato <strong>comune ai due modelli</strong>, perché viene dall'ensemble, quindi compare una volta sola. I millimetri in azzurro dentro i box sono invece quelli previsti da ciascun modello. Toccando una cella della riga si vede il dettaglio.</p>
 
+      <h3 id="attendibilita-pioggia">Attendibilità della probabilità</h3>
+      <p>Accanto alla probabilità di ogni fascia un pallino dice quanto ci si può fidare di quel numero: <strong>pieno</strong> attendibilità alta, <strong>mezzo</strong> media, <strong>vuoto</strong> bassa. Un 50% su cui tutti concordano è un dato solido; un 50% che nasce dalla media di un 15% e di un 90% no. L'app somma dei punti di sfiducia:</p>
+      <table class="info-table">
+        <thead><tr><th>Fattore</th><th>Quando toglie fiducia</th><th>Punti</th></tr></thead>
+        <tbody>
+          <tr><td>Accordo tra gli ensemble</td><td>distanza tra la probabilità più alta e la più bassa dei singoli ensemble: oltre 20 punti, oltre 40, oltre 60</td><td>1 · 2 · 3</td></tr>
+          <tr><td>Un solo ensemble</td><td>la fascia è coperta da un solo ensemble: niente confronto possibile</td><td>1</td></tr>
+          <tr><td>Accordo con i modelli</td><td>probabilità di almeno il 60% e nessun modello (ICON-2I, ICON-EU, ICON-D2, AROME) vede pioggia, oppure sotto il 20% e la maggioranza la vede</td><td>1</td></tr>
+          <tr><td>Distanza nel tempo</td><td>la fascia inizia tra più di 48 ore (meno ensemble, orario approssimato) · più di 96 ore</td><td>1 · 2</td></tr>
+        </tbody>
+      </table>
+      <p>0 punti = attendibilità alta, 1–2 = media, 3 o più = bassa. Con probabilità sotto il 10% o sopra il 90%, se i modelli non la contraddicono, l'attendibilità resta alta: lì un disaccordo di pochi punti non cambia il senso. Toccando la probabilità di una fascia, il dettaglio elenca i motivi. Dove gli ensemble non arrivano (probabilità con "~") l'attendibilità non è indicata.</p>
+
       <h3 id="verdetto">Il verdetto ora per ora</h3>
       <p>Sotto il grafico delle precipitazioni una striscia colorata dà un verdetto per ogni ora (verde asciutto, ambra rischio o incerto, blu pioggia). Per ogni ora l'app combina i modelli (i due mostrati più, nelle prime 48 ore circa, i <a href="#supporto">modelli di supporto</a> ICON-D2 e AROME) con la probabilità:</p>
       <table class="info-table">

@@ -400,6 +400,18 @@ button { font: inherit; color: inherit; }
 .pop-cell.high .pop-bar i { background: var(--rain); }
 .pop-val { flex: none; min-width: 2.4em; text-align: right; font-size: .7rem; font-variant-numeric: tabular-nums; color: var(--muted); }
 .pop-cell.high .pop-val { color: var(--text); font-weight: 600; }
+/* Attendibilità della probabilità (rainReliability() in app.js): pallino dopo la percentuale,
+   pieno = alta, mezzo = media, vuoto = bassa */
+.rel-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--muted); box-sizing: border-box; }
+.rel-dot.alta { background: var(--muted); }
+.rel-dot.media { background: linear-gradient(90deg, var(--muted) 50%, transparent 50%); }
+.tp-chip.rel-alta { background: color-mix(in srgb, var(--good) 18%, var(--surface)); color: var(--good); }
+.tp-chip.rel-media { background: color-mix(in srgb, var(--mid) 22%, var(--surface)); color: color-mix(in srgb, var(--mid) 60%, var(--text)); }
+.tp-chip.rel-bassa { background: color-mix(in srgb, var(--bad) 15%, var(--surface)); color: var(--bad); }
+.tp-rel { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--tip-border); }
+.tp-rel > span { display: block; font-weight: 650; margin-bottom: 3px; }
+.tp-rel ul { margin: 0; padding-left: 16px; }
+.tp-rel li.ok { color: var(--muted); }
 /* Alba a sinistra, tramonto allineato a destra. Oggi (.day24) la linea dell'intera giornata
    con sole o luna all'ora attuale e le pillole sotto, nella loro posizione (vedi sotto). */
 .sun {

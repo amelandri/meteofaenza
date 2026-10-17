@@ -19,7 +19,7 @@ Il menu in alto è uguale in tutte le pagine (Previsioni, Verifica, Impostazioni
 - **Centralina**: l'ultima misura (temperatura con minima e massima del giorno e scarto dalla media del periodo, umidità, vento, pioggia di oggi, raffica massima, pioggia del mese e dell'anno). Si aggiorna ai minuti :00, :10, :20, :30, :40, :50; i valori del giorno contano da mezzanotte (la centralina li azzera all'01:00 con l'ora legale: il server li ricalcola). Se i millimetri aumentano tra una lettura e l'altra compare "Sta piovendo". In fondo la riga **Radar**: pioggia su Faenza, in arrivo (con l'orario stimato), la più vicina entro 50 km o nessuna. L'icona "i" accanto al titolo spiega da dove vengono le misure.
 - **Previsioni**: un'unica scheda con oggi, domani e dopodomani, i due modelli a confronto:
   - massima e minima con lo scarto dalla media del periodo, e quattro fasce di 6 ore (notte, mattina, pomeriggio, sera) con icona, temperatura e pioggia;
-  - sotto i due modelli, la probabilità di pioggia di ogni fascia (calcolata dagli ensemble);
+  - sotto i due modelli, la probabilità di pioggia di ogni fascia (calcolata dagli ensemble), con un pallino che ne indica l'**attendibilità** (pieno alta, mezzo media, vuoto bassa: accordo tra gli ensemble e con i modelli, distanza nel tempo; motivi nel dettaglio);
   - alba e tramonto (oggi sulla linea dell'intera giornata, con sole o luna all'ora attuale);
   - un giudizio sulla **concordanza dei modelli** (concordi / lievi differenze / discordi), con il motivo.
 - **Andamento orario**: grafico che sovrappone i due modelli per precipitazioni, temperatura, vento, nuvolosità, umidità e pressione, dall'ora attuale, per 24 ore, 72 ore o tutto l'orizzonte. Nelle precipitazioni:
@@ -192,6 +192,7 @@ La regola generale: il **server** fa tutto ciò che richiede fonti esterne, stor
 | Pioggia in corso dalle ultime letture della centralina | `app.js` (`stationRainNow()`) |
 | Temperatura corretta con la centralina nel grafico | `app.js` (`tempFix()`) |
 | Nuvolosità corretta con quella osservata: grafico e icone delle fasce di oggi | `app.js` (`cloudFix()`, `cloudCode()`) |
+| Attendibilità della probabilità di pioggia delle fasce | `app.js` (`rainReliability()`) |
 | Scarti dalla media del periodo | `app.js` (`anomaly()`) |
 | Grafico SVG, tabella oraria, linea di alba e tramonto, animazione del radar, sezione dei fiumi | `chart.js`, `app.js`, `radar.js`, `rivers.js` |
 | Pagina di accesso; passaggio al login quando il server risponde 401, con cancellazione delle copie dei dati; uscita dalle Impostazioni | `login.js`, `api.js`, `settings.js`, `storage.js` |

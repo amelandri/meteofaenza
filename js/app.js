@@ -738,10 +738,13 @@ function renderPopRow(pops, pastUntil, day) {
     const x = pops[k];
     const past = k < pastUntil ? ' past' : '';
     if (x?.pop == null) return `<div class="pop-cell na${past}">—</div>`;
-    const tip = tipHead(`${s.name} · ${slotRange(s)}`) + tipChance(x, 'nella fascia') + tipNote('Dato comune ai due modelli: viene dagli ensemble.');
-    return `<div class="pop-cell${past}${x.pop >= 20 ? ' high' : ''}" data-tip="${esc(tip)}" data-tip-key="slot|${day}|${k}" aria-label="${esc(`${s.name}: ${chancePlain(x, 'nella fascia')}`)}">
+    const rel = x.rel;
+    const tip = tipHead(`${s.name} · ${slotRange(s)}`, rel ? `Attendibilità ${REL_WORDS[rel.level]}` : '', rel ? `rel-${rel.level}` : '')
+      + tipChance(x, 'nella fascia') + tipRel(rel) + tipNote('Dato comune ai due modelli: viene dagli ensemble. <a href="info.html#attendibilita-pioggia">Come si calcola l\'attendibilità</a>');
+    const relText = rel ? `, attendibilità ${REL_WORDS[rel.level]}` : '';
+    return `<div class="pop-cell${past}${x.pop >= 20 ? ' high' : ''}" data-tip="${esc(tip)}" data-tip-key="slot|${day}|${k}" aria-label="${esc(`${s.name}: ${chancePlain(x, 'nella fascia')}${relText}`)}">
       <span class="pop-bar" aria-hidden="true"><i style="width:${Math.max(0, Math.min(100, x.pop))}%"></i></span>
-      <span class="pop-val">${x.popExact ? '' : '~'}${fmt(x.pop)}%</span>
+      <span class="pop-val">${x.popExact ? '' : '~'}${fmt(x.pop)}%</span>${rel ? `<i class="rel-dot ${rel.level}" aria-hidden="true"></i>` : ''}
     </div>`;
   }).join('');
   return `<div class="pop-row" aria-label="Probabilità di pioggia per fascia">
@@ -751,14 +754,86 @@ function renderPopRow(pops, pastUntil, day) {
 }
 
 // Probabilità di pioggia per ciascuna fascia del giorno (stesso calcolo del verdetto sulle
-// 6 ore della fascia); null dove mancano dati orari.
+// 6 ore della fascia) con la sua attendibilità (rainReliability()); null dove mancano dati.
 function slotChances(day, hourIdx) {
+  const now = Date.parse(`${localNowIso(state.data.utcOffset)}Z`);
   return SLOTS.map((s) => {
     const idx = slotIndices(day, s, hourIdx);
     if (idx.some((i) => i == null)) return null;
-    return windowRainChance(idx.map((i) => ({ stamp: state.data.hourly.time[i], weight: 1, i })));
+    const x = windowRainChance(idx.map((i) => ({ stamp: state.data.hourly.time[i], weight: 1, i })));
+    // Modelli (anche quelli non mostrati e di supporto) che vedono pioggia nella fascia
+    const sums = [...MODELS, ...SUPPORT_MODELS].map((m) => {
+      const p = state.data.hourly.models[m.key]?.precipitation;
+      return !p || idx.some((i) => p[i] == null) ? null : idx.reduce((a, i) => a + p[i], 0);
+    }).filter((v) => v != null);
+    const wet = sums.filter((v) => v >= VERDICT_WET_MM).length;
+    const leadH = (Date.parse(`${day}T${String(s.from).padStart(2, '0')}:00Z`) - now) / 3600000;
+    return { ...x, rel: rainReliability(x, wet, sums.length, leadH) };
   });
 }
+
+// --- Attendibilità della probabilità di pioggia (fasce) ---
+// Quanto ci si può fidare della probabilità, oltre al suo valore: punti di sfiducia da
+// - accordo tra gli ensemble: distanza tra la quota più alta e la più bassa oltre
+//   REL_SPREAD[0] punti → 1, oltre REL_SPREAD[1] → 2, oltre REL_SPREAD[2] → 3 (da sola "bassa");
+//   un solo ensemble (niente confronto) → 1;
+// - accordo con i modelli: probabilità ≥ REL_POP_HIGH% e nessun modello vede pioggia, o
+//   < REL_POP_LOW% e la maggioranza la vede → 1;
+// - distanza nel tempo: inizio della fascia oltre REL_LEAD_H[0] ore → 1, oltre REL_LEAD_H[1] → 2.
+// 0 punti = alta · 1–2 = media · 3 o più = bassa. Sotto REL_EDGE[0]% o sopra REL_EDGE[1]%,
+// senza contrasto con i modelli, sempre "alta": lì un disaccordo di pochi punti non cambia il
+// senso. Spiegata in info.html (#attendibilita-pioggia).
+const REL_SPREAD = [20, 40, 60];
+const REL_POP_HIGH = 60;
+const REL_POP_LOW = 20;
+const REL_LEAD_H = [48, 96];
+const REL_EDGE = [10, 90];
+const REL_WORDS = { alta: 'alta', media: 'media', bassa: 'bassa' };
+
+function rainReliability(x, wet, total, leadH) {
+  if (!x?.popExact || x.pop == null) return null; // stima di Open-Meteo: niente attendibilità
+  let pts = 0;
+  const why = [], ok = [];
+  const quotas = x.parts.map((p) => Math.round((100 * p.wet) / p.total));
+  if (quotas.length >= 2) {
+    const lo = Math.min(...quotas), hi = Math.max(...quotas), spread = hi - lo;
+    if (spread > REL_SPREAD[2]) { pts += 3; why.push(`Ensemble molto distanti (${lo}–${hi}%: ${spread} punti)`); }
+    else if (spread > REL_SPREAD[1]) { pts += 2; why.push(`Ensemble distanti (${lo}–${hi}%: ${spread} punti)`); }
+    else if (spread > REL_SPREAD[0]) { pts += 1; why.push(`Ensemble abbastanza distanti (${lo}–${hi}%: ${spread} punti)`); }
+    else ok.push(`Ensemble concordi (${lo}–${hi}%)`);
+  } else {
+    pts += 1;
+    why.push(`Un solo ensemble (${x.parts[0].model}): niente confronto`);
+  }
+  let conflict = false;
+  if (total) {
+    if (x.pop >= REL_POP_HIGH && wet === 0) {
+      conflict = true;
+      why.push(`Probabilità alta, ma nessuno dei ${total} modelli vede pioggia`);
+    } else if (x.pop < REL_POP_LOW && wet > total / 2) {
+      conflict = true;
+      why.push(`Probabilità bassa, ma ${wet} modelli su ${total} vedono pioggia`);
+    } else {
+      const seen = wet === 0 ? `nessuno dei ${total} modelli vede pioggia` : wet === total ? `tutti i ${total} modelli vedono pioggia`
+        : `${wet} modell${wet === 1 ? 'o' : 'i'} su ${total} ved${wet === 1 ? 'e' : 'ono'} pioggia`;
+      ok.push(`${seen[0].toUpperCase()}${seen.slice(1)}: coerente con la probabilità`);
+    }
+    if (conflict) pts += 1;
+  }
+  if (leadH > REL_LEAD_H[1]) { pts += 2; why.push('Oltre 4 giorni: previsione meno affidabile'); }
+  else if (leadH > REL_LEAD_H[0]) { pts += 1; why.push('Oltre 2 giorni: meno ensemble e orario approssimato'); }
+  let level = pts === 0 ? 'alta' : pts <= 2 ? 'media' : 'bassa';
+  if (!conflict && (x.pop < REL_EDGE[0] || x.pop > REL_EDGE[1])) {
+    level = 'alta';
+    if (why.length) ok.push(`Probabilità ${x.pop < REL_EDGE[0] ? 'molto bassa' : 'molto alta'}: i disaccordi non ne cambiano il senso`);
+  }
+  return { level, why, ok };
+}
+
+// Sezione del dettaglio con i motivi dell'attendibilità.
+const tipRel = (rel) => (rel
+  ? `<div class="tp-rel"><span>Perché attendibilità ${REL_WORDS[rel.level]}</span><ul>${rel.why.map((w) => `<li>${esc(w)}</li>`).join('')}${rel.ok.map((w) => `<li class="ok">${esc(w)}</li>`).join('')}</ul></div>`
+  : '');
 
 // Ore di confine tra le fasce (6, 12, 18) sulla linea tratteggiata, sopra i separatori.
 const slotTicks = () => SLOTS.slice(1).map((s, k) =>
