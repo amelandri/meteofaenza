@@ -131,6 +131,55 @@ def compose_forecast(conn, now_ms):
     return body, etag
 
 
+# Ultima pioggia misurata dalla centralina: istante dell'ultima lettura con mm in aumento
+# (verify.rain_step(), che riconosce l'azzeramento all'01:00). Tenuta in memoria: a ogni
+# nuova lettura si guardano solo le letture nuove; la prima volta si va a ritroso a blocchi di
+# LAST_RAIN_STEP_DAYS giorni fino a trovarla (al massimo tutto lo storico).
+LAST_RAIN_STEP_DAYS = 7
+_last_rain = {'checked': None, 'time': None}
+_last_rain_lock = threading.Lock()
+
+
+def _rain_times(readings):
+    """Istanti delle letture in cui i mm sono aumentati rispetto alla precedente."""
+    return [b['time'] for a, b in zip(readings, readings[1:]) if verify.rain_step(a, b) > 0.05]
+
+
+def last_rain(conn, st, tz):
+    """{day: data locale, time: ms, mm: mm caduti quel giorno} dell'ultima pioggia, o None."""
+    with _last_rain_lock:
+        now = st['time']
+        if _last_rain['checked'] is not None and _last_rain['checked'] <= now:
+            # letture nuove dall'ultimo controllo (con la precedente, per il primo passo)
+            new = db.station_between(conn, _last_rain['checked'], now)
+            times = _rain_times(new)
+            if times:
+                _last_rain['time'] = times[-1]
+        else:
+            _last_rain['time'] = None
+            end = now
+            oldest = now - config.STATION_KEEP_DAYS * 86400000
+            while end > oldest and _last_rain['time'] is None:
+                start = end - LAST_RAIN_STEP_DAYS * 86400000
+                chunk = db.station_between(conn, start, end)
+                times = _rain_times(chunk)
+                if times:
+                    _last_rain['time'] = times[-1]
+                # il blocco successivo (più vecchio) si sovrappone di un'ora a questo, così il
+                # passo tra l'ultima lettura di quello e la prima di questo non si perde
+                end = start + 3600000
+        _last_rain['checked'] = now
+        t = _last_rain['time']
+    if t is None:
+        return None
+    # mm caduti in quel giorno locale (dalle letture del giorno, anche quella di mezzanotte)
+    day = datetime.fromtimestamp(t / 1000, tz)
+    start = int(day.replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000)
+    rs = db.station_between(conn, start - verify.NEAR_MS, start + 86400000)
+    mm = sum(verify.rain_step(a, b) for a, b in zip(rs, rs[1:]) if b['time'] > start)
+    return {'day': day.strftime('%Y-%m-%d'), 'time': t, 'mm': round(mm, 1)}
+
+
 def compose_station(conn):
     """Ultima misura con le letture delle ultime 2 ore (rainLog: istante, data locale, mm
     di oggi), da cui il frontend capisce se Sta piovendo."""
@@ -170,6 +219,7 @@ def compose_station(conn):
     # nuvolosità osservata (radiazione della centralina o METAR), per correggere le previsioni
     # di oggi nel browser (cloudFix() in js/app.js)
     st['clouds'] = clouds.estimate(conn, st)
+    st['lastRain'] = last_rain(conn, st, tz)  # ultimo giorno di pioggia (box della centralina)
     log = [
         {'t': r['time'], 'day': datetime.fromtimestamp(r['time'] / 1000, tz).strftime('%Y-%m-%d'),
          'mm': cum_mm.get(r['time'], r.get('rainToday'))}

@@ -312,6 +312,7 @@ button { font: inherit; color: inherit; }
   .obs-main { flex: 1 1 0; min-width: 0; margin: 0; padding: 0; border-bottom: 0; } /* qui separa la linea a sinistra dei dati */
   .obs-mm { margin-left: 0; height: auto; row-gap: 6px; } /* qui di solito va sotto la temperatura */
   .obs-stats { flex: 0 1 auto; grid-template-columns: repeat(2, auto); column-gap: 20px; padding-left: 20px; border-left: 1px solid var(--slot-sep); }
+  .obs-totals { grid-template-columns: repeat(3, auto); justify-content: start; column-gap: 28px; } /* pioggia del mese, dell'anno, ultima pioggia */
 }
 .stale { margin: 0; color: var(--mid); font-weight: 600; }
 .na { color: var(--muted); }

@@ -566,6 +566,52 @@ class BackupTest(unittest.TestCase):
             config.DB_PATH, config.BACKUP_DIR, config.BACKUP_KEEP = old
 
 
+class LastRainTest(unittest.TestCase):
+    """Ultima pioggia della centralina (api.last_rain()): ricerca a ritroso e aggiornamento."""
+
+    def test_last_rain(self):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        old = config.DB_PATH
+        config.DB_PATH = Path(_tmp.name) / 'lastrain.db'
+        conn = db.connect()
+        try:
+            tz = ZoneInfo(config.TIMEZONE)
+            t0 = int(datetime(2026, 10, 1, 0, 0, tzinfo=tz).timestamp() * 1000)
+            step = 10 * 60000
+
+            def put(t, mm):
+                db.put_station(conn, {'time': t, 'fetchedAt': t, 'temperature': 15, 'rainToday': mm})
+            # 1 ottobre: 0 → 1,2 → 3,0 mm tra le 10 e le 11 (ora legale: la centralina azzera all'01:00)
+            for k in range(0, 6 * 24 * 12):  # 12 giorni di letture ogni 10 minuti
+                t = t0 + k * step
+                local = datetime.fromtimestamp(t / 1000, tz)
+                mm = 0.0
+                if local.day == 1 and local.hour >= 10:
+                    mm = 1.2 if local.hour == 10 and local.minute < 30 else 3.0
+                    if local.hour == 10 and local.minute == 0:
+                        mm = 0.0
+                put(t, mm)
+            st = db.latest_station(conn)
+            api._last_rain.update(checked=None, time=None)
+            r = api.last_rain(conn, st, tz)
+            self.assertEqual((r['day'], r['mm']), ('2026-10-01', 3.0))
+            # piove di nuovo: la lettura nuova aggiorna senza ricerca a ritroso
+            t = st['time'] + step
+            put(t, 0.4)
+            r = api.last_rain(conn, db.latest_station(conn), tz)
+            self.assertEqual(r['day'], datetime.fromtimestamp(t / 1000, tz).strftime('%Y-%m-%d'))
+            # mai piovuto: None
+            api._last_rain.update(checked=None, time=None)
+            conn.execute('UPDATE station_readings SET data = json_set(data, "$.rainToday", 0)')
+            conn.commit()
+            self.assertIsNone(api.last_rain(conn, db.latest_station(conn), tz))
+        finally:
+            api._last_rain.update(checked=None, time=None)
+            conn.close()
+            config.DB_PATH = old
+
+
 class CloudsTest(unittest.TestCase):
     """Nuvolosità osservata (server/clouds.py): METAR, radiazione della centralina, stima."""
 

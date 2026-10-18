@@ -464,7 +464,8 @@ function renderObservation() {
   // Totali di pioggia: un decimale, senza decimali da 100 mm (es. "430 mm" per l'anno)
   const rainTotal = (v) => (v != null && sameDay ? `${fmt(v, v >= 100 ? 0 : 1)} mm` : '');
   // in una riga a parte sotto gli altri dati, separata dalla linea bianca
-  const totals = stat('Pioggia mese', rainTotal(st.rainMonth)) + stat('Pioggia anno', rainTotal(st.rainYear));
+  const totals = stat('Pioggia mese', rainTotal(st.rainMonth)) + stat('Pioggia anno', rainTotal(st.rainYear))
+    + stat('Ultima pioggia', lastRainText(st.lastRain, today));
   const rn = stationRainNow();
   // Nell'intestazione del box, a destra di "Centralina". Stessa icona "pioggia" delle
   // previsioni (codice WMO 63), con lo stesso dettaglio del testo come titolo
@@ -491,6 +492,17 @@ function renderObservation() {
       ${radarRow(timezone, utcOffset)}
     </article>
   </div>`;
+}
+
+// Ultimo giorno di pioggia misurata (station.lastRain, calcolato dal server sulle letture
+// salvate): "oggi", "ieri · 3,0 mm" o "mar 14/10 · 4 giorni fa"; i mm di quel giorno nel title.
+function lastRainText(lr, today) {
+  if (!lr?.day) return '';
+  const days = Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${lr.day}T00:00:00Z`)) / 86400000);
+  const mm = `${fmt(lr.mm, 1)} mm`;
+  if (days <= 0) return 'oggi';
+  if (days === 1) return `ieri <small>${mm}</small>`;
+  return `<span title="${esc(mm)}">${dayTitle(`${lr.day}T00:00`, today).date}</span> <small>${days} giorni fa</small>`;
 }
 
 // Icona "i" accanto a "Centralina": al clic il dettaglio sulla provenienza dei dati, nello

@@ -188,6 +188,11 @@ def latest_station(conn):
     return json.loads(row['data']) if row else None
 
 
+def station_between(conn, from_ms, to_ms):
+    rows = conn.execute('SELECT data FROM station_readings WHERE time >= ? AND time <= ? ORDER BY time', (from_ms, to_ms))
+    return [json.loads(r['data']) for r in rows]
+
+
 def station_since(conn, since_ms):
     rows = conn.execute('SELECT data FROM station_readings WHERE time >= ? ORDER BY time', (since_ms,))
     return [json.loads(r['data']) for r in rows]
