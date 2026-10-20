@@ -1682,7 +1682,7 @@ function bindControls() {
     // Chiave stabile dell'elemento (il contenuto può cambiare a ogni lettura della centralina).
     const key = el.dataset.tipKey || el.dataset.tip;
     if (!$('#toast').hidden && $('#toast').dataset.source === key) hideToast();
-    else toast(tipContent(el), 9000, key, true);
+    else toast(tipContent(el), key, true);
   };
   for (const id of ['#now', '#daily', '#chart', '#hourly-body']) $(id).addEventListener('click', showTip);
   // Il riquadro segue l'elemento scorrendo la pagina; si chiude se l'elemento esce dallo
@@ -1765,10 +1765,11 @@ function bindControls() {
 
 // --- Notifiche --------------------------------------------------------------------------
 
-let toastTimer;
+// Gli avvisi non si chiudono da soli: solo toccandoli, toccando un altro punto della pagina o
+// (dettagli) con un secondo tocco sull'elemento che li ha aperti.
 // `source` identifica chi ha aperto l'avviso (es. il motivo della concordanza), per poterlo
 // richiudere con un secondo tap sullo stesso elemento.
-function toast(msg, ms = 4000, source = '', html = false) {
+function toast(msg, source = '', html = false) {
   const el = $('#toast');
   if (html) el.innerHTML = msg; // contenuto generato dall'app (testi esterni già passati da esc())
   else el.textContent = msg;
@@ -1776,8 +1777,6 @@ function toast(msg, ms = 4000, source = '', html = false) {
   el.classList.remove('leaving'); // riaperto mentre usciva: torna a entrare dal fondo
   el.dataset.source = source;
   el.hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(hideToast, ms);
 }
 
 // Riquadro del dettaglio al clic (solo con mouse o trackpad): stesso contenuto dell'avviso,
@@ -1826,7 +1825,6 @@ function hideTipCard() {
 // animazioni lo chiudono subito.
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 function hideToast() {
-  clearTimeout(toastTimer);
   const el = $('#toast');
   el.dataset.source = '';
   if (el.hidden || el.classList.contains('leaving')) return;

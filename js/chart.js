@@ -304,8 +304,8 @@ export function renderChart(el, opts) {
   sunTip.className = 'sun-pill tip-up chart-sun-tip';
   sunTip.hidden = true;
   el.appendChild(sunTip);
-  let sunTimer, sunFor = null;
-  const hideSun = () => { clearTimeout(sunTimer); sunTip.hidden = true; sunFor = null; };
+  let sunFor = null;
+  const hideSun = () => { sunTip.hidden = true; sunFor = null; };
   const showSun = (g) => {
     const scale = svg.getBoundingClientRect().width / W;
     const { kind, time } = g.dataset;
@@ -328,8 +328,13 @@ export function renderChart(el, opts) {
       if (e.pointerType === 'mouse' || (e.detail && matchMedia('(hover: hover)').matches)) return;
       if (sunFor === g && !sunTip.hidden) { hideSun(); return; }
       showSun(g);
-      clearTimeout(sunTimer);
-      sunTimer = setTimeout(hideSun, 4000);
+      // Resta aperta finché non si tocca di nuovo il pallino o un altro punto della pagina
+      // (niente chiusura a tempo).
+      const outside = (ev) => {
+        document.removeEventListener('click', outside, true);
+        if (!ev.target.closest?.('.sun-mark-g')) hideSun(); // un pallino lo gestisce il suo clic
+      };
+      document.addEventListener('click', outside, true);
     });
   }
 }
