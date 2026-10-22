@@ -1015,6 +1015,7 @@ button { font: inherit; color: inherit; }
 
 /* --- Pagina Verifica (verify.html, js/verify.js) ----------------------------------- */
 
+.verify .info-lead { max-width: none; } /* la pagina è larga: frase su una riga */
 .verify-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 32px; }
 .verify-controls .info-note { flex-basis: 100%; margin: 0; }
 /* Da 900 px: riepilogo a sinistra, affidabilità e legenda a destra; sotto i giorni, due per
