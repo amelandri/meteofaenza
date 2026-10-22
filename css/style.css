@@ -1017,19 +1017,27 @@ button { font: inherit; color: inherit; }
 
 .verify-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 32px; }
 .verify-controls .info-note { flex-basis: 100%; margin: 0; }
-/* Legenda degli esiti nella scheda dei controlli: a destra su schermi larghi, una voce per riga */
-.verify-controls .vd-legend { list-style: none; padding: 0; margin: 0 0 0 auto; display: grid; gap: 2px; font-size: .8rem; color: var(--muted); }
-.verify-controls .vd-legend li { display: flex; align-items: center; }
-.verify-controls .vd-legend .o-mark { display: inline-flex; justify-content: center; gap: 1px; min-width: 46px; margin: 0 4px 0 0; } /* spunta e icone in colonna */
-@media (max-width: 760px) { .verify-controls .vd-legend { margin-left: 0; flex-basis: 100%; } }
-/* Due colonne da 1100 px: riepilogo a sinistra, fisso sotto la barra in alto mentre si
-   scorrono i giorni (se è più alto dello schermo scorre con la pagina); giorni a destra. */
-.verify-layout { display: grid; gap: 0 16px; }
-#verify-summary { container: vsum / inline-size; }
-@media (min-width: 1100px) {
-  .verify-layout { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); align-items: start; }
-  .verify-side { position: sticky; top: 76px; }
+/* Da 900 px: riepilogo a sinistra, affidabilità e legenda a destra; sotto i giorni, due per
+   riga nell'ordine dell'API (dal più recente: 21 | 20, 19 | 18…). Sotto, tutto in colonna. */
+.verify-top, .verify-right, .verify-days { display: grid; gap: 16px; align-items: start; }
+.verify-top { margin-bottom: 16px; }
+.verify-top > .card, .verify-right > .card, .verify-days > .card { margin: 0; min-width: 0; }
+#verify-summary, #verify-reliability { container: vsum / inline-size; }
+@media (min-width: 900px) {
+  .verify-top, .verify-days { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+@media (max-width: 560px) {
+  .verify-top, .verify-right, .verify-days { gap: 10px; }
+  .verify-top { margin-bottom: 10px; }
+}
+.vd-sec-head { margin: 8px 0 12px; padding-top: 16px; border-top: 1px solid var(--border); }
+.vd-sec-head h2 { margin: 0; font-size: 1.15rem; }
+.vd-sec-head p { margin: 2px 0 0; color: var(--muted); font-size: .86rem; }
+/* Legenda degli esiti: una riga di voci brevi (va a capo da sola) */
+.vd-legend-card h2 { margin: 0 0 8px; }
+.verify .vd-legend { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: .82rem; color: var(--muted); }
+.verify .vd-legend li { display: inline-flex; align-items: center; white-space: nowrap; margin: 0; }
+.vd-legend .o-mark { display: inline-flex; gap: 1px; margin: 0 5px 0 0; }
 .vc-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .vc-row .field-label { margin: 0; min-width: 76px; }
 .verify-controls .theme-seg { margin-top: 0; }

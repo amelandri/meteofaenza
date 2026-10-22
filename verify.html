@@ -70,20 +70,31 @@
           <button type="button" data-days="90">90 giorni</button>
         </div>
       </div>
-      <ul class="vd-legend" id="verify-legend" aria-label="Legenda degli esiti"></ul>
       <p class="info-note" id="verify-note"></p>
     </section>
 
-    <!-- Su desktop due colonne: riepilogo a sinistra (resta visibile scorrendo), giorni a destra -->
-    <div class="verify-layout">
-      <aside class="verify-side">
-        <section class="card" id="verify-summary" hidden></section>
-      </aside>
-      <div class="verify-main">
-        <p id="verify-status" class="verify-status" role="status">Caricamento…</p>
-        <div id="verify-days"></div>
+    <p id="verify-status" class="verify-status" role="status">Caricamento…</p>
+
+    <!-- Da 900 px due colonne: riepilogo a sinistra, affidabilità e legenda a destra -->
+    <div class="verify-top" id="verify-top" hidden>
+      <section class="card" id="verify-summary"></section>
+      <div class="verify-right">
+        <section class="card" id="verify-reliability"></section>
+        <section class="card vd-legend-card">
+          <h2>Legenda degli esiti</h2>
+          <ul class="vd-legend" id="verify-legend" aria-label="Legenda degli esiti"></ul>
+        </section>
       </div>
     </div>
+
+    <!-- Giorni dal più recente, da 900 px due per riga (ordine per righe) -->
+    <section class="verify-days-sec" id="verify-days-sec" hidden>
+      <div class="vd-sec-head">
+        <h2>Giorno per giorno</h2>
+        <p>Pioggia misurata e prevista in ogni fascia di 6 ore, dal giorno più recente.</p>
+      </div>
+      <div class="verify-days" id="verify-days"></div>
+    </section>
   </main>
 </body>
 </html>

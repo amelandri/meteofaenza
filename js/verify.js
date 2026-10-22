@@ -116,11 +116,14 @@ const when = (ms) => { const t = localDateTime(ms, TZ, 0); return `${t.day} alle
 
 function renderSummary(sum) {
   const el = $('#verify-summary');
-  el.hidden = false;
+  const rel = $('#verify-reliability');
   if (!sum.full) {
     el.innerHTML = `<h2>Riepilogo</h2><p class="info-note">Nessun giorno completo nel periodo: le misure della centralina e le previsioni si raccolgono da quando il server è attivo, quindi la verifica si riempie giorno dopo giorno.</p>`;
+    rel.hidden = true;
     return;
   }
+  rel.hidden = !sum.brier.n;
+  rel.innerHTML = `<h2>Affidabilità della probabilità</h2>${reliabilityBlock(sum.brier, sum.bins)}`;
   // i modelli di supporto solo se hanno almeno una fascia verificata (coprono ~48 ore)
   const counted = (m) => Object.values(sum.models[m.key].counts).some(Boolean);
   const shown = verifyModels().filter((m) => MODELS.includes(m) || counted(m));
@@ -146,9 +149,7 @@ function renderSummary(sum) {
         ${row('Errore medio sulla massima', (s) => err(s.tmaxErr, '°', 1), 'in media: + troppo caldo, − troppo fresco')}
         ${row('Errore medio sulla minima', (s) => err(s.tminErr, '°', 1))}
       </tbody>
-    </table></div>
-    <h3>Quanto ci si può fidare della probabilità</h3>
-    ${reliabilityBlock(sum.brier, sum.bins)}`;
+    </table></div>`;
 }
 
 // Giudizio di un gruppo della tabella per probabilità: la quota di fasce con pioggia cade nel
@@ -317,11 +318,14 @@ function render() {
   const status = $('#verify-status');
   if (!data.days.length) {
     status.textContent = 'Nessuna misura nel periodo: la verifica si riempie giorno dopo giorno da quando il server è attivo.';
-    $('#verify-summary').hidden = true;
-    $('#verify-days').innerHTML = '';
+    status.hidden = false;
+    $('#verify-top').hidden = true;
+    $('#verify-days-sec').hidden = true;
     return;
   }
   status.hidden = true;
+  $('#verify-top').hidden = false;
+  $('#verify-days-sec').hidden = false;
   for (const d of data.days) d.wetMm = data.wetMm;
   renderSummary(summarize(data.days));
   const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: TZ });
@@ -365,12 +369,12 @@ $('#days-seg').addEventListener('click', (e) => {
   load();
 });
 
-// Legenda degli esiti nella scheda dei controlli (una voce per simbolo).
+// Legenda degli esiti sotto l'affidabilità: una riga di voci brevi, la spiegazione nel title.
 $('#verify-legend').innerHTML = [
-  `<li class="o-good"><span class="o-mark">✓</span>previsione corretta</li>`,
-  `<li class="o-bad"><span class="o-mark">${outcomeMark(OUTCOME.false)}</span>pioggia prevista ma non caduta</li>`,
-  `<li class="o-mid"><span class="o-mark">${outcomeMark(OUTCOME.miss)}</span>pioggia caduta ma non prevista</li>`,
-  `<li class="q-off"><span class="o-mark q-pair">${outcomeMark(QTY.more)}${outcomeMark(QTY.less)}</span>caduta molta più / meno pioggia del previsto</li>`,
+  `<li class="o-good" title="previsione corretta"><span class="o-mark">✓</span>corretta</li>`,
+  `<li class="o-bad" title="pioggia prevista ma non caduta"><span class="o-mark">${outcomeMark(OUTCOME.false)}</span>falso allarme</li>`,
+  `<li class="o-mid" title="pioggia caduta ma non prevista"><span class="o-mark">${outcomeMark(OUTCOME.miss)}</span>non prevista</li>`,
+  `<li class="q-off" title="caduta molta più / meno pioggia del previsto"><span class="o-mark q-pair">${outcomeMark(QTY.more)}${outcomeMark(QTY.less)}</span>più / meno pioggia</li>`,
 ].join('');
 
 syncControls();
