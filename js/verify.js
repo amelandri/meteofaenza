@@ -43,7 +43,7 @@ const $ = (sel) => document.querySelector(sel);
 const settings = store.getSettings();
 const state = {
   lead: [1, 2].includes(settings.verifyLead) ? settings.verifyLead : 1,
-  days: [7, 30].includes(settings.verifyDays) ? settings.verifyDays : 7,
+  days: store.PREF_VALUES.verifyDays.includes(settings.verifyDays) ? settings.verifyDays : 7,
   data: null,
 };
 const shownModels = () => {
@@ -191,7 +191,7 @@ function reliabilityJudge(b) {
     word = 'Pochi dati';
     text = skill == null && b.rained
       ? `Ha piovuto in tutte le ${b.n} fasce del periodo: non c'è niente da distinguere.`
-      : `Nel periodo ha piovuto in ${b.rained} ${b.rained === 1 ? 'fascia' : 'fasce'} su ${b.n}: troppo poche per un giudizio. Meglio guardare 30 giorni o un periodo più piovoso.`;
+      : `Nel periodo ha piovuto in ${b.rained} ${b.rained === 1 ? 'fascia' : 'fasce'} su ${b.n}: troppo poche per un giudizio. Meglio scegliere un periodo più lungo.`;
   } else if (skill >= VERDICT_GOOD) {
     level = 'good'; word = 'Buona';
     text = 'La probabilità distingue bene le fasce con pioggia da quelle asciutte.';
@@ -384,7 +384,7 @@ let shownKey = store.getSettings().models;
 function applyStoredSettings() {
   const s = store.getSettings();
   const lead = [1, 2].includes(s.verifyLead) ? s.verifyLead : 1;
-  const days = [7, 30].includes(s.verifyDays) ? s.verifyDays : 7;
+  const days = store.PREF_VALUES.verifyDays.includes(s.verifyDays) ? s.verifyDays : 7;
   if (lead !== state.lead || days !== state.days) {
     Object.assign(state, { lead, days });
     syncControls();

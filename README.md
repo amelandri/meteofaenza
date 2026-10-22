@@ -38,7 +38,7 @@ Concordanza, probabilità delle fasce, caselle della striscia, ore del dettaglio
 
 ### Verifica
 
-Per i giorni passati, pioggia e temperature previste la sera prima alle 23 (o due giorni prima) confrontate con quelle misurate dalla centralina: per ogni fascia e per il giorno intero, un esito per ogni modello (anche ICON-D2 e AROME) — corretta, falso allarme, pioggia non prevista, quantità molto diversa. In cima un riepilogo per modello sul periodo scelto (7 o 30 giorni): fasce previste correttamente, falsi allarmi, errori medi su pioggia e temperature, affidabilità della probabilità e punteggio di Brier.
+Per i giorni passati, pioggia e temperature previste la sera prima alle 23 (o due giorni prima) confrontate con quelle misurate dalla centralina: per ogni fascia e per il giorno intero, un esito per ogni modello (anche ICON-D2 e AROME) — corretta, falso allarme, pioggia non prevista, quantità molto diversa. In cima un riepilogo per modello sul periodo scelto (7, 30, 60 o 90 giorni): fasce previste correttamente, falsi allarmi, errori medi su pioggia e temperature, affidabilità della probabilità e punteggio di Brier.
 
 ### Impostazioni
 

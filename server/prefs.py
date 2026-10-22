@@ -21,7 +21,7 @@ PREF_VALUES = {
     'radarOpen': [False, True],
     'riversOpen': [False, True],
     'verifyLead': [1, 2],
-    'verifyDays': [7, 30],
+    'verifyDays': [7, 30, 60, 90],
 }
 
 

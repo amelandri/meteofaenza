@@ -78,7 +78,7 @@ export const PREF_VALUES = {
   radarOpen: [false, true],
   riversOpen: [false, true],
   verifyLead: [1, 2],
-  verifyDays: [7, 30],
+  verifyDays: [7, 30, 60, 90],
 };
 // Confronto stretto: un oggetto, un array o "true" al posto di true non passano.
 export const validPref = (key, v) => Object.prototype.hasOwnProperty.call(PREF_VALUES, key) && PREF_VALUES[key].includes(v);
