@@ -6,6 +6,8 @@
                                             del periodo (giornaliero)
   python3 -m server.jobs radar    [--force] radar della Protezione Civile (ogni 5 minuti)
   python3 -m server.jobs rivers           livelli di Lamone e Marzeno (ogni 15 minuti)
+  python3 -m server.jobs alerts [--force] allerte della zona di Faenza (ogni 15 minuti; --force
+                                            anche nella mezz'ora dopo mezzanotte)
   python3 -m server.jobs verify   [--force] solo gli esiti della verifica (a mano; --force li
                                             rielabora tutti dove ci sono ancora le misure)
   python3 -m server.jobs backup             copia del database (ogni notte)
@@ -26,7 +28,7 @@ import traceback
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from . import auth, clouds, config, db, radar, rivers, sources, verify
+from . import alerts, auth, clouds, config, db, radar, rivers, sources, verify
 
 
 def _locked(name):
@@ -169,7 +171,7 @@ def job_backup(conn, force=False):
 
 
 JOBS = {'station': job_station, 'forecast': job_forecast, 'normals': job_normals, 'radar': job_radar, 'rivers': rivers.run,
-        'clouds': clouds.run,
+        'clouds': clouds.run, 'alerts': alerts.run,
         'verify': job_verify, 'backup': job_backup}
 # Esclusi da "all" (prima installazione): non scaricano dati.
 NOT_IN_ALL = {'backup', 'verify'}

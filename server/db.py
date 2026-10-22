@@ -128,6 +128,13 @@ CREATE TABLE IF NOT EXISTS radar_obs (
   time       INTEGER PRIMARY KEY,
   mmh        REAL                  -- media entro 2 km, NULL fuori copertura
 );
+-- Allerte della zona di Faenza (server/alerts.py), un giorno per riga: livello di ogni fenomeno
+-- (JSON {fenomeno: 0…3}) dell'ultimo controllo; storico come la centralina.
+CREATE TABLE IF NOT EXISTS alert_days (
+  day        TEXT PRIMARY KEY,     -- 'YYYY-MM-DD' locale
+  fetched_at INTEGER NOT NULL,     -- ms
+  data       TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS radar_nowcast (
   issued     INTEGER NOT NULL,     -- ms, istante dell'immagine da cui parte la stima
   lead       INTEGER NOT NULL,     -- minuti
@@ -236,6 +243,8 @@ def prune_archives(conn):
     # esiti della verifica: storico più lungo (giorni 'YYYY-MM-DD' nel fuso della località)
     first = (datetime.now(ZoneInfo(config.TIMEZONE)).date() - timedelta(days=config.VERIFY_KEEP_DAYS)).isoformat()
     conn.execute('DELETE FROM verify_days WHERE day < ?', (first,))
+    keep = (datetime.now(ZoneInfo(config.TIMEZONE)).date() - timedelta(days=config.STATION_KEEP_DAYS)).isoformat()
+    conn.execute('DELETE FROM alert_days WHERE day < ?', (keep,))
     conn.commit()
 
 
@@ -247,7 +256,7 @@ def log(conn, job, ok, detail=''):
 def last_logs(conn):
     """Ultimo esito di ogni job e ultimo successo."""
     out = {}
-    for job in ('station', 'forecast', 'ensemble', 'normals', 'radar', 'rivers', 'verify', 'backup'):
+    for job in ('station', 'forecast', 'ensemble', 'normals', 'radar', 'rivers', 'alerts', 'verify', 'backup'):
         last = conn.execute('SELECT at, ok, detail FROM fetch_log WHERE job = ? ORDER BY at DESC LIMIT 1', (job,)).fetchone()
         good = conn.execute('SELECT at FROM fetch_log WHERE job = ? AND ok = 1 ORDER BY at DESC LIMIT 1', (job,)).fetchone()
         out[job] = {

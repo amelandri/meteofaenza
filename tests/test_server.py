@@ -534,6 +534,87 @@ class RiversTest(unittest.TestCase):
             config.DB_PATH = old
 
 
+def _alert_feed(entries):
+    """Feed Atom come quello di Allerta Meteo: entries = [(titolo, aggiornato, riassunto)]."""
+    items = ''.join(
+        f'<entry><title>{t}</title><link href="https://allertameteo.regione.emilia-romagna.it/documents/{i}.pdf"/>'
+        f'<updated>{u}</updated><summary>{s}</summary></entry>' for i, (t, u, s) in enumerate(entries))
+    return f'<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>x</title>{items}</feed>'.encode()
+
+
+class AlertsTest(unittest.TestCase):
+    """Allerte della zona di Faenza (B1): lettura di stato e feed, job e composizione (senza rete)."""
+
+    STATE = [
+        {'area': 'A2', 'eventi': 'idraulica:green,vento:yellow'},
+        {'area': 'B1', 'eventi': 'idraulica:orange,idrogeologica:orange,temporali:yellow,vento:green,'
+                                 'temperature-estreme:green,neve:green,ghiaccio-pioggia-gela:green,stato-mare:white,mareggiate:white'},
+    ]
+
+    def test_parse_state(self):
+        from server import alerts
+        lv = alerts.parse_state(self.STATE)
+        self.assertEqual(lv['idraulica'], 2)
+        self.assertEqual(lv['temporali'], 1)
+        self.assertEqual(lv['vento'], 0)  # giallo solo in A2
+        self.assertNotIn('mareggiate', lv)  # "white": non previsto per la zona
+        self.assertIsNone(alerts.parse_state([{'area': 'C1', 'eventi': 'vento:red'}]))
+        with self.assertRaises(sources.SourceError):
+            alerts.parse_state({'error': 'x'})
+
+    def test_parse_feed(self):
+        from server import alerts
+        feed = alerts.parse_feed(_alert_feed([
+            ('Bollettino di vigilanza 167/2026 valido dalle 00:00 del 23/10/2026: nessuna allerta.',
+             '2026-10-22T11:37:52Z', 'Per venerdì 23 ottobre non si prevedono fenomeni significativi.'),
+            ('Allerta 102/2026 valida dalle 00:00 del 21/10/2026: vento',
+             '2026-10-20T11:48:39Z', 'Allerta +++GIALLA+++ per +++vento+++ nelle province di RA, FC.\n\nVenti di burrasca moderata (62-74 km/h) &amp; mare agitato.'),
+        ]))
+        self.assertEqual([x['kind'] for x in feed], ['vigilanza', 'allerta'])
+        self.assertEqual(feed[0]['start'], '2026-10-23')
+        self.assertEqual(feed[1]['number'], '102/2026')
+        self.assertEqual(feed[1]['issuedAt'], 1792496919000)
+        # tolto il riassunto per province (non riguarda la sola zona di Faenza)
+        self.assertEqual(feed[1]['text'], 'Venti di burrasca moderata (62-74 km/h) & mare agitato.')
+        self.assertTrue(feed[1]['pdf'].endswith('.pdf'))
+
+    def test_run_and_compose(self):
+        from datetime import datetime, timedelta
+        from zoneinfo import ZoneInfo
+        from server import alerts
+        today = datetime.now(ZoneInfo(config.TIMEZONE)).date()
+        dmy = lambda d: d.strftime('%d/%m/%Y')  # noqa: E731
+        old_db, old_get, old_json = config.DB_PATH, sources._get, sources.get_json
+        config.DB_PATH = Path(_tmp.name) / 'alerts.db'
+        calls = []
+        sources.get_json = lambda url, params=None: calls.append(url) or self.STATE
+        try:
+            conn = db.connect()
+            # Bollettino per domani non ancora uscito: si salva solo oggi.
+            sources._get = lambda url, params=None: _alert_feed([
+                (f'Allerta 1/2026 valida dalle 00:00 del {dmy(today)}: piene dei fiumi', '2026-01-01T12:00:00Z', 'Testo.')])
+            alerts.run(conn, force=True)
+            self.assertEqual(calls, [alerts.STATE_URL])
+            d = alerts.compose(conn)
+            self.assertEqual([x['day'] for x in d['days']], [today.isoformat()])
+            day = d['days'][0]
+            self.assertEqual(day['level'], 2)
+            self.assertEqual(day['bulletin']['number'], '1/2026')
+            self.assertEqual([e['key'] for e in day['events']][:3], ['idraulica', 'idrogeologica', 'temporali'])
+            # Uscito il bollettino per domani: anche domani.
+            sources._get = lambda url, params=None: _alert_feed([
+                (f'Bollettino di vigilanza 2/2026 valido dalle 00:00 del {dmy(today + timedelta(days=1))}: nessuna allerta.',
+                 '2026-01-02T12:00:00Z', 'Niente.')])
+            alerts.run(conn, force=True)
+            d = alerts.compose(conn)
+            self.assertEqual(len(d['days']), 2)
+            self.assertEqual(d['days'][1]['bulletin']['kind'], 'vigilanza')
+            self.assertIsNone(d['days'][0]['bulletin'])  # oggi non è più nel feed
+            conn.close()
+        finally:
+            config.DB_PATH, sources._get, sources.get_json = old_db, old_get, old_json
+
+
 class BackupTest(unittest.TestCase):
     """Job backup: copia compressa e leggibile, restano solo le ultime BACKUP_KEEP."""
 

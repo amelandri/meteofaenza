@@ -21,7 +21,8 @@ Il menu in alto è uguale in tutte le pagine (Previsioni, Verifica, Impostazioni
   - massima e minima con lo scarto dalla media del periodo, e quattro fasce di 6 ore (notte, mattina, pomeriggio, sera) con icona, temperatura e pioggia;
   - sotto i due modelli, la probabilità di pioggia di ogni fascia (calcolata dagli ensemble), con un pallino che ne indica l'**attendibilità** (pieno alta, mezzo media, vuoto bassa: accordo tra gli ensemble e con i modelli, distanza nel tempo; motivi nel dettaglio);
   - alba e tramonto (oggi sulla linea dell'intera giornata, con sole o luna all'ora attuale);
-  - un giudizio sulla **concordanza dei modelli** (concordi / lievi differenze / discordi), con il motivo.
+  - un giudizio sulla **concordanza dei modelli** (concordi / lievi differenze / discordi), con il motivo;
+  - le **allerte** della Regione per la zona di Faenza (B1, Allerta Meteo Emilia-Romagna): accanto a "Oggi" o "Domani" una pillola gialla, arancione o rossa con sotto i fenomeni in allerta; al tocco il colore di ogni fenomeno, la descrizione del bollettino e il PDF. Senza allerta non compare nulla.
 - **Andamento orario**: grafico che sovrappone i due modelli per precipitazioni, temperatura, vento, nuvolosità, umidità e pressione, dall'ora attuale, per 24 ore, 72 ore o tutto l'orizzonte. Nelle precipitazioni:
   - barre dei mm di ciascun modello;
   - area azzurra con la **probabilità** di pioggia ora per ora (solo ensemble);
@@ -81,7 +82,7 @@ Lo script mostra sempre quale database sta usando, non ne crea uno nuovo, avvisa
 
 ### Come funziona
 
-La pagina `info.html` spiega modelli, ensemble, calcolo della probabilità, regole del verdetto, fasce e concordanza, centralina, radar, fiumi, medie del periodo, verifica e limiti, con tutte le soglie in chiaro.
+La pagina `info.html` spiega modelli, ensemble, calcolo della probabilità, regole del verdetto, fasce e concordanza, centralina, radar, fiumi, allerte, medie del periodo, verifica e limiti, con tutte le soglie in chiaro.
 
 Tutti gli orari sono nell'ora locale di Faenza.
 
@@ -130,7 +131,7 @@ Tutte richiedono l'accesso (cookie di sessione o token personale; senza: `401`),
 | Percorso | Contenuto |
 |---|---|
 | `api/forecast` | previsioni dei modelli (da ieri alle 23), scenari degli ensemble e metadati dei run |
-| `api/station` | ultima misura della centralina (valori del giorno da mezzanotte), letture delle ultime 2 ore, riepilogo del radar, ultimo giorno di pioggia (`lastRain`: data locale, istante, mm di quel giorno) e nuvolosità osservata (`clouds`: copertura, fonte `sun` o `metar`, `kind` `total` o `min` = solo nubi basse) |
+| `api/station` | ultima misura della centralina (valori del giorno da mezzanotte), letture delle ultime 2 ore, riepilogo del radar, ultimo giorno di pioggia (`lastRain`: data locale, istante, mm di quel giorno) e nuvolosità osservata (`clouds`: copertura, fonte `sun` o `metar`, `kind` `total` o `min` = solo nubi basse) e allerte di oggi e domani della zona B1 (`alerts`: livello 0–3 per fenomeno, bollettino con numero, testo e PDF) |
 | `api/radar` | radar: riepilogo, stima dei prossimi 90 minuti, elenco delle immagini e geometria della cartina (città, costa, confini) |
 | `api/radar/<nome>.png` | immagini dell'animazione (misurate e stimate) |
 | `api/rivers` | livelli di Lamone e Marzeno: soglie, ultimo valore, tendenza e serie di 48 ore per stazione |
@@ -148,7 +149,7 @@ Tutte richiedono l'accesso (cookie di sessione o token personale; senza: `401`),
 
 | Dati | Per quanto |
 |---|---|
-| Letture della centralina, archivio delle previsioni (ogni run, ora per ora) e degli ensemble (quali scenari danno pioggia), livelli dei fiumi, dato radar su Faenza, bollettini METAR | circa 400 giorni |
+| Letture della centralina, archivio delle previsioni (ogni run, ora per ora) e degli ensemble (quali scenari danno pioggia), livelli dei fiumi, allerte della zona di Faenza (un giorno per riga), dato radar su Faenza, bollettini METAR | circa 400 giorni |
 | Esiti della verifica (un record per giorno e per anticipo) | 2 anni, anche dopo che i dati grezzi sono stati tolti |
 | Immagini e ritagli del radar | 3 ore |
 | Utenti (nome, hash della password, ultimo accesso), preferenze e token personali | finché non si eliminano o revocano |
@@ -173,6 +174,7 @@ La regola generale: il **server** fa tutto ciò che richiede fonti esterne, stor
 | Tagliare le previsioni al momento della richiesta ("da ieri alle 23") e allineare gli orari dell'ensemble | `api.py` |
 | Radar: lettura del GeoTIFF, ritaglio attorno a Faenza, calcolo del movimento della pioggia, stima dei prossimi 90 minuti, immagini PNG, riepilogo per la centralina | `radar.py` (numpy, Pillow) |
 | Fiumi: soglie, serie di 48 ore, livello di allerta e tendenza per stazione | `rivers.py` |
+| Allerte: colore della zona B1 per fenomeno (oggi e domani) e feed dei bollettini; solo la zona, non il riassunto per province | `alerts.py` |
 | Nuvolosità osservata: METAR di Forlì e Bologna, quota di sole che passa dalla radiazione della centralina (con taratura automatica), stima per `api/station` | `clouds.py` |
 | Verifica: archivio di ogni run e degli scenari degli ensemble; pioggia oraria misurata dalle letture (con azzeramento della centralina e cambio dell'ora); esiti per fascia e per giorno, probabilità, minime e massime; salvataggio degli esiti dei giorni conclusi | `verify.py` |
 | Accesso: verifica delle password (hash), sessioni e token, blocco dei tentativi ripetuti, controllo su ogni richiesta all'API; creazione degli utenti con uno script | `auth.py`, `api.py`, `users.py` |
@@ -211,7 +213,7 @@ python3 -m server.users add <nome>  # un utente per accedere (nel database data/
 python3 -m server.api --static      # API + file del frontend su http://127.0.0.1:8085
 ```
 
-poi aprire <http://127.0.0.1:8085> e accedere. In locale i job si rilanciano a mano (`python3 -m server.jobs station`, `forecast`, `normals`, `radar`, `rivers`, `clouds`, `verify`, `backup`; `--force` per forzare). Il database è in `data/meteo.db` (variabile `METEO_DB` per cambiarlo), escluso da git. Test: `python3 -m unittest discover -s tests`.
+poi aprire <http://127.0.0.1:8085> e accedere. In locale i job si rilanciano a mano (`python3 -m server.jobs station`, `forecast`, `normals`, `radar`, `rivers`, `alerts`, `clouds`, `verify`, `backup`; `--force` per forzare). Il database è in `data/meteo.db` (variabile `METEO_DB` per cambiarlo), escluso da git. Test: `python3 -m unittest discover -s tests`.
 
 Il service worker funziona solo su `http://localhost`/`127.0.0.1` o in HTTPS.
 
@@ -320,6 +322,7 @@ server/auth.py         accesso: hash delle password, sessioni, token, blocco dei
 server/users.py        script per creare e gestire gli utenti
 server/prefs.py        preferenze degli utenti (api/settings)
 server/rivers.py       livelli dei fiumi
+server/alerts.py       allerte della zona di Faenza (Allerta Meteo Emilia-Romagna)
 server/clouds.py       nuvolosità osservata (radiazione della centralina, METAR)
 server/radar.py        radar: lettura delle immagini, movimento, stima, immagini PNG (numpy, Pillow)
 tests/                 test del server (senza rete)
@@ -335,10 +338,11 @@ deploy/                nginx, systemd, crontab, guida di installazione (INSTALL.
 - Misure: Osservatorio Meteorologico "E. Torricelli", [meteofaenza.it](https://www.meteofaenza.it/).
 - Nuvolosità osservata di notte: bollettini METAR degli aeroporti di Forlì e Bologna, dal [NOAA Aviation Weather Center](https://aviationweather.gov/).
 - Livelli dei fiumi: [ARPAE Emilia-Romagna – Allerta Meteo](https://allertameteo.regione.emilia-romagna.it/) (API del portale, non documentata come servizio pubblico).
+- Allerte: [Allerta Meteo Emilia-Romagna](https://allertameteo.regione.emilia-romagna.it/) (ARPAE e Agenzia regionale per la sicurezza territoriale e la protezione civile): stato delle zone di allerta (stessa API dei fiumi, non documentata) e feed Atom dei bollettini.
 - Radar: [Dipartimento della Protezione Civile](https://radar.protezionecivile.it/), licenza CC BY-SA 4.0 (con la stessa licenza le immagini radar prodotte dall'app). Costa nell'immagine: Natural Earth (dominio pubblico); confini di regione: ISTAT (CC BY, tramite openpolis/geojson-italy).
 
 Nota tecnica sulla centralina: il suo file dati è un piccolo file JavaScript con le variabili delle misure. Lo legge il server, che ne estrae i valori senza eseguirlo; il browser non lo carica.
 
 ## Privacy
 
-Oltre ai dati meteo (previsioni, misure della centralina, medie, radar, livelli dei fiumi, esiti della verifica), il server conserva solo i dati di accesso: nome utente, hash della password (non reversibile), data dell'ultimo accesso hash dei token di sessione e personali, e le preferenze di visualizzazione (tema, modelli mostrati, grafico, sezioni, verifica). Nel `localStorage` del browser restano solo copie per l'uso offline (preferenze, previsioni al massimo di un giorno prima, ultima misura), cancellate quando si esce. Come ogni server web, nginx registra nei suoi log gli indirizzi IP delle richieste.
+Oltre ai dati meteo (previsioni, misure della centralina, medie, radar, livelli dei fiumi, allerte, esiti della verifica), il server conserva solo i dati di accesso: nome utente, hash della password (non reversibile), data dell'ultimo accesso hash dei token di sessione e personali, e le preferenze di visualizzazione (tema, modelli mostrati, grafico, sezioni, verifica). Nel `localStorage` del browser restano solo copie per l'uso offline (preferenze, previsioni al massimo di un giorno prima, ultima misura), cancellate quando si esce. Come ogni server web, nginx registra nei suoi log gli indirizzi IP delle richieste.

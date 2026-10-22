@@ -365,6 +365,21 @@ button { font: inherit; color: inherit; }
 .day-block + .day-block { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
 .day-head h3 { margin: 0; font-size: 1.02rem; letter-spacing: -.005em; line-height: 1.2; }
 .day-date { margin-left: 6px; font-size: .82rem; font-weight: 500; color: var(--muted); white-space: nowrap; }
+/* Allerta del giorno (dayAlert() in app.js): pillola nel colore dell'allerta accanto al titolo
+   (al tocco il dettaglio) e, sotto, i fenomeni in allerta. Colori delle soglie dei fiumi
+   (--lv1/2/3); testo scuro, bianco solo sul rosso del tema chiaro (contrasto). */
+.alert-pill { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 3px 10px 3px 7px; border: 0; border-radius: 999px; font: inherit; font-size: .78rem; font-weight: 700; white-space: nowrap; color: #121826; }
+.alert-pill svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; }
+.alert-pill.al-1, .tp-chip.al-1 { background: var(--lv1); }
+.alert-pill.al-2, .tp-chip.al-2 { background: var(--lv2); }
+.alert-pill.al-3, .tp-chip.al-3 { background: var(--lv3); color: #fff; }
+.tp-chip.al-1, .tp-chip.al-2 { color: #121826; }
+:root[data-theme="dark"] .alert-pill.al-3, :root[data-theme="dark"] .tp-chip.al-3 { color: #121826; }
+.alert-events { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px; }
+.alert-ev { font-size: .76rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); white-space: nowrap; }
+.alert-ev i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
+.alert-ev.al-1 i { background: var(--lv1); } .alert-ev.al-2 i { background: var(--lv2); } .alert-ev.al-3 i { background: var(--lv3); }
+.al-v { font-weight: 700; }
 /* Schermi molto stretti: la legenda delle fonti scende sotto il titolo invece di spezzare la data */
 .day-card .card-head { flex-wrap: wrap; row-gap: 4px; align-items: baseline; }
 .day-name { grid-area: name; display: flex; flex-direction: column; justify-content: center; }

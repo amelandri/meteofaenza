@@ -38,3 +38,8 @@ SHELL=/bin/sh
 # Livelli dei fiumi Lamone e Marzeno (idrometri ARPAE, portale Allerta Meteo): ogni 15
 # minuti, il dato arriva con 30–60 minuti di ritardo. Minuti sfalsati rispetto agli altri job.
 7,22,37,52 * * * *  cd /opt/meteo && python3 -m server.jobs rivers 2>&1 | logger -t meteo
+
+# Allerte della zona di Faenza (B1, portale Allerta Meteo Emilia-Romagna): 3 piccole
+# richieste ogni 15 minuti. Il bollettino per domani esce di solito verso le 13:30 e può
+# essere aggiornato in giornata. Nella mezz'ora dopo mezzanotte il job non salva nulla.
+9,24,39,54 * * * *  cd /opt/meteo && python3 -m server.jobs alerts 2>&1 | logger -t meteo

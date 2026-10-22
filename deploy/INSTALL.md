@@ -121,6 +121,7 @@ Entro 5 minuti deve comparire una riga `radar:`, entro 10 una riga `station:`, e
 | `forecast` | minuti 2, 17, 32, 47 | controlla i metadati dei modelli; scarica le previsioni solo se è uscito un nuovo run (ICON-2I ogni 12 h, ICON-EU ogni 3 h) o se hanno più di 6 ore; ensemble ogni 3 ore |
 | `radar` | ogni 5 minuti, 10 s dopo lo scoccare | scarica le immagini nuove del radar della Protezione Civile, calcola movimento e stima dei prossimi 90 minuti, prepara le immagini dell'animazione (richiede numpy e Pillow, passo 1) |
 | `rivers` | minuti 7, 22, 37, 52 | livelli di Lamone e Marzeno (idrometri ARPAE, portale Allerta Meteo): soglie e serie delle ultime ~2,5 giorni, salvate nel database |
+| `alerts` | minuti 9, 24, 39, 54 | allerte della zona di Faenza (B1) per oggi e domani e feed dei bollettini (portale Allerta Meteo); nella mezz'ora dopo mezzanotte non salva nulla |
 | `clouds` | minuti 25 e 55 | bollettini METAR degli aeroporti di Forlì e Bologna (aviationweather.gov), per la nuvolosità osservata di notte; di giorno basta la radiazione della centralina |
 | `normals` | ogni giorno alle 4:40 | salva gli esiti della verifica dei giorni conclusi (conservati due anni), pulisce gli archivi (dati oltre 400 giorni, download dell'ensemble che la verifica non usa) e scarica le medie del periodo 1991–2020 solo se mancano o hanno più di un anno |
 | `backup` | ogni giorno alle 4:50 | copia del database in `/var/lib/meteo/backup` (vedi "Backup e ripristino") |

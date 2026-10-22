@@ -39,7 +39,7 @@ from zoneinfo import ZoneInfo
 
 from urllib.parse import parse_qs, urlsplit
 
-from . import auth, clouds, config, db, prefs, radar, rivers, sources, verify
+from . import alerts, auth, clouds, config, db, prefs, radar, rivers, sources, verify
 
 _cache = {}  # chiave → (corpo, etag): JSON già composto delle previsioni
 _offset_memo = (None, None)  # (download delle previsioni, utcOffset)
@@ -219,6 +219,7 @@ def compose_station(conn):
     # nuvolosità osservata (radiazione della centralina o METAR), per correggere le previsioni
     # di oggi nel browser (cloudFix() in js/app.js)
     st['clouds'] = clouds.estimate(conn, st)
+    st['alerts'] = alerts.compose(conn)  # allerte di oggi e domani della zona di Faenza
     st['lastRain'] = last_rain(conn, st, tz)  # ultimo giorno di pioggia (box della centralina)
     log = [
         {'t': r['time'], 'day': datetime.fromtimestamp(r['time'] / 1000, tz).strftime('%Y-%m-%d'),
@@ -240,7 +241,7 @@ def compose_normals(conn):
 def compose_status(conn):
     return {
         'now': db.now_ms(),
-        'snapshots': {n: db.snapshot_time(conn, n) for n in ('forecast', 'ensemble', 'runs', 'normals', 'radar', 'rivers')},
+        'snapshots': {n: db.snapshot_time(conn, n) for n in ('forecast', 'ensemble', 'runs', 'normals', 'radar', 'rivers', 'alerts')},
         'station': (db.latest_station(conn) or {}).get('time'),
         'jobs': db.last_logs(conn),
     }

@@ -1264,6 +1264,46 @@ function verdictCtx() {
 // Legenda delle fonti (pallino colorato + nome), ordine = colonne dei box.
 const sourcesLegend = (models) => `<div class="sources">${models.map((m) => `<span><i class="dot-${m.key}"></i>${m.name}</span>`).join('')}</div>`;
 
+// --- Allerte (Allerta Meteo Emilia-Romagna, zona di Faenza) ------------------------------
+
+const ALERT_NAMES = ['verde', 'gialla', 'arancione', 'rossa'];
+const ALERT_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 21.5 20h-19z"/><path d="M12 10v4.5M12 17.5v.3"/></svg>';
+
+// Allerta di un giorno (arriva con la misura della centralina, station.alerts, da
+// server/alerts.py): pillola accanto al titolo del giorno e, sotto, i fenomeni in allerta.
+// Niente se il giorno non ha allerte (tutto verde) o non c'è ancora il bollettino.
+function dayAlert(day, t) {
+  const a = state.station?.alerts;
+  const x = a?.days?.find((d) => d.day === day);
+  if (!x || !(x.level >= 1)) return { pill: '', events: '' };
+  const { timezone, utcOffset } = state.data;
+  const at = (ms) => localDateTime(ms, timezone, utcOffset);
+  const name = `Allerta ${ALERT_NAMES[x.level]}`;
+  const on = x.events.filter((e) => e.level >= 1);
+  const off = x.events.filter((e) => e.level === 0);
+  const b = x.bulletin;
+  let src = `Zona ${esc(a.zone)} · ${esc(a.zoneName)}. Allerta Meteo Emilia-Romagna`;
+  if (b) {
+    const i = at(b.issuedAt);
+    src += `, ${b.kind === 'allerta' ? 'allerta' : 'bollettino'} ${esc(b.number)} emess${b.kind === 'allerta' ? 'a' : 'o'} il ${i.day} alle ${i.time}`;
+    if (/^https:\/\//.test(b.pdf || '')) src += ` · <a href="${esc(b.pdf)}" target="_blank" rel="noopener">bollettino (PDF)</a>`;
+  }
+  src += `. Controllata alle ${at(x.fetchedAt).time}.`;
+  const tip = tipHead(`${t.title} ${t.date}`, name, `al-${x.level}`)
+    + tipRows([
+      ...on.map((e) => ({ k: esc(e.name), v: `<span class="al-v">${ALERT_NAMES[e.level]}</span>` })),
+      ...(off.length ? [{ k: 'Altri fenomeni', v: 'nessuna allerta' }] : []),
+    ])
+    // Il testo del bollettino descrive tutta la regione: per Faenza contano i colori sopra.
+    + (b?.text ? `<p class="tp-why"><span>Descrizione (tutta la regione)</span>${esc(b.text)}</p>` : '')
+    + tipNote(src);
+  const plain = `${name} per ${t.title.toLowerCase()}: ${on.map((e) => `${e.name} ${ALERT_NAMES[e.level]}`).join(', ')}`;
+  return {
+    pill: `<button type="button" class="alert-pill al-${x.level}" data-tip="${esc(tip)}" data-tip-key="alert|${day}" aria-label="${esc(plain)}">${ALERT_ICON}${name}</button>`,
+    events: `<div class="alert-events">${on.map((e) => `<span class="alert-ev al-${e.level}"><i></i>${esc(e.name)}</span>`).join('')}</div>`,
+  };
+}
+
 function renderDaily() {
   const { daily, hourly, utcOffset } = state.data;
   const nowIso = localNowIso(utcOffset);
@@ -1337,10 +1377,11 @@ function renderDaily() {
     // Ogni giorno è un blocco della card "Previsioni", con il titolo "Oggi" / "Domani" /
     // "Dopodomani" e la data; la legenda delle fonti è una sola, accanto al titolo della card.
     const t = dayTitle(day, today);
+    const al = dayAlert(day, t);
     return `<div class="day-block">
       <div class="card-head day-head">
-        <h3>${t.title} <span class="day-date">${t.date}</span></h3>
-      </div>
+        <h3>${t.title} <span class="day-date">${t.date}</span></h3>${al.pill}
+      </div>${al.events}
       <div class="day">
         <div class="day-name">${sunTimes(daily, d, day === today)}</div>
         <div class="day-models${shown.length === 1 ? ' single' : ''}">${cells}${renderPopRow(pops, pastUntil, day)}</div>
