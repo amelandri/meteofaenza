@@ -313,6 +313,8 @@ function renderDay(d, todayIso) {
   </section>`;
 }
 
+const DAYS_SHOWN = 14; // giorni mostrati in "Giorno per giorno"
+
 function render() {
   const { data } = state;
   const status = $('#verify-status');
@@ -329,7 +331,10 @@ function render() {
   for (const d of data.days) d.wetMm = data.wetMm;
   renderSummary(summarize(data.days));
   const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: TZ });
-  $('#verify-days').innerHTML = data.days.map((d) => renderDay(d, todayIso)).join('');
+  // Giorno per giorno solo gli ultimi DAYS_SHOWN giorni: il riepilogo usa tutto il periodo
+  const shown = data.days.slice(0, DAYS_SHOWN);
+  $('#verify-days-note').textContent = `Pioggia misurata e prevista in ogni fascia di 6 ore, dal giorno più recente${data.days.length > DAYS_SHOWN ? `: gli ultimi ${DAYS_SHOWN} giorni (il riepilogo comprende tutto il periodo)` : ''}.`;
+  $('#verify-days').innerHTML = shown.map((d) => renderDay(d, todayIso)).join('');
 }
 
 async function load() {
