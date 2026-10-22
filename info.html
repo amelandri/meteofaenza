@@ -340,7 +340,7 @@
           <tr><td>80–100%</td><td>8</td><td>8 (100%)</td><td>affidabile, forse anche prudente</td></tr>
         </tbody>
       </table>
-      <p>Se la quota della colonna "Ha piovuto" cade dentro la fascia di probabilità (o vicino), la probabilità è affidabile; se è sotto, l'app allarma troppo; se è sopra, la pioggia arriva più spesso di quanto annunciato. Con poche fasce in un gruppo (meno di una decina) la quota cambia molto anche per un solo giorno: meglio guardare il periodo di 30 giorni.</p>
+      <p>Se la quota della colonna "Ha piovuto" cade dentro la fascia di probabilità (con 5 punti di tolleranza), la probabilità è affidabile; se è sotto, l'app allarma troppo; se è sopra, la pioggia arriva più spesso di quanto annunciato. La pagina Verifica lo scrive accanto a ogni riga, nella colonna "Come si legge" (con meno di 5 fasce: "troppo poche fasce per giudicare"). Con poche fasce in un gruppo (meno di una decina) la quota cambia molto anche per un solo giorno: meglio guardare il periodo di 30 giorni.</p>
 
       <h3 id="brier">Il punteggio di Brier</h3>
       <p>La tabella sopra dice <em>dove</em> la probabilità sbaglia; il <strong>punteggio di Brier</strong> riassume <em>quanto</em> sbaglia, in un solo numero. Per ogni fascia si confronta la probabilità (da 0 a 1) con quello che è successo (1 se ha piovuto, 0 se no), si eleva al quadrato la differenza e si fa la media su tutte le fasce. Elevare al quadrato fa pesare molto di più gli sbagli netti di quelli lievi: un 90% senza pioggia costa 81 volte un 10% senza pioggia.</p>
@@ -358,13 +358,16 @@
       </table>
       <p>Un esempio su una giornata: notte 10% e asciutto (0,01), mattina 30% e asciutto (0,09), pomeriggio 80% e pioggia (0,04), sera 60% e asciutto (0,36). Il punteggio è la media: (0,01 + 0,09 + 0,04 + 0,36) / 4 = <strong>0,125</strong>. Quasi tutto il costo viene dalla sera, l'unica previsione davvero sbagliata.</p>
       <p>Più il punteggio è basso, meglio è: <strong>0</strong> è una previsione perfetta (sempre 0% quando non piove e 100% quando piove), <strong>0,25</strong> è quello che si otterrebbe dicendo sempre 50%, cioè senza sapere niente. Da solo però il numero dice poco, perché dipende dal tempo che ha fatto: in un periodo quasi sempre asciutto è facile avere un punteggio basso. Per questo la pagina lo confronta con un riferimento semplice, <strong>dare a ogni fascia la frequenza della pioggia nel periodo</strong>:</p>
-      <p>Il punteggio del riferimento è la frequenza per il suo complemento: se piove nel 20% delle fasce, 0,2 × 0,8 = 0,16. Il risultato "meglio del X%" è 1 − (punteggio dell'app / riferimento).</p>
+      <p>Il punteggio del riferimento è la frequenza per il suo complemento: se piove nel 20% delle fasce, 0,2 × 0,8 = 0,16.</p>
+      <p>Nella pagina Verifica i punteggi sono mostrati come <strong>errore medio in punti percentuali</strong>, più facile da leggere: è la radice quadrata del punteggio. Un punteggio di 0,09 diventa 30 punti (come annunciare sempre 30% in fasce asciutte), 0,25 diventa 50 punti. Per il riferimento: se piove nel 20% delle fasce, 0,16 diventa 40 punti.</p>
+      <p>In cima alla tabella c'è un giudizio in una frase, dal confronto tra l'app e il riferimento:</p>
       <table class="info-table">
-        <thead><tr><th>Piove nel</th><th>Riferimento / app</th><th>Risultato</th></tr></thead>
+        <thead><tr><th>Giudizio</th><th>Quando</th><th>Esempio (piove nel 20% delle fasce, riferimento 40 punti)</th></tr></thead>
         <tbody>
-          <tr><td>20% delle fasce</td><td>0,16 / 0,12</td><td>meglio del 25%</td></tr>
-          <tr><td>20% delle fasce</td><td>0,16 / 0,16</td><td>non meglio del riferimento: la probabilità non aggiunge informazione</td></tr>
-          <tr><td>5% delle fasce</td><td>0,048 / 0,038</td><td>meglio del 20%: punteggio basso, ma solo un po' meglio del riferimento</td></tr>
+          <tr><td>Buona</td><td>il punteggio dell'app è almeno il 20% più basso di quello del riferimento</td><td>app 0,12 (35 punti)</td></tr>
+          <tr><td>Discreta</td><td>più basso, ma di meno del 20%</td><td>app 0,15 (39 punti)</td></tr>
+          <tr><td>Scarsa</td><td>uguale o più alto: annunciare sempre la frequenza del periodo avrebbe sbagliato meno</td><td>app 0,18 (42 punti)</td></tr>
+          <tr><td>Troppa poca pioggia</td><td>nel periodo ha piovuto in meno di 4 fasce: con così pochi casi il confronto non dice nulla</td><td>—</td></tr>
         </tbody>
       </table>
       <p>Accanto al punteggio sono contati gli <strong>errori gravi</strong>: fasce con probabilità almeno del 70% rimaste asciutte, o sotto il 20% in cui è piovuto. Sono le previsioni che avrebbero fatto prendere una decisione sbagliata (lasciare a casa la bici, o uscire senza ombrello).</p>

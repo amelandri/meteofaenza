@@ -147,30 +147,66 @@ function renderSummary(sum) {
         ${row('Errore medio sulla minima', (s) => err(s.tminErr, '°', 1))}
       </tbody>
     </table></div>
-    <h3>Affidabilità della probabilità</h3>
+    <h3>Quanto ci si può fidare della probabilità</h3>
     ${brierBlock(sum.brier)}
-    <p class="info-note">Una probabilità ben calibrata del 30% dovrebbe vedere pioggia in circa 3 fasce su 10. <a href="info.html#affidabilita">Esempi</a></p>
+    <p class="info-note">La probabilità è affidabile se, nelle fasce in cui annunciava per esempio il 30%, ha piovuto davvero circa 3 volte su 10. Qui le fasce sono raggruppate per probabilità annunciata. <a href="info.html#affidabilita">Esempi</a></p>
     <table class="info-table vs-table">
-      <thead><tr><th>Probabilità prevista</th><th>Fasce</th><th>Ha piovuto</th></tr></thead>
-      <tbody>${sum.bins.map((b) => `<tr><th scope="row">${b.lo}–${Math.min(b.hi, 100)}%</th><td>${b.n}</td><td>${b.n ? `<b>${Math.round((100 * b.rained) / b.n)}%</b> <small>(${b.rained})</small>` : '—'}</td></tr>`).join('')}</tbody>
+      <thead><tr><th>Probabilità annunciata</th><th>Fasce</th><th>Ha piovuto</th><th>Come si legge</th></tr></thead>
+      <tbody>${sum.bins.map((b) => `<tr><th scope="row">${b.lo}–${Math.min(b.hi, 100)}%</th><td>${b.n}</td><td>${b.n ? `<b>${Math.round((100 * b.rained) / b.n)}%</b> <small>(${b.rained} su ${b.n})</small>` : '—'}</td><td><small>${binReading(b)}</small></td></tr>`).join('')}</tbody>
     </table>`;
 }
 
-// Punteggio di Brier delle fasce, confrontato con quello che si otterrebbe dando a ogni fascia
-// la frequenza della pioggia nel periodo (r): r·(1 − r). "Meglio del X%" = 1 − Brier / riferimento.
+// Giudizio di un gruppo della tabella per probabilità: la quota di fasce con pioggia cade nel
+// gruppo (con BIN_SLACK punti di tolleranza), sotto (si annuncia troppa pioggia) o sopra.
+const BIN_SLACK = 5;
+const BIN_MIN = 5; // meno fasce: troppo poche per giudicare
+function binReading(b) {
+  if (!b.n) return '';
+  if (b.n < BIN_MIN) return 'troppo poche fasce per giudicare';
+  const q = (100 * b.rained) / b.n;
+  if (q < b.lo - BIN_SLACK) return 'piove meno di quanto annunciato';
+  if (q > Math.min(b.hi, 100) + BIN_SLACK) return 'piove più di quanto annunciato';
+  return 'in linea con quanto annunciato';
+}
+
+// Quanto sbaglia la probabilità, in parole. L'errore medio è in punti percentuali (radice del
+// punteggio di Brier, la media di (probabilità − esito)²): annunciare 30% e non piove sono 30
+// punti, annunciare 90% e non piove 90. Si confronta con un pronostico fisso che dà a ogni
+// fascia la frequenza della pioggia nel periodo (r): il suo punteggio è r·(1 − r).
+// Con meno di VERDICT_MIN_RAIN fasce piovose il giudizio non è significativo.
 const f2 = (v) => v.toFixed(2).replace('.', ','); // fmt() arriva a un decimale
+const VERDICT_MIN_RAIN = 4;
+const VERDICT_GOOD = 20; // % di miglioramento sul pronostico fisso per dire "buona"
 function brierBlock(b) {
   if (!b.n) return '';
   const score = b.sum / b.n;
   const r = b.rained / b.n;
   const ref = r * (1 - r);
+  const pts = (v) => `${Math.round(100 * Math.sqrt(v))} punti`;
+  const fixed = Math.round(100 * r);
   const skill = ref > 0 ? Math.round(100 * (1 - score / ref)) : null;
-  const vs = skill == null ? ''
-    : skill > 0 ? `meglio del ${skill}% rispetto a dare sempre la frequenza del periodo (piove nel ${Math.round(100 * r)}% delle fasce: ${f2(ref)})`
-    : `non meglio che dare sempre la frequenza del periodo (piove nel ${Math.round(100 * r)}% delle fasce: ${f2(ref)})`;
-  return `<table class="info-table vs-table vs-brier"><tbody>
-      <tr><th scope="row">Errore della probabilità<small>punteggio di Brier: 0 = perfetta, 0,25 = dire sempre 50%; ogni fascia pesa lo scarto al quadrato (90% senza pioggia costa 0,81, 30% senza pioggia 0,09). <a href="info.html#brier">Come si legge</a></small></th><td><b>${f2(score)}</b>${vs ? ` <small>${vs}</small>` : ''}</td></tr>
-      <tr><th scope="row">Errori gravi<small>probabilità ≥ ${BAD_HIGH}% senza pioggia, o &lt; ${BAD_LOW}% con pioggia</small></th><td><b>${b.badHigh + b.badLow}</b> <small>su ${b.n} fasce (${b.badHigh} alta e asciutto · ${b.badLow} bassa e pioggia)</small></td></tr>
+  let level, text;
+  if (b.rained < VERDICT_MIN_RAIN) {
+    level = 'few';
+    text = `Troppa poca pioggia per giudicare: nel periodo ha piovuto in ${b.rained} ${b.rained === 1 ? 'fascia' : 'fasce'} su ${b.n}. I numeri qui sotto valgono poco: meglio guardare 30 giorni o un periodo più piovoso.`;
+  } else if (skill == null) {
+    level = 'few';
+    text = `Ha piovuto in tutte le ${b.n} fasce del periodo: non c'è niente da distinguere, quindi nessun giudizio.`;
+  } else if (skill >= VERDICT_GOOD) {
+    level = 'good';
+    text = `Buona: la probabilità distingue bene le fasce con pioggia da quelle asciutte. In media sbaglia di ${pts(score)}, un pronostico fisso del ${fixed}% di ${pts(ref)}.`;
+  } else if (skill > 0) {
+    level = 'mid';
+    text = `Discreta: la probabilità sbaglia un po' meno di un pronostico fisso (${pts(score)} contro ${pts(ref)}), ma non di molto.`;
+  } else {
+    level = 'bad';
+    text = `Scarsa nel periodo: annunciare sempre il ${fixed}% (quanto è piovuto davvero) avrebbe sbagliato meno (${pts(ref)} contro ${pts(score)}).`;
+  }
+  return `<p class="vs-verdict ${level}">${text}</p>
+    <table class="info-table vs-table vs-brier"><tbody>
+      <tr><th scope="row">Errore medio della probabilità<small>quanto si allontana in media da quello che è successo: annunciare 30% e non piove sono 30 punti, 90% e non piove 90. <a href="info.html#brier">Come si calcola</a></small></th><td><b>${pts(score)}</b> <small>(punteggio di Brier ${f2(score)})</small></td></tr>
+      <tr><th scope="row">Con un pronostico fisso<small>annunciare in ogni fascia il ${fixed}%, cioè quanto è piovuto davvero nel periodo</small></th><td><b>${pts(ref)}</b></td></tr>
+      <tr><th scope="row">Errori gravi<small>almeno ${BAD_HIGH}% e non è piovuto, o meno del ${BAD_LOW}% ed è piovuto</small></th><td><b>${b.badHigh + b.badLow}</b> <small>su ${b.n} fasce: ${b.badHigh} pioggia annunciata e non venuta, ${b.badLow} pioggia arrivata senza preavviso</small></td></tr>
     </tbody></table>`;
 }
 
