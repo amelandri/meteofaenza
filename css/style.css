@@ -1037,11 +1037,39 @@ button { font: inherit; color: inherit; }
 .vs-table th small, .vs-table td small { display: block; color: var(--muted); font-size: .72rem; font-weight: 500; text-transform: none; letter-spacing: 0; }
 .vs-table td small { display: inline; }
 .vs-table td { font-variant-numeric: tabular-nums; }
-/* Giudizio in una frase sull'affidabilità della probabilità (brierBlock() in verify.js) */
-.vs-verdict { margin: 0 0 10px; padding: 8px 12px; border-radius: 10px; border-left: 4px solid var(--muted); background: var(--surface-2); font-size: .9rem; text-wrap: pretty; }
-.vs-verdict.good { border-left-color: var(--good); }
-.vs-verdict.mid { border-left-color: var(--mid); }
-.vs-verdict.bad { border-left-color: var(--bad); }
+/* Affidabilità della probabilità in un colpo d'occhio (reliabilityBlock() in verify.js):
+   lancetta a tre zone, giudizio, tre numeri chiave; il resto in "Mostra i dettagli" */
+.vs-rel { display: grid; gap: 12px; }
+.vs-rel-top { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 14px; align-items: center; }
+.vs-rel-text { display: grid; gap: 6px; justify-items: start; }
+.vs-rel-text p { margin: 0; color: var(--muted); font-size: .86rem; text-wrap: pretty; }
+.vs-gauge { width: 170px; height: auto; display: block; }
+.vs-gauge .g-arc { fill: none; stroke-width: 14; opacity: .9; }
+.vs-gauge .g-arc.bad { stroke: var(--bad); }
+.vs-gauge .g-arc.mid { stroke: var(--mid); }
+.vs-gauge .g-arc.good { stroke: var(--good); }
+.vs-gauge.few .g-arc { stroke: var(--muted); opacity: .3; }
+.vs-gauge .g-needle { stroke: var(--text); stroke-width: 3; stroke-linecap: round; }
+.vs-gauge .g-hub { fill: var(--text); }
+.vs-gauge .g-label { fill: var(--text); font-size: 13px; font-weight: 700; font-family: var(--font); }
+.vs-chip { font-size: .78rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+.vs-chip.good { background: color-mix(in srgb, var(--good) 16%, var(--surface)); color: var(--good); }
+.vs-chip.mid { background: color-mix(in srgb, var(--mid) 20%, var(--surface)); color: color-mix(in srgb, var(--mid) 65%, var(--text)); }
+.vs-chip.bad { background: color-mix(in srgb, var(--bad) 14%, var(--surface)); color: var(--bad); }
+.vs-chip.few { background: var(--surface-2); color: var(--muted); }
+.vs-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; border-radius: 10px; overflow: hidden; }
+.vs-kpis > div { background: var(--surface-2); padding: 8px 10px; display: grid; gap: 1px; min-width: 0; }
+.vs-kpis span { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 650; }
+.vs-kpis b { font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.vs-kpis small { color: var(--muted); font-size: .72rem; }
+.vs-rel-more { border-top: 1px solid var(--border); padding-top: 8px; }
+.vs-rel-more summary { cursor: pointer; font-weight: 600; font-size: .86rem; }
+.vs-rel-more summary::marker { color: var(--muted); }
+.vs-rel-more[open] summary { margin-bottom: 8px; }
+@container vsum (max-width: 420px) {
+  .vs-rel-top { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .vs-rel-text { justify-items: center; }
+}
 .vs-table thead th { white-space: nowrap; }
 .vt thead .sm, .vs-table thead .sm { display: none; }
 .vs-table i[class^="dot-"], .vt i[class^="dot-"], .vd-list i[class^="dot-"] { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }

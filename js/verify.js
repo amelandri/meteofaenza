@@ -148,66 +148,112 @@ function renderSummary(sum) {
       </tbody>
     </table></div>
     <h3>Quanto ci si può fidare della probabilità</h3>
-    ${brierBlock(sum.brier)}
-    <p class="info-note">La probabilità è affidabile se, nelle fasce in cui annunciava per esempio il 30%, ha piovuto davvero circa 3 volte su 10. Qui le fasce sono raggruppate per probabilità annunciata. <a href="info.html#affidabilita">Esempi</a></p>
-    <table class="info-table vs-table">
-      <thead><tr><th>Probabilità annunciata</th><th>Fasce</th><th>Ha piovuto</th><th>Come si legge</th></tr></thead>
-      <tbody>${sum.bins.map((b) => `<tr><th scope="row">${b.lo}–${Math.min(b.hi, 100)}%</th><td>${b.n}</td><td>${b.n ? `<b>${Math.round((100 * b.rained) / b.n)}%</b> <small>(${b.rained} su ${b.n})</small>` : '—'}</td><td><small>${binReading(b)}</small></td></tr>`).join('')}</tbody>
-    </table>`;
+    ${reliabilityBlock(sum.brier, sum.bins)}`;
 }
 
 // Giudizio di un gruppo della tabella per probabilità: la quota di fasce con pioggia cade nel
 // gruppo (con BIN_SLACK punti di tolleranza), sotto (si annuncia troppa pioggia) o sopra.
 const BIN_SLACK = 5;
 const BIN_MIN = 5; // meno fasce: troppo poche per giudicare
-function binReading(b) {
-  if (!b.n) return '';
-  if (b.n < BIN_MIN) return 'troppo poche fasce per giudicare';
+function binState(b) {
+  if (b.n < BIN_MIN) return 'few';
   const q = (100 * b.rained) / b.n;
-  if (q < b.lo - BIN_SLACK) return 'piove meno di quanto annunciato';
-  if (q > Math.min(b.hi, 100) + BIN_SLACK) return 'piove più di quanto annunciato';
-  return 'in linea con quanto annunciato';
+  if (q < b.lo - BIN_SLACK) return 'less';
+  if (q > Math.min(b.hi, 100) + BIN_SLACK) return 'more';
+  return 'ok';
 }
+const BIN_READING = {
+  few: 'troppo poche fasce per giudicare', less: 'piove meno di quanto annunciato',
+  more: 'piove più di quanto annunciato', ok: 'in linea con quanto annunciato',
+};
 
-// Quanto sbaglia la probabilità, in parole. L'errore medio è in punti percentuali (radice del
-// punteggio di Brier, la media di (probabilità − esito)²): annunciare 30% e non piove sono 30
-// punti, annunciare 90% e non piove 90. Si confronta con un pronostico fisso che dà a ogni
-// fascia la frequenza della pioggia nel periodo (r): il suo punteggio è r·(1 − r).
-// Con meno di VERDICT_MIN_RAIN fasce piovose il giudizio non è significativo.
+// Quanto ci si può fidare della probabilità, in un colpo d'occhio: una lancetta su tre zone
+// (scarsa / discreta / buona), il giudizio in una frase e tre numeri chiave; numeri, spiegazioni
+// e tabella per probabilità in "Mostra i dettagli" (chiuso).
+// Errore medio = radice del punteggio di Brier (media di (probabilità − esito)²), in punti
+// percentuali: annunciare 30% e non piove sono 30 punti. Si confronta con un pronostico fisso che
+// dà a ogni fascia la frequenza della pioggia nel periodo (r): punteggio r·(1 − r). Il giudizio
+// viene dal miglioramento (skill = 1 − Brier / riferimento): buona da VERDICT_GOOD, discreta
+// sopra 0, scarsa altrimenti; con meno di VERDICT_MIN_RAIN fasce piovose nessun giudizio.
 const f2 = (v) => v.toFixed(2).replace('.', ','); // fmt() arriva a un decimale
 const VERDICT_MIN_RAIN = 4;
-const VERDICT_GOOD = 20; // % di miglioramento sul pronostico fisso per dire "buona"
-function brierBlock(b) {
-  if (!b.n) return '';
-  const score = b.sum / b.n;
-  const r = b.rained / b.n;
-  const ref = r * (1 - r);
-  const pts = (v) => `${Math.round(100 * Math.sqrt(v))} punti`;
-  const fixed = Math.round(100 * r);
+const VERDICT_GOOD = 20;
+const GAUGE_MIN = -25, GAUGE_MAX = 50; // estremi della lancetta (miglioramento in %)
+
+function reliabilityJudge(b) {
+  const score = b.sum / b.n, r = b.rained / b.n, ref = r * (1 - r);
   const skill = ref > 0 ? Math.round(100 * (1 - score / ref)) : null;
-  let level, text;
-  if (b.rained < VERDICT_MIN_RAIN) {
+  const pts = (v) => Math.round(100 * Math.sqrt(v));
+  const app = pts(score), fixed = pts(ref), fixedPct = Math.round(100 * r);
+  let level, word, text;
+  if (b.rained < VERDICT_MIN_RAIN || skill == null) {
     level = 'few';
-    text = `Troppa poca pioggia per giudicare: nel periodo ha piovuto in ${b.rained} ${b.rained === 1 ? 'fascia' : 'fasce'} su ${b.n}. I numeri qui sotto valgono poco: meglio guardare 30 giorni o un periodo più piovoso.`;
-  } else if (skill == null) {
-    level = 'few';
-    text = `Ha piovuto in tutte le ${b.n} fasce del periodo: non c'è niente da distinguere, quindi nessun giudizio.`;
+    word = 'Pochi dati';
+    text = skill == null && b.rained
+      ? `Ha piovuto in tutte le ${b.n} fasce del periodo: non c'è niente da distinguere.`
+      : `Nel periodo ha piovuto in ${b.rained} ${b.rained === 1 ? 'fascia' : 'fasce'} su ${b.n}: troppo poche per un giudizio. Meglio guardare 30 giorni o un periodo più piovoso.`;
   } else if (skill >= VERDICT_GOOD) {
-    level = 'good';
-    text = `Buona: la probabilità distingue bene le fasce con pioggia da quelle asciutte. In media sbaglia di ${pts(score)}, un pronostico fisso del ${fixed}% di ${pts(ref)}.`;
+    level = 'good'; word = 'Buona';
+    text = 'La probabilità distingue bene le fasce con pioggia da quelle asciutte.';
   } else if (skill > 0) {
-    level = 'mid';
-    text = `Discreta: la probabilità sbaglia un po' meno di un pronostico fisso (${pts(score)} contro ${pts(ref)}), ma non di molto.`;
+    level = 'mid'; word = 'Discreta';
+    text = 'La probabilità sbaglia un po\' meno di un pronostico fisso, ma non di molto.';
   } else {
-    level = 'bad';
-    text = `Scarsa nel periodo: annunciare sempre il ${fixed}% (quanto è piovuto davvero) avrebbe sbagliato meno (${pts(ref)} contro ${pts(score)}).`;
+    level = 'bad'; word = 'Scarsa';
+    text = `Nel periodo annunciare sempre il ${fixedPct}% (quanto è piovuto davvero) avrebbe sbagliato meno.`;
   }
-  return `<p class="vs-verdict ${level}">${text}</p>
-    <table class="info-table vs-table vs-brier"><tbody>
-      <tr><th scope="row">Errore medio della probabilità<small>quanto si allontana in media da quello che è successo: annunciare 30% e non piove sono 30 punti, 90% e non piove 90. <a href="info.html#brier">Come si calcola</a></small></th><td><b>${pts(score)}</b> <small>(punteggio di Brier ${f2(score)})</small></td></tr>
-      <tr><th scope="row">Con un pronostico fisso<small>annunciare in ogni fascia il ${fixed}%, cioè quanto è piovuto davvero nel periodo</small></th><td><b>${pts(ref)}</b></td></tr>
-      <tr><th scope="row">Errori gravi<small>almeno ${BAD_HIGH}% e non è piovuto, o meno del ${BAD_LOW}% ed è piovuto</small></th><td><b>${b.badHigh + b.badLow}</b> <small>su ${b.n} fasce: ${b.badHigh} pioggia annunciata e non venuta, ${b.badLow} pioggia arrivata senza preavviso</small></td></tr>
-    </tbody></table>`;
+  return { score, skill, app, fixed, fixedPct, level, word, text };
+}
+
+// Lancetta su un semicerchio a tre zone; posizione = miglioramento sul pronostico fisso tra
+// GAUGE_MIN e GAUGE_MAX. Con pochi dati arco grigio e niente lancetta.
+function gaugeSvg(j) {
+  const R = 70, cx = 85, cy = 82;
+  const f = (skill) => Math.max(0, Math.min(1, (skill - GAUGE_MIN) / (GAUGE_MAX - GAUGE_MIN)));
+  const pt = (t, r = R) => [cx - r * Math.cos(Math.PI * t), cy - r * Math.sin(Math.PI * t)].map((v) => v.toFixed(1));
+  const arc = (t0, t1, cls) => {
+    const [x0, y0] = pt(t0), [x1, y1] = pt(t1);
+    return `<path class="g-arc ${cls}" d="M${x0} ${y0}A${R} ${R} 0 0 1 ${x1} ${y1}"/>`;
+  };
+  const zero = f(0), good = f(VERDICT_GOOD);
+  const needle = j.level === 'few' ? '' : (() => {
+    const [x, y] = pt(f(j.skill), R - 18);
+    return `<line class="g-needle" x1="${cx}" y1="${cy}" x2="${x}" y2="${y}"/><circle class="g-hub" cx="${cx}" cy="${cy}" r="5"/>`;
+  })();
+  return `<svg class="vs-gauge${j.level === 'few' ? ' few' : ''}" viewBox="0 0 170 104" role="img" aria-label="Affidabilità della probabilità: ${j.word.toLowerCase()}">
+    ${arc(0, zero - 0.01, 'bad')}${arc(zero + 0.01, good - 0.01, 'mid')}${arc(good + 0.01, 1, 'good')}${needle}
+    <text class="g-label" x="${cx}" y="101" text-anchor="middle">${j.level === 'few' ? '?' : j.word}</text></svg>`;
+}
+
+function reliabilityBlock(b, bins) {
+  if (!b.n) return '';
+  const j = reliabilityJudge(b);
+  const states = bins.map(binState);
+  const judged = states.filter((s) => s !== 'few');
+  const inLine = judged.filter((s) => s === 'ok').length;
+  const chip = `<span class="vs-chip ${j.level}">${j.level === 'few' ? j.word : `Affidabilità ${j.word.toLowerCase()}`}</span>`;
+  const kpis = `<div class="vs-kpis">
+      <div><span>Errore medio</span><b>${j.app} punti</b><small>pronostico fisso: ${j.fixed}</small></div>
+      <div><span>Errori gravi</span><b>${b.badHigh + b.badLow}</b><small>su ${b.n} fasce</small></div>
+      <div><span>In linea</span><b>${judged.length ? `${inLine} su ${judged.length}` : '—'}</b><small>gruppi di probabilità</small></div>
+    </div>`;
+  const rows = bins.map((x, k) => `<tr><th scope="row">${x.lo}–${Math.min(x.hi, 100)}%</th><td>${x.n}</td><td>${x.n ? `<b>${Math.round((100 * x.rained) / x.n)}%</b> <small>(${x.rained} su ${x.n})</small>` : '—'}</td><td><small>${x.n ? BIN_READING[states[k]] : ''}</small></td></tr>`).join('');
+  return `<div class="vs-rel">
+      <div class="vs-rel-top">${gaugeSvg(j)}<div class="vs-rel-text">${chip}<p>${j.text}</p></div></div>
+      ${kpis}
+      <details class="vs-rel-more"><summary>Mostra i dettagli</summary>
+        <table class="info-table vs-table vs-brier"><tbody>
+          <tr><th scope="row">Errore medio della probabilità<small>quanto si allontana in media da quello che è successo: annunciare 30% e non piove sono 30 punti, 90% e non piove 90. <a href="info.html#brier">Come si calcola</a></small></th><td><b>${j.app} punti</b> <small>(punteggio di Brier ${f2(j.score)})</small></td></tr>
+          <tr><th scope="row">Con un pronostico fisso<small>annunciare in ogni fascia il ${j.fixedPct}%, cioè quanto è piovuto davvero nel periodo</small></th><td><b>${j.fixed} punti</b>${j.skill != null ? ` <small>(la probabilità fa ${j.skill >= 0 ? `meglio del ${j.skill}%` : `peggio del ${-j.skill}%`})</small>` : ''}</td></tr>
+          <tr><th scope="row">Errori gravi<small>almeno ${BAD_HIGH}% e non è piovuto, o meno del ${BAD_LOW}% ed è piovuto</small></th><td><b>${b.badHigh + b.badLow}</b> <small>su ${b.n} fasce: ${b.badHigh} pioggia annunciata e non venuta, ${b.badLow} pioggia arrivata senza preavviso</small></td></tr>
+        </tbody></table>
+        <p class="info-note">La probabilità è affidabile se, nelle fasce in cui annunciava per esempio il 30%, ha piovuto davvero circa 3 volte su 10. Qui le fasce sono raggruppate per probabilità annunciata ("In linea" conta i gruppi con almeno ${BIN_MIN} fasce). <a href="info.html#affidabilita">Esempi</a></p>
+        <table class="info-table vs-table">
+          <thead><tr><th>Probabilità annunciata</th><th>Fasce</th><th>Ha piovuto</th><th>Come si legge</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </details>
+    </div>`;
 }
 
 // Cella di una previsione: `c` = { fc, res, qty } dal server (res null = non giudicata, per
