@@ -392,42 +392,40 @@ button { font: inherit; color: inherit; }
 .day-models.single { grid-template-columns: minmax(0, 1fr); }
 .day-models.single > .dm:first-child { border-radius: 10px 10px 0 0; }
 
-/* Riga della probabilità di pioggia: terzo segmento della pillola, sotto i due box,
-   condivisa dai modelli (una cella per fascia, barra + percentuale) */
+/* Riga del verdetto delle fasce (renderPopRow()): terzo segmento della pillola, sotto i due
+   box, comune ai modelli. Una cella per fascia nei colori del verdetto, come la cella dell'ora
+   del dettaglio orario (th.vh) e la striscia del grafico: barretta in alto e velo; dentro la
+   probabilità e lo stato. */
 .pop-row {
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 0 12px;
-  padding: 7px 20px 8px 10px;
+  padding: 0 20px 0 10px;
   border-radius: 0 0 10px 10px;
   background: var(--surface-2);
 }
 .pop-label { display: inline-flex; align-items: center; gap: 5px; font-size: .74rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
 .pop-label .drop { width: 11px; height: 11px; fill: var(--rain); flex: none; }
-.pop-cells { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.pop-cell { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0 8px; cursor: pointer; }
-.pop-cell + .pop-cell { border-left: 1px solid var(--slot-sep); }
-.pop-cell.na { justify-content: center; color: var(--muted); cursor: default; }
+.pop-cells { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 1px; }
+.pop-cell {
+  --vc: transparent; --vt: var(--muted);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0;
+  padding: 6px 4px 5px; line-height: 1.15; cursor: pointer;
+  background: color-mix(in srgb, var(--vc) 14%, transparent); box-shadow: inset 0 3px 0 var(--vc);
+}
+.pop-cell.st-dry { --vc: color-mix(in srgb, var(--good) 60%, transparent); --vt: var(--good); }
+.pop-cell.st-risk, .pop-cell.st-mixed { --vc: var(--mid); --vt: color-mix(in srgb, var(--mid) 60%, var(--text)); }
+.pop-cell.st-wet { --vc: var(--rain); --vt: var(--rain); }
+.pop-cell.na { color: var(--muted); cursor: default; padding: 8px 4px; }
 .pop-cell.past { opacity: .45; }
-.pop-bar { flex: 1; min-width: 12px; height: 5px; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--rain) 14%, transparent); }
-.pop-bar i { display: block; height: 100%; border-radius: 3px; background: color-mix(in srgb, var(--rain) 55%, transparent); }
-.pop-cell.high .pop-bar i { background: var(--rain); }
-.pop-val { flex: none; min-width: 2.4em; text-align: right; font-size: .7rem; font-variant-numeric: tabular-nums; color: var(--muted); }
-.pop-cell.high .pop-val { color: var(--text); font-weight: 600; }
-/* Attendibilità della probabilità (rainReliability() in app.js): pallino dopo la percentuale,
-   pieno = alta, mezzo = media, vuoto = bassa */
-.rel-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--muted); box-sizing: border-box; }
-.rel-dot.alta { background: var(--muted); }
-.rel-dot.media { background: linear-gradient(90deg, var(--muted) 50%, transparent 50%); }
-.tp-chip.rel-alta { background: color-mix(in srgb, var(--good) 18%, var(--surface)); color: var(--good); }
-.tp-chip.rel-media { background: color-mix(in srgb, var(--mid) 22%, var(--surface)); color: color-mix(in srgb, var(--mid) 60%, var(--text)); }
-.tp-chip.rel-bassa { background: color-mix(in srgb, var(--bad) 15%, var(--surface)); color: var(--bad); }
-.tp-rel { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--tip-border); }
-.tp-rel > span { display: block; font-weight: 650; margin-bottom: 3px; }
-.tp-rel ul { margin: 0; padding-left: 16px; }
-.tp-rel li.ok { color: var(--muted); }
+.pop-val { font-size: .74rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+.pop-st { font-size: .66rem; font-weight: 650; color: var(--vt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+/* Avvertenze sulla probabilità nel dettaglio di fasce e ore (chanceCaveats()) */
+.tp-caveats { margin: 0 0 8px; }
+.tp-caveats > span { display: block; font-size: .68rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-bottom: 1px; }
+.tp-caveats ul { margin: 0; padding-left: 16px; }
 /* Alba a sinistra, tramonto allineato a destra. Oggi (.day24) la linea dell'intera giornata
    con sole o luna all'ora attuale e le pillole sotto, nella loro posizione (vedi sotto). */
 .sun {
@@ -1416,11 +1414,11 @@ body.loading #forecast { opacity: .5; }
   .day-models > .dm:nth-child(2) { border-radius: 0; }
   /* Riga probabilità allineata alle fasce: stessa colonna fissa delle temperature (40 px),
      stesso spazio e padding dei box; al posto della scritta solo la goccia */
-  .pop-row { grid-template-columns: 52px minmax(0, 1fr); padding: 6px 8px 7px; }
+  .pop-row { grid-template-columns: 52px minmax(0, 1fr); padding: 0 8px; }
   .pop-label { justify-content: center; }
   .pop-label-text { display: none; }
-  .pop-cell { gap: 4px; padding: 0 5px; }
-  .pop-val { font-size: .64rem; min-width: 2.2em; }
+  .pop-val { font-size: .7rem; }
+  .pop-st { font-size: .62rem; }
   .dm {
     grid-template-columns: 52px minmax(0, 1fr); /* colonna temperature fissa: fasce allineate tra i box e con la riga probabilità */
     grid-template-areas: "temps slots";

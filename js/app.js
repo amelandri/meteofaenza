@@ -726,8 +726,6 @@ function slotSummary(h, indices, nowIso = null, fix = null) {
   };
 }
 
-// `pops`: probabilità di pioggia per fascia (dato comune ai due modelli, dall'ensemble):
-// stesso valore nei box ICON-2I e ICON-EU.
 function renderSlots(m, slots, pastUntil) {
   return `<div class="slots">${slots.map((sl, k) => {
     const past = k < pastUntil ? ' past' : '';
@@ -742,110 +740,67 @@ function renderSlots(m, slots, pastUntil) {
   }).join('')}${slotTicks()}</div>`;
 }
 
-// Riga della probabilità di pioggia, condivisa dai due modelli (viene dall'ensemble):
-// terzo segmento della "pillola", con una cella per fascia allineata alle fasce dei box.
-// Ogni cella: barra riempita in proporzione + percentuale; al tocco il dettaglio.
-function renderPopRow(pops, pastUntil, day) {
+// Riga del verdetto delle fasce, comune ai modelli: terzo segmento della "pillola", con una
+// cella per fascia allineata alle fasce dei box. Ogni cella ha il colore del verdetto (come la
+// cella dell'ora del dettaglio orario e la striscia del grafico), la probabilità e lo stato;
+// al tocco lo stesso dettaglio delle ore (verdictTip()).
+function renderPopRow(vs, pastUntil, day) {
   const cells = SLOTS.map((s, k) => {
-    const x = pops[k];
+    const x = vs[k];
     const past = k < pastUntil ? ' past' : '';
-    if (x?.pop == null) return `<div class="pop-cell na${past}">—</div>`;
-    const rel = x.rel;
-    const tip = tipHead(`${s.name} · ${slotRange(s)}`, rel ? `Attendibilità ${REL_WORDS[rel.level]}` : '', rel ? `rel-${rel.level}` : '')
-      + tipChance(x, 'nella fascia') + tipRel(rel) + tipNote('Dato comune ai due modelli: viene dagli ensemble. <a href="info.html#attendibilita-pioggia">Come si calcola l\'attendibilità</a>');
-    const relText = rel ? `, attendibilità ${REL_WORDS[rel.level]}` : '';
-    return `<div class="pop-cell${past}${x.pop >= 20 ? ' high' : ''}" data-tip="${esc(tip)}" data-tip-key="slot|${day}|${k}" aria-label="${esc(`${s.name}: ${chancePlain(x, 'nella fascia')}${relText}`)}">
-      <span class="pop-bar" aria-hidden="true"><i style="width:${Math.max(0, Math.min(100, x.pop))}%"></i></span>
-      <span class="pop-val">${x.popExact ? '' : '~'}${fmt(x.pop)}%</span>${rel ? `<i class="rel-dot ${rel.level}" aria-hidden="true"></i>` : ''}
+    if (!x || (x.status === 'na' && x.pop == null)) return `<div class="pop-cell na${past}">—</div>`;
+    const st = VERDICT_STATUS[x.status];
+    const pct = x.pop == null ? '—' : `${x.popExact ? '' : '~'}${fmt(x.pop)}%`;
+    const tip = verdictTip(x, `${s.name} · ${slotRange(s)}`, 'nella fascia');
+    return `<div class="pop-cell st-${x.status}${past}" data-tip="${esc(tip)}" data-tip-key="slot|${day}|${k}" aria-label="${esc(`${s.name}: ${x.status === 'na' ? '' : `${st.label}, `}${chancePlain(x, 'nella fascia')}`)}">
+      <span class="pop-val">${pct}</span>${x.status === 'na' ? '' : `<span class="pop-st">${st.label}</span>`}
     </div>`;
   }).join('');
-  return `<div class="pop-row" aria-label="Probabilità di pioggia per fascia">
-    <span class="pop-label" title="Probabilità di pioggia (comune ai due modelli)">${DROP}<span class="pop-label-text">Probabilità di pioggia</span></span>
+  return `<div class="pop-row" aria-label="Verdetto e probabilità di pioggia per fascia">
+    <span class="pop-label" title="Pioggia nella fascia: verdetto e probabilità">${DROP}<span class="pop-label-text">Pioggia</span></span>
     <div class="pop-cells">${cells}</div>
   </div>`;
 }
 
-// Probabilità di pioggia per ciascuna fascia del giorno (stesso calcolo del verdetto sulle
-// 6 ore della fascia) con la sua attendibilità (rainReliability()); null dove mancano dati.
-function slotChances(day, hourIdx) {
-  const now = Date.parse(`${localNowIso(state.data.utcOffset)}Z`);
+// Verdetto di ciascuna fascia del giorno: le stesse regole delle ore (windowVerdict()) sulle
+// 6 ore della fascia, quindi con la probabilità della fascia intera; per oggi anche pioggia in
+// corso (centralina) e radar, come nelle ore. null dove manca qualche ora.
+function slotVerdicts(day, ctx) {
   return SLOTS.map((s) => {
-    const idx = slotIndices(day, s, hourIdx);
-    if (idx.some((i) => i == null)) return null;
-    const x = windowRainChance(idx.map((i) => ({ stamp: state.data.hourly.time[i], weight: 1, i })));
-    // Modelli (anche quelli non mostrati e di supporto) che vedono pioggia nella fascia
-    const sums = [...MODELS, ...SUPPORT_MODELS].map((m) => {
-      const p = state.data.hourly.models[m.key]?.precipitation;
-      return !p || idx.some((i) => p[i] == null) ? null : idx.reduce((a, i) => a + p[i], 0);
-    }).filter((v) => v != null);
-    const wet = sums.filter((v) => v >= VERDICT_WET_MM).length;
-    const leadH = (Date.parse(`${day}T${String(s.from).padStart(2, '0')}:00Z`) - now) / 3600000;
-    return { ...x, rel: rainReliability(x, wet, sums.length, leadH) };
+    const hh = (h) => (h === 24 ? '24:00' : `${String(h).padStart(2, '0')}:00`);
+    const w = { from: hh(s.from), to: hh(s.from + SLOT_HOURS) };
+    if (windowHours(day, w).some((x) => !ctx.hourIdx.has(x.stamp))) return null;
+    const x = windowVerdict(day, w, ctx.hourIdx);
+    return day === ctx.today ? applyRadar(applyRainNow(x, stationRainNow(), ctx.nowMin), day, ctx.nowMin) : x;
   });
 }
 
-// --- Attendibilità della probabilità di pioggia (fasce) ---
-// Quanto ci si può fidare della probabilità, oltre al suo valore: punti di sfiducia da
-// - accordo tra gli ensemble: distanza tra la quota più alta e la più bassa oltre
-//   REL_SPREAD[0] punti → 1, oltre REL_SPREAD[1] → 2, oltre REL_SPREAD[2] → 3 (da sola "bassa");
-//   un solo ensemble (niente confronto) → 1;
-// - accordo con i modelli: probabilità ≥ REL_POP_HIGH% e nessun modello vede pioggia, o
-//   < REL_POP_LOW% e la maggioranza la vede → 1;
-// - distanza nel tempo: inizio della fascia oltre REL_LEAD_H[0] ore → 1, oltre REL_LEAD_H[1] → 2.
-// 0 punti = alta · 1–2 = media · 3 o più = bassa. Sotto REL_EDGE[0]% o sopra REL_EDGE[1]%,
-// senza contrasto con i modelli, sempre "alta": lì un disaccordo di pochi punti non cambia il
-// senso. Spiegata in info.html (#attendibilita-pioggia).
-const REL_SPREAD = [20, 40, 60];
-const REL_POP_HIGH = 60;
-const REL_POP_LOW = 20;
-const REL_LEAD_H = [48, 96];
-const REL_EDGE = [10, 90];
-const REL_WORDS = { alta: 'alta', media: 'media', bassa: 'bassa' };
+// --- Avvertenze sulla probabilità ("Da sapere" nel dettaglio di fasce e ore) ---
+// Hanno preso il posto dell'attendibilità (pallino alta / media / bassa, tolto: il contrasto
+// con i modelli è già nel verdetto). Si segnalano:
+// - ensemble in disaccordo: tra la quota più alta e la più bassa più di CAVEAT_SPREAD punti;
+//   un solo ensemble (niente confronto). Non sotto CAVEAT_EDGE[0]% né sopra CAVEAT_EDGE[1]%:
+//   lì qualche punto di differenza non cambia il senso;
+// - intervallo lontano: oltre CAVEAT_LEAD_H[0] ore meno ensemble e orario approssimato,
+//   oltre CAVEAT_LEAD_H[1] previsione meno affidabile.
+// Non cambiano il verdetto. Spiegate in info.html (#da-sapere).
+const CAVEAT_SPREAD = 20;
+const CAVEAT_EDGE = [10, 90];
+const CAVEAT_LEAD_H = [48, 96];
 
-function rainReliability(x, wet, total, leadH) {
-  if (!x?.popExact || x.pop == null) return null; // stima di Open-Meteo: niente attendibilità
-  let pts = 0;
-  const why = [], ok = [];
-  const quotas = x.parts.map((p) => Math.round((100 * p.wet) / p.total));
-  if (quotas.length >= 2) {
-    const lo = Math.min(...quotas), hi = Math.max(...quotas), spread = hi - lo;
-    if (spread > REL_SPREAD[2]) { pts += 3; why.push(`Ensemble molto distanti (${lo}–${hi}%: ${spread} punti)`); }
-    else if (spread > REL_SPREAD[1]) { pts += 2; why.push(`Ensemble distanti (${lo}–${hi}%: ${spread} punti)`); }
-    else if (spread > REL_SPREAD[0]) { pts += 1; why.push(`Ensemble abbastanza distanti (${lo}–${hi}%: ${spread} punti)`); }
-    else ok.push(`Ensemble concordi (${lo}–${hi}%)`);
-  } else {
-    pts += 1;
-    why.push(`Un solo ensemble (${x.parts[0].model}): niente confronto`);
+function chanceCaveats(x, day, w) {
+  const out = [];
+  if (x.popExact && x.pop >= CAVEAT_EDGE[0] && x.pop <= CAVEAT_EDGE[1]) {
+    const q = x.parts.map((p) => Math.round((100 * p.wet) / p.total));
+    if (q.length < 2) out.push(`Un solo ensemble (${x.parts[0].model}): la probabilità non ha un confronto`);
+    else if (Math.max(...q) - Math.min(...q) > CAVEAT_SPREAD) out.push(`Gli ensemble non sono d'accordo tra loro: da ${Math.min(...q)}% a ${Math.max(...q)}%`);
   }
-  let conflict = false;
-  if (total) {
-    if (x.pop >= REL_POP_HIGH && wet === 0) {
-      conflict = true;
-      why.push(`Probabilità alta, ma nessuno dei ${total} modelli vede pioggia`);
-    } else if (x.pop < REL_POP_LOW && wet > total / 2) {
-      conflict = true;
-      why.push(`Probabilità bassa, ma ${wet} modelli su ${total} vedono pioggia`);
-    } else {
-      const seen = wet === 0 ? `nessuno dei ${total} modelli vede pioggia` : wet === total ? `tutti i ${total} modelli vedono pioggia`
-        : `${wet} modell${wet === 1 ? 'o' : 'i'} su ${total} ved${wet === 1 ? 'e' : 'ono'} pioggia`;
-      ok.push(`${seen[0].toUpperCase()}${seen.slice(1)}: coerente con la probabilità`);
-    }
-    if (conflict) pts += 1;
-  }
-  if (leadH > REL_LEAD_H[1]) { pts += 2; why.push('Oltre 4 giorni: previsione meno affidabile'); }
-  else if (leadH > REL_LEAD_H[0]) { pts += 1; why.push('Oltre 2 giorni: meno ensemble e orario approssimato'); }
-  let level = pts === 0 ? 'alta' : pts <= 2 ? 'media' : 'bassa';
-  if (!conflict && (x.pop < REL_EDGE[0] || x.pop > REL_EDGE[1])) {
-    level = 'alta';
-    if (why.length) ok.push(`Probabilità ${x.pop < REL_EDGE[0] ? 'molto bassa' : 'molto alta'}: i disaccordi non ne cambiano il senso`);
-  }
-  return { level, why, ok };
+  const start = Date.parse(`${day}T00:00:00Z`) + toMinutes(w.from) * 60000;
+  const leadH = (start - Date.parse(`${localNowIso(state.data.utcOffset)}Z`)) / 3600000;
+  if (leadH > CAVEAT_LEAD_H[1]) out.push('Oltre 4 giorni: previsione meno affidabile');
+  else if (leadH > CAVEAT_LEAD_H[0]) out.push('Oltre 2 giorni: meno ensemble e orario approssimato');
+  return out;
 }
-
-// Sezione del dettaglio con i motivi dell'attendibilità.
-const tipRel = (rel) => (rel
-  ? `<div class="tp-rel"><span>Perché attendibilità ${REL_WORDS[rel.level]}</span><ul>${rel.why.map((w) => `<li>${esc(w)}</li>`).join('')}${rel.ok.map((w) => `<li class="ok">${esc(w)}</li>`).join('')}</ul></div>`
-  : '');
 
 // Ore di confine tra le fasce (6, 12, 18) sulla linea tratteggiata, sopra i separatori.
 const slotTicks = () => SLOTS.slice(1).map((s, k) =>
@@ -1161,7 +1116,8 @@ function windowVerdict(day, w, hourIdx) {
   const temp = temps.length ? temps.reduce((a, b) => a + b, 0) / temps.length : null;
   const models = [...main, ...support];
   const avail = [...mainAvail, ...support];
-  const chance = windowRainChance(hrs);
+  const chance = { ...windowRainChance(hrs), caveats: null };
+  chance.caveats = chanceCaveats(chance, day, w);
   const { pop } = chance;
   // Nessun modello mostrato copre l'intervallo: niente verdetto, resta la probabilità.
   if (!mainAvail.length) return { w, status: 'na', why: `${shown.map((m) => m.name).join(' e ')} oltre l'orizzonte`, models, avail, mainAvail, temp, ...chance };
@@ -1226,14 +1182,15 @@ function verdictMm(x) {
 // "solo EU": uno dei modelli mostrati non copre l'intervallo (non se se ne mostra uno solo).
 const verdictPartial = (x) => x.mainAvail.length === 1 && x.models.filter((y) => !y.support).length > 1;
 
-// Dettaglio del verdetto di un'ora della striscia del grafico: stato, perché, mm e
-// temperatura per modello, probabilità con gli scenari.
+// Dettaglio del verdetto di un'ora (striscia del grafico, dettaglio orario) o di una fascia:
+// stato, perché, avvertenze sulla probabilità, mm e temperatura per modello, probabilità con gli scenari.
 function verdictTip(x, title, where) {
   const st = VERDICT_STATUS[x.status];
   const mm = verdictMm(x);
   const temp = x.temp != null ? `${fmt(x.temp)}°` : '';
   return tipHead(title, `${st.label}${mm ? ` · ${mm}` : ''}${temp ? ` · ${temp}` : ''}`, `st-${x.status}`)
     + (x.why ? `<p class="tp-why"><span>Perché</span>${esc(x.why)}</p>` : '')
+    + (x.caveats?.length ? `<div class="tp-caveats"><span>Da sapere</span><ul>${x.caveats.map((c) => `<li>${esc(c)}</li>`).join('')}</ul></div>` : '')
     + tipRows(x.models.map((y) => ({ k: `${y.m.name}${y.support ? ' <small>supporto</small>' : ''}`, dot: y.m.key, v: [y.mm == null ? 'n.d.' : `${fmt(y.mm, 1)} mm`, y.temp != null ? `${fmt(y.temp, 1)}°` : ''].filter(Boolean).join(' · ') })))
     + (temp ? tipNote(`Temperatura media prevista ${where}: ${fmt(x.temp, 1)}°${x.models.filter((y) => y.temp != null).length > 1 ? ' (media dei modelli)' : ''}.`) : '')
     + (verdictPartial(x) ? tipNote(`Solo ${x.mainAvail[0].m.name}: l'altro modello mostrato non copre l'intervallo.`) : '')
@@ -1311,6 +1268,7 @@ function renderDaily() {
   const nowHour = Number(nowIso.slice(11, 13));
   const hourIdx = new Map(hourly.time.map((t, i) => [t, i]));
   const shown = shownModels();
+  const ctx = verdictCtx();
 
   const rows = daily.time
     .map((day, d) => ({ day, d }))
@@ -1338,7 +1296,7 @@ function renderDaily() {
 
     // La concordanza ha senso solo con entrambi i modelli mostrati.
     const ag = shown.length > 1 ? agreement(vals.i2i, vals.eu) : null;
-    const pops = slotChances(day, hourIdx);
+    const verdicts = slotVerdicts(day, ctx); // verdetto e probabilità di ogni fascia
     const nm = normalFor(day); // medie del periodo per gli scarti di massima e minima
     const cells = shown.map((m) => {
       const v = vals[m.key];
@@ -1384,7 +1342,7 @@ function renderDaily() {
       </div>${al.events}
       <div class="day">
         <div class="day-name">${sunTimes(daily, d, day === today)}</div>
-        <div class="day-models${shown.length === 1 ? ' single' : ''}">${cells}${renderPopRow(pops, pastUntil, day)}</div>
+        <div class="day-models${shown.length === 1 ? ' single' : ''}">${cells}${renderPopRow(verdicts, pastUntil, day)}</div>
         ${delta}
       </div>
     </div>`;

@@ -19,7 +19,7 @@ Il menu in alto è uguale in tutte le pagine (Previsioni, Verifica, Impostazioni
 - **Centralina**: l'ultima misura (temperatura con minima e massima del giorno e scarto dalla media del periodo, umidità, vento, pioggia di oggi, raffica massima, pioggia del mese e dell'anno, ultimo giorno di pioggia). Si aggiorna ai minuti :00, :10, :20, :30, :40, :50; i valori del giorno contano da mezzanotte (la centralina li azzera all'01:00 con l'ora legale: il server li ricalcola). Se i millimetri aumentano tra una lettura e l'altra compare "Sta piovendo". In fondo la riga **Radar**: pioggia su Faenza, in arrivo (con l'orario stimato), la più vicina entro 50 km o nessuna. L'icona "i" accanto al titolo spiega da dove vengono le misure.
 - **Previsioni**: un'unica scheda con oggi, domani e dopodomani, i due modelli a confronto:
   - massima e minima con lo scarto dalla media del periodo, e quattro fasce di 6 ore (notte, mattina, pomeriggio, sera) con icona, temperatura e pioggia;
-  - sotto i due modelli, la probabilità di pioggia di ogni fascia (calcolata dagli ensemble), con un pallino che ne indica l'**attendibilità** (pieno alta, mezzo media, vuoto bassa: accordo tra gli ensemble e con i modelli, distanza nel tempo; motivi nel dettaglio);
+  - sotto i due modelli, per ogni fascia il **verdetto** (Asciutto, Rischio, Incerto, Pioggia, con gli stessi colori e le stesse regole delle ore) e la probabilità di pioggia (calcolata dagli ensemble); al tocco lo stesso dettaglio delle ore, con la sezione "Da sapere" se gli ensemble non sono d'accordo tra loro, se ce n'è uno solo o se la fascia è lontana;
   - alba e tramonto (oggi sulla linea dell'intera giornata, con sole o luna all'ora attuale);
   - un giudizio sulla **concordanza dei modelli** (concordi / lievi differenze / discordi), con il motivo;
   - le **allerte** della Regione per la zona di Faenza (B1, Allerta Meteo Emilia-Romagna): accanto a "Oggi" o "Domani" una pillola gialla, arancione o rossa con sotto i fenomeni in allerta; al tocco il colore di ogni fenomeno, la descrizione del bollettino e il PDF. Senza allerta non compare nulla.
@@ -86,9 +86,9 @@ La pagina `info.html` spiega, anche con due diagrammi (percorso dei dati e calco
 
 Tutti gli orari sono nell'ora locale di Faenza.
 
-### Come leggere il verdetto ora per ora
+### Come leggere il verdetto
 
-Per ogni ora l'app controlla se ciascun modello prevede almeno 0,2 mm di pioggia, e qual è la probabilità. I modelli sono i due mostrati più, nelle prime ~48 ore, due **modelli di supporto** ad alta risoluzione aggiornati ogni 3 ore: ICON-D2 (DWD, 2,2 km) e AROME (Météo-France, 1,3 km); non hanno barre nel grafico ma compaiono nel dettaglio e nella Verifica. La probabilità è la quota di scenari con almeno 0,2 mm, come media di tre ensemble: ICON-EU-EPS (40 scenari, circa 5 giorni), ICON-D2-EPS (20 scenari a 2,2 km, circa 2 giorni) ed ECMWF ENS (51 scenari, 6 giorni). Dove un ensemble ha dati ogni 3 ore, uno scenario conta come bagnato se ha almeno 0,2 mm nelle 3 ore.
+Il verdetto c'è per ogni ora (striscia sotto il grafico, cella dell'ora del dettaglio orario) e per ogni fascia di 6 ore (riga sotto i box dei modelli), con le stesse regole e gli stessi colori: per la fascia si guardano i mm e la probabilità delle 6 ore insieme. Per ogni intervallo l'app controlla se ciascun modello prevede almeno 0,2 mm di pioggia, e qual è la probabilità. I modelli sono i due mostrati più, nelle prime ~48 ore, due **modelli di supporto** ad alta risoluzione aggiornati ogni 3 ore: ICON-D2 (DWD, 2,2 km) e AROME (Météo-France, 1,3 km); non hanno barre nel grafico ma compaiono nel dettaglio e nella Verifica. La probabilità è la quota di scenari con almeno 0,2 mm, come media di tre ensemble: ICON-EU-EPS (40 scenari, circa 5 giorni), ICON-D2-EPS (20 scenari a 2,2 km, circa 2 giorni) ed ECMWF ENS (51 scenari, 6 giorni). Dove un ensemble ha dati ogni 3 ore, uno scenario conta come bagnato se ha almeno 0,2 mm nelle 3 ore.
 
 | Verdetto | Quando |
 |---|---|
@@ -97,7 +97,7 @@ Per ogni ora l'app controlla se ciascun modello prevede almeno 0,2 mm di pioggia
 | Rischio (ambra) | nessun modello vede pioggia, ma probabilità ≥ 20% |
 | Incerto (ambra) | tutti gli altri casi |
 
-L'area azzurra (solo probabilità) e la striscia (probabilità + modelli + centralina e radar) possono quindi dire cose diverse: per esempio 40% di probabilità ma un solo modello su quattro con pioggia dà "Incerto". Quando le ore sono troppo strette (telefono a 72 ore o "Tutto") la striscia raggruppa le ore in blocchi di 2, 3 o 6 ore con il colore dell'ora peggiore. Per un intervallo di più ore il rischio è più alto di quello della singola ora: la probabilità che piova in almeno un'ora di un intervallo supera quella di ciascuna ora.
+L'area azzurra (solo probabilità) e la striscia (probabilità + modelli + centralina e radar) possono quindi dire cose diverse: per esempio 40% di probabilità ma un solo modello su quattro con pioggia dà "Incerto". Quando le ore sono troppo strette (telefono a 72 ore o "Tutto") la striscia raggruppa le ore in blocchi di 2, 3 o 6 ore con il colore dell'ora peggiore. Per un intervallo di più ore il rischio è più alto di quello della singola ora: la probabilità che piova in almeno un'ora di un intervallo supera quella di ciascuna ora. Nel dettaglio, la sezione "Da sapere" avverte quando la probabilità va presa con cautela: ensemble in disaccordo tra loro (più di 20 punti tra il più alto e il più basso, tra il 10 e il 90%), un solo ensemble, intervallo che inizia tra più di 2 o 4 giorni. Non cambia il verdetto.
 
 ## Architettura
 
@@ -194,7 +194,7 @@ La regola generale: il **server** fa tutto ciò che richiede fonti esterne, stor
 | Pioggia in corso dalle ultime letture della centralina | `app.js` (`stationRainNow()`) |
 | Temperatura corretta con la centralina nel grafico | `app.js` (`tempFix()`) |
 | Nuvolosità corretta con quella osservata: grafico e icone delle fasce di oggi | `app.js` (`cloudFix()`, `cloudCode()`) |
-| Attendibilità della probabilità di pioggia delle fasce | `app.js` (`rainReliability()`) |
+| Verdetto delle fasce (stesse regole delle ore) e avvertenze "Da sapere" sulla probabilità | `app.js` (`slotVerdicts()`, `chanceCaveats()`) |
 | Scarti dalla media del periodo | `app.js` (`anomaly()`) |
 | Grafico SVG, tabella oraria, linea di alba e tramonto, animazione del radar, sezione dei fiumi | `chart.js`, `app.js`, `radar.js`, `rivers.js` |
 | Pagina di accesso; passaggio al login quando il server risponde 401, con cancellazione delle copie dei dati; uscita dalle Impostazioni | `login.js`, `api.js`, `settings.js`, `storage.js` |
