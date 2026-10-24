@@ -82,7 +82,7 @@ Lo script mostra sempre quale database sta usando, non ne crea uno nuovo, avvisa
 
 ### Come funziona
 
-La pagina `info.html` spiega modelli, ensemble, calcolo della probabilità, regole del verdetto, fasce e concordanza, centralina, radar, fiumi, allerte, medie del periodo, verifica e limiti, con tutte le soglie in chiaro.
+La pagina `info.html` spiega, anche con due diagrammi (percorso dei dati e calcolo del verdetto), modelli, ensemble, calcolo della probabilità, regole del verdetto, fasce e concordanza, centralina, radar, fiumi, allerte, medie del periodo, verifica e limiti, con tutte le soglie in chiaro.
 
 Tutti gli orari sono nell'ora locale di Faenza.
 
@@ -328,6 +328,8 @@ server/radar.py        radar: lettura delle immagini, movimento, stima, immagini
 tests/                 test del server (senza rete)
 swiftbar/              plugin SwiftBar per la barra dei menu del Mac
 deploy/                nginx, systemd, crontab, guida di installazione (INSTALL.md)
+docs/diagrams/         sorgenti (sintassi Mermaid) dei diagrammi di info.html
+tools/diagrams.mjs     disegna i diagrammi con Pele e li inserisce in info.html (a mano, solo se cambiano)
 ```
 
 ## Fonti dei dati

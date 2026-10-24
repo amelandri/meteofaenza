@@ -873,9 +873,30 @@ button { font: inherit; color: inherit; }
 .info-st.st-wet { --st: var(--rain); }
 .info-st.st-risk, .info-st.st-mixed { --st: var(--mid); }
 .info-back { text-align: center; margin: 8px 0 0; }
+/* Diagrammi (SVG di Pele, generati da tools/diagrams.mjs dai sorgenti in docs/diagrams/):
+   colori dalle variabili --pele-* legate a quelli dell'app, quindi seguono il tema. Sul
+   telefono restano alla loro misura e scorrono di lato, invece di rimpicciolire il testo. */
+.info-diagram {
+  margin: 8px 0 14px; overflow-x: auto;
+  --pele-bg: var(--surface); --pele-fg: var(--text); --pele-muted: var(--muted);
+  --pele-line: var(--muted); --pele-surface: var(--surface); --pele-surface-alt: var(--surface-2);
+  --pele-border: color-mix(in srgb, var(--muted) 45%, var(--surface)); --pele-accent: var(--accent);
+  --pele-radius: 8px; --pele-font: var(--font);
+}
+.info-diagram svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+.info-diagram figcaption { margin-top: 6px; font-size: .8rem; color: var(--muted); text-align: center; }
+.info-diagram .pele-cluster rect { fill-opacity: 1; }
+/* Esiti del verdetto nei colori della striscia */
+.dia-verdetto .pele-node[data-id] rect { --st: var(--muted); }
+.dia-verdetto .pele-node[data-id="W"] rect { --st: var(--rain); }
+.dia-verdetto .pele-node[data-id="D"] rect { --st: var(--good); }
+.dia-verdetto .pele-node[data-id="K"] rect, .dia-verdetto .pele-node[data-id="I"] rect { --st: var(--mid); }
+.dia-verdetto .pele-node:is([data-id="W"], [data-id="D"], [data-id="K"], [data-id="I"]) rect { fill: color-mix(in srgb, var(--st) 14%, var(--surface)); stroke: var(--st); }
+.dia-verdetto .pele-node:is([data-id="W"], [data-id="D"], [data-id="K"], [data-id="I"]) .pele-label { fill: var(--st); font-weight: 700; }
 @media (max-width: 560px) {
   .info-models { grid-template-columns: 1fr; }
   .info-table td:first-child { white-space: normal; }
+  .info-diagram svg { max-width: none; margin: 0; }
 }
 
 /* --- Radar (js/radar.js) ----------------------------------------------------------- */

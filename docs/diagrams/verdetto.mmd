@@ -1,0 +1,10 @@
+flowchart TB
+  M["Modelli<br/>ICON-2I · ICON-EU<br/>+ ICON-D2 e AROME nelle prime ~48 h"] --> MV["Quanti modelli prevedono<br/>almeno 0,2 mm nell'ora?"]
+  E["Ensemble<br/>ICON-EU-EPS · ICON-D2-EPS · ECMWF ENS"] --> P["Probabilità<br/>media delle quote di scenari<br/>con almeno 0,2 mm"]
+  MV --> R{"Regole"}
+  P --> R
+  R -->|"maggioranza e ≥ 30%<br/>uno e ≥ 60% · oppure ≥ 80%"| W["Pioggia"]
+  R -->|"nessuno e ≥ 20%"| K["Rischio"]
+  R -->|"altri casi"| I["Incerto"]
+  R -->|"nessuno e < 20%"| D["Asciutto"]
+  O["Solo per oggi<br/>centralina: sta piovendo<br/>radar: pioggia entro 60 min"] -->|"può solo aggiungere pioggia"| W

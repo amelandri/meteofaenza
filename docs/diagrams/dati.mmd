@@ -1,0 +1,21 @@
+flowchart TB
+  subgraph F["Fonti esterne · le interroga solo il server"]
+    OM["Open-Meteo<br/>4 modelli · 3 ensemble<br/>controllo ogni 15 min"]
+    CE["Centralina<br/>meteofaenza.it<br/>ogni 10 min"]
+    RA["Radar<br/>Protezione Civile<br/>ogni 5 min"]
+    AM["Allerta Meteo ER<br/>fiumi e allerte<br/>ogni 15 min"]
+    ME["METAR<br/>Forlì e Bologna<br/>ogni 30 min"]
+    ER["ERA5-Land<br/>medie 1991–2020<br/>una volta l'anno"]
+    OM ~~~ AM
+    CE ~~~ ME
+    RA ~~~ ER
+  end
+  F --> J
+  subgraph S["Server"]
+    J["Job (cron)<br/>scaricano e rielaborano"] --> DB[("Database SQLite<br/>storico di ~400 giorni")]
+    DB --> API["API<br/>sola lettura, con accesso"]
+  end
+  subgraph B["App nel browser"]
+    C["Calcoli<br/>fasce · probabilità · verdetto<br/>concordanza · correzioni"] --> V["Schermate<br/>e copia per l'uso offline"]
+  end
+  API -->|"ogni 10 min, se ci sono dati nuovi"| C
