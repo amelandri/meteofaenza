@@ -152,22 +152,49 @@ function play(el, tz, off) {
   player.timer = setTimeout(tick, STEP_MS);
 }
 
-// "Su Faenza nei prossimi 90 minuti": la stima ogni 15 minuti, con una barra lunga quanto la
-// quota della zona con pioggia (piena = pioggia certa nella zona guardata).
-function outlook(d, tz, off) {
-  const steps = (radarSteps(d) || []).filter((s) => s.min % 15 === 0);
+// Tratti della striscia "Su Faenza nei prossimi 90 minuti", in minuti da adesso: più è
+// lontano il momento, più la stima è incerta (la zona guardata si allarga, la pioggia può
+// cambiare strada o calare).
+const OUTLOOK_STEP_MIN = 10;
+const OUTLOOK_SPANS = [
+  { until: 30, key: 'sure', label: 'affidabile', why: "prossima mezz'ora: la pioggia si vede già vicina" },
+  { until: 60, key: 'mid', label: 'indicativa', why: "30–60 minuti: l'orario può spostarsi" },
+  { until: Infinity, key: 'far', label: 'orientativa', why: "oltre un'ora: la pioggia può cambiare strada o calare" },
+];
+
+// "Su Faenza nei prossimi 90 minuti": una casella ogni 10 minuti, colorata come la mappa
+// secondo l'intensità (a righe se la pioggia è solo possibile), divisa nei tre tratti di
+// OUTLOOK_SPANS. La quota della zona con pioggia decide solo lo stato (asciutto / possibile /
+// pioggia): non si disegna, perché una barra sembrava una probabilità.
+function outlook(d, tz, off, now = Date.now()) {
+  const steps = (radarSteps(d, now) || []).filter((s) => s.min % OUTLOOK_STEP_MIN === 0);
   if (steps.length < 2) return '';
-  const rows = steps.map((s) => {
-    const word = s.frac >= d.arriveFrac ? `pioggia ${radarWords(s.mmh)}` : s.frac >= d.maybeFrac ? 'possibile' : 'asciutto';
-    const lv = s.frac >= d.arriveFrac ? 'wet' : s.frac >= d.maybeFrac ? 'maybe' : 'dry';
-    const pct = Math.round(s.frac * 100);
-    return `<li class="lv-${lv}"><span class="ro-t">${localDateTime(s.at, tz, off).time}</span><span class="ro-bar" title="Pioggia sul ${pct}% della zona"><i style="width:${pct}%"></i></span><span class="ro-w">${word}</span></li>`;
+  const hhmm = (ms) => localDateTime(ms, tz, off).time;
+  const cell = (s) => {
+    const wet = s.frac >= d.arriveFrac;
+    const cls = wet ? `w${['debole', 'moderata', 'forte'].indexOf(radarWords(s.mmh)) + 1}` : s.frac >= d.maybeFrac ? 'maybe' : 'dry';
+    const word = wet ? `pioggia ${radarWords(s.mmh)}` : cls === 'maybe' ? 'pioggia possibile' : 'asciutto';
+    return { cls, text: `${hhmm(s.at)} ${word}` };
+  };
+  const groups = OUTLOOK_SPANS.map((sp, i) => {
+    const from = i ? OUTLOOK_SPANS[i - 1].until : -Infinity;
+    return { ...sp, steps: steps.filter((s) => { const m = (s.at - now) / 60000; return m >= from && m < sp.until; }) };
+  }).filter((g) => g.steps.length);
+  const last = steps[steps.length - 1];
+  const strip = groups.map((g, i) => {
+    const cells = g.steps.map(cell);
+    const end = i === groups.length - 1 ? `<span>${hhmm(last.at)}</span>` : '';
+    return `<div class="ro-span ro-${g.key}" style="--n:${g.steps.length}">
+      <div class="ro-lab">${g.label}</div>
+      <div class="ro-cells" role="img" aria-label="${esc(`Stima ${g.label}: ${cells.map((c) => c.text).join(', ')}`)}">${cells.map((c) => `<span class="ro-c ${c.cls}" title="${esc(c.text)}"></span>`).join('')}</div>
+      <div class="ro-times"><span>${hhmm(g.steps[0].at)}</span>${end}</div>
+    </div>`;
   }).join('');
-  // Scala sotto le barre: quote 25 / 50 / 75% (le stesse linee sono disegnate sulle barre).
-  const scale = `<li class="ro-scale" aria-hidden="true"><span></span><span class="ro-ticks">${[0, 25, 50, 75, 100].map((q) => `<span style="--q:${q}">${q}${q === 100 ? '%' : ''}</span>`).join('')}</span><span></span></li>`;
-  const pc = (f) => `${Math.round(f * 100)}%`;
-  return `<div class="radar-outlook"><h3>Su Faenza nei prossimi 90 minuti</h3><ul>${rows}${scale}</ul>
-    <p class="ro-note muted">Le barre indicano quanta parte della zona intorno a Faenza avrà pioggia secondo la stima (non è una probabilità): la zona è un cerchio che si allarga col passare dei minuti, da 3 km di raggio adesso a 12 km tra 90 minuti. Da ${pc(d.maybeFrac)} pioggia possibile, da ${pc(d.arriveFrac)} pioggia in arrivo.</p></div>`;
+  const key = groups.map((g) => `<dt>${g.label}</dt><dd>${g.why}</dd>`).join('');
+  return `<div class="radar-outlook"><h3>Su Faenza nei prossimi 90 minuti</h3>
+    <div class="ro-strip" style="grid-template-columns:${groups.map((g) => `${g.steps.length}fr`).join(' ')}">${strip}</div>
+    <div class="ro-legend" aria-hidden="true"><span><i class="ro-c maybe"></i>possibile</span><span><i class="ro-c w1"></i>debole</span><span><i class="ro-c w2"></i>moderata</span><span><i class="ro-c w3"></i>forte</span></div>
+    <dl class="ro-key">${key}</dl></div>`;
 }
 
 // Disegna la sezione con i dati di api/radar. `el` = corpo della sezione.

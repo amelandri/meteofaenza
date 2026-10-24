@@ -906,23 +906,29 @@ button { font: inherit; color: inherit; }
 .radar-status.lv-wet, .radar-status.lv-maybe { color: var(--rain); }
 .radar-status small { display: block; margin-top: 3px; font-size: .8rem; font-weight: 500; color: var(--muted); }
 .radar-outlook h3 { margin: 0 0 6px; font-size: .74rem; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
-.radar-outlook ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
-.radar-outlook li { display: grid; grid-template-columns: 42px minmax(0, 1fr) 118px; align-items: center; gap: 10px; font-size: .82rem; }
-.ro-t { font-variant-numeric: tabular-nums; color: var(--muted); }
-.ro-bar { position: relative; height: 10px; border-radius: 5px; background: var(--surface-2); overflow: hidden; }
-.ro-bar i { display: block; height: 100%; background: var(--rain); border-radius: 5px; }
-/* Quote 25 / 50 / 75% sopra il riempimento: linee sottili del colore della card */
-.ro-bar::after { content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(90deg, transparent calc(25% - .5px), var(--surface) calc(25% - .5px) calc(25% + .5px), transparent calc(25% + .5px) calc(50% - .5px), var(--surface) calc(50% - .5px) calc(50% + .5px), transparent calc(50% + .5px) calc(75% - .5px), var(--surface) calc(75% - .5px) calc(75% + .5px), transparent calc(75% + .5px)); }
-.radar-outlook li.ro-scale { margin-top: -2px; }
-.ro-ticks { position: relative; height: 12px; font-size: .64rem; line-height: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.ro-ticks span { position: absolute; left: calc(var(--q) * 1%); transform: translateX(-50%); }
-.ro-ticks span:first-child { transform: none; }
-.ro-ticks span:last-child { transform: translateX(-100%); }
-.ro-note { margin: 8px 0 0; font-size: .74rem; }
-.radar-outlook .lv-maybe .ro-bar i { opacity: .55; }
-.radar-outlook .lv-wet .ro-w { color: var(--rain); font-weight: 650; }
-.ro-w { color: var(--muted); }
+/* Stima su Faenza (outlook() in radar.js): caselle da 10 minuti nei colori della mappa
+   (w1 debole, w2 moderata, w3 forte; a righe se possibile), divise in tre tratti con un nome:
+   più avanti la stima è meno sicura: linea del nome grigia, poi tratteggiata e colori più tenui. */
+.ro-strip { display: grid; gap: 8px; }
+.ro-span { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.ro-lab { padding-bottom: 3px; border-bottom: 2px solid var(--text); font-size: .74rem; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ro-mid .ro-lab { border-bottom-color: color-mix(in srgb, var(--muted) 45%, transparent); }
+.ro-far .ro-lab { border-bottom-style: dashed; border-bottom-color: var(--muted); color: var(--muted); }
+.ro-cells { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 2px; height: 30px; }
+.ro-c { display: block; border-radius: 3px; }
+.ro-c.dry { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border); }
+.ro-c.maybe { background: repeating-linear-gradient(135deg, #a6d8ff 0 4px, color-mix(in srgb, #a6d8ff 25%, var(--surface)) 4px 8px); }
+.ro-c.w1 { background: #5fb1f5; } .ro-c.w2 { background: #2b7de0; } .ro-c.w3 { background: #1d4fb8; }
+/* solo l'ultimo tratto più tenue: una trasparenza anche nel tratto centrale faceva sembrare
+   moderata una pioggia forte */
+.ro-far .ro-c:not(.dry) { opacity: .7; }
+.ro-times { display: flex; justify-content: space-between; font-size: .68rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ro-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 10px; font-size: .74rem; color: var(--muted); }
+.ro-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.ro-legend i { width: 14px; height: 10px; border-radius: 2px; }
+.ro-key { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 10px 0 0; padding: 8px 12px; border-radius: 10px; background: var(--surface-2); font-size: .76rem; }
+.ro-key dt { font-weight: 650; }
+.ro-key dd { margin: 0; color: var(--muted); }
 .radar-img, .radar-map, .radar-sea { position: absolute; inset: 0; width: 100%; height: 100%; }
 .radar-sea polygon { fill: color-mix(in srgb, var(--rain) 9%, var(--surface-2)); }
 .radar-img.fc { opacity: .78; }
